@@ -1,0 +1,18 @@
+
+> family-dashboard@0.1.0 dev
+> next dev
+
+  ▲ Next.js 13.5.11
+  - Local:        http://localhost:3000
+
+ ✓ Ready in 5s
+ ○ Compiling /(dashboard)/page ...
+ ✓ Compiled /(dashboard)/page in 5.4s (518 modules)
+ ✓ Compiled in 627ms (246 modules)
+ ✓ Compiled /favicon.ico/route in 2.8s (516 modules)
+ ✓ Compiled in 586ms (530 modules)
+ ✓ Compiled in 595ms (530 modules)
+ ✓ Compiled in 659ms (500 modules)
+ ✓ Compiled in 507ms (500 modules)
+ ✓ Compiled /favicon.ico/route in 187ms (284 modules)
+ ✓ Compiled /not-found in 670ms (491 modules)

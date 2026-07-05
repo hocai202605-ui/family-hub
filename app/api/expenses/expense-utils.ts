@@ -1,9 +1,8 @@
 import { z } from "zod";
 
-export const transactionSchema = z.object({
+export const expenseSchema = z.object({
   amount: z.number().int().positive(),
-  type: z.enum(["income", "expense"]),
-  category: z.enum(["Food", "Utilities", "Transport", "Shopping", "Entertainment", "Others"]),
+  category: z.string().trim().min(1),
   member: z.enum(["CK", "VK", "CON"]),
   note: z.string().trim().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -13,27 +12,26 @@ export function dateFromInput(date: string) {
   return new Date(`${date}T00:00:00.000Z`);
 }
 
-export function formatTransactionDate(date: Date) {
+export function formatExpenseDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-export function toTransactionResponse(transaction: {
+export function toExpenseResponse(expense: {
   id: number;
   amount: number;
-  type: "income" | "expense";
-  category: "Food" | "Utilities" | "Transport" | "Shopping" | "Entertainment" | "Others";
+  category: string;
   member: "CK" | "VK" | "CON";
   note: string;
   date: Date;
 }) {
   return {
-    id: transaction.id,
-    amount: transaction.amount,
-    type: transaction.type,
-    category: transaction.category,
-    member: transaction.member,
-    note: transaction.note,
-    date: formatTransactionDate(transaction.date),
+    id: expense.id,
+    amount: expense.amount,
+    type: "expense", // frontend still uses type
+    category: expense.category,
+    member: expense.member,
+    note: expense.note,
+    date: formatExpenseDate(expense.date),
   };
 }
 

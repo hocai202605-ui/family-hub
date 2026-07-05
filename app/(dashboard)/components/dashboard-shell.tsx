@@ -25,7 +25,16 @@ const navItems: NavItem[] = [
       { href: "/expenses", label: "Chi tiêu tháng", description: "Giao dịch từng tháng", icon: "wallet" },
     ],
   },
-  { href: "/income", label: "Thu nhập", description: "Nguồn tiền vào", icon: "banknote" },
+  {
+    href: "/income",
+    label: "Thu nhập",
+    description: "Báo cáo và giao dịch",
+    icon: "banknote",
+    children: [
+      { href: "/income/yearly", label: "Báo cáo năm", description: "Biểu đồ theo năm", icon: "barChart" },
+      { href: "/income", label: "Thu nhập tháng", description: "Dòng tiền từng tháng", icon: "banknote" },
+    ],
+  },
   { href: "/investments", label: "Đầu tư", description: "Tài sản & lợi nhuận", icon: "barChart" },
   { href: "/calendar", label: "Lịch hằng ngày", description: "Việc nhà & lịch hẹn", icon: "calendar" },
   { href: "/goals", label: "Mục tiêu", description: "Kế hoạch dài hạn", icon: "target" },

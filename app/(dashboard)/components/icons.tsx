@@ -1,9 +1,11 @@
 export type IconName =
   | "banknote"
   | "barChart"
+  | "briefcase"
   | "calendar"
   | "chevronRight"
   | "edit"
+  | "gift"
   | "heart"
   | "home"
   | "leaf"
@@ -43,6 +45,15 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     );
   }
 
+  if (name === "briefcase") {
+    return (
+      <svg {...common}>
+        <rect width="20" height="14" x="2" y="7" rx="2" ry="2" stroke="currentColor" strokeWidth="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
   if (name === "calendar") {
     return (
       <svg {...common}>
@@ -63,6 +74,15 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     return (
       <svg {...common}>
         <path d="m14.5 5.5 4 4M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === "gift") {
+    return (
+      <svg {...common}>
+        <rect x="3" y="8" width="18" height="4" rx="1" stroke="currentColor" strokeWidth="2" />
+        <path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
       </svg>
     );
   }

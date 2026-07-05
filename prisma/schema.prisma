@@ -8,18 +8,18 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum TransactionType {
-  income
-  expense
+enum CategoryType {
+  INCOME
+  EXPENSE
 }
 
-enum Category {
-  Food
-  Utilities
-  Transport
-  Shopping
-  Entertainment
-  Others
+enum AssetType {
+  GOLD
+  STOCK
+  SAVING
+  REAL_ESTATE
+  CRYPTO
+  OTHER
 }
 
 enum FamilyMember {
@@ -28,17 +28,64 @@ enum FamilyMember {
   CON
 }
 
-model Transaction {
-  id        Int             @id @default(autoincrement())
+model Category {
+  id        String       @id
+  label     String
+  icon      String       @default("banknote")
+  badge     String       @default("bg-slate-100 text-slate-700 ring-slate-200")
+  chart     String       @default("#64748b")
+  type      CategoryType @default(EXPENSE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([label, type])
+  @@map("categories")
+}
+
+model Expense {
+  id        Int          @id @default(autoincrement())
   amount    Int
-  type      TransactionType
-  category  Category
+  category  String
   member    FamilyMember
   note      String
-  date      DateTime        @db.Date
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  date      DateTime     @db.Date
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   @@index([date])
-  @@map("transactions")
+  @@index([category])
+  @@map("expenses")
+}
+
+model Income {
+  id        Int          @id @default(autoincrement())
+  amount    Int
+  category  String
+  member    FamilyMember
+  note      String
+  date      DateTime     @db.Date
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([date])
+  @@index([category])
+  @@map("incomes")
+}
+
+model Investment {
+  id            Int          @id @default(autoincrement())
+  name          String
+  type          AssetType
+  quantity      Float
+  purchasePrice Float
+  currentPrice  Float
+  interestRate  Float?
+  term          String?
+  member        FamilyMember
+  note          String?
+  date          DateTime     @db.Date
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("investments")
 }

@@ -22,6 +22,7 @@
     "prisma": "^5.22.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "read-vietnamese-number": "^2.3.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

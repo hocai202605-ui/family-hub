@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { dateFromInput, monthRange, toTransactionResponse, transactionSchema } from "./transaction-utils";
+import { dateFromInput, monthRange, toIncomeResponse, incomeSchema } from "./income-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Month must use YYYY-MM format." }, { status: 400 });
   }
 
-  const transactions = await prisma.transaction.findMany({
+  const incomes = await prisma.income.findMany({
     where: {
       date: {
         gte: range.start,
@@ -28,23 +28,33 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json({
-    transactions: transactions.map(toTransactionResponse),
+    incomes: incomes.map(toIncomeResponse),
   });
 }
 
 export async function POST(request: NextRequest) {
-  const parsed = transactionSchema.safeParse(await request.json());
+  const parsed = incomeSchema.safeParse(await request.json());
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid transaction payload." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid income payload." }, { status: 400 });
   }
 
-  const transaction = await prisma.transaction.create({
+  const category = await prisma.category.findUnique({
+    where: { 
+      id: parsed.data.category,
+    },
+  });
+
+  if (!category || category.type !== "INCOME") {
+    return NextResponse.json({ error: "Income category not found." }, { status: 400 });
+  }
+
+  const income = await prisma.income.create({
     data: {
       ...parsed.data,
       date: dateFromInput(parsed.data.date),
     },
   });
 
-  return NextResponse.json({ transaction: toTransactionResponse(transaction) }, { status: 201 });
+  return NextResponse.json({ income: toIncomeResponse(income) }, { status: 201 });
 }

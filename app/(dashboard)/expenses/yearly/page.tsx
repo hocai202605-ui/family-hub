@@ -1,13 +1,9 @@
-import { ComingSoonModule } from "../../components/coming-soon-module";
+import { YearlyExpenseDashboard } from "../../components/yearly-expense-dashboard";
+import { requirePageAccess } from "@/lib/auth";
 
-export default function YearlyExpenseReportPage() {
+export default async function YearlyExpenseReportPage() {
+  await requirePageAccess("expenses.yearly");
   return (
-    <ComingSoonModule
-      description="Khu vực báo cáo biểu đồ chi tiêu theo năm sẽ được phát triển sau, tách riêng khỏi màn hình chi tiêu từng tháng."
-      eyebrow="Annual Expense Report"
-      icon="barChart"
-      ideas={["Tổng hợp thu và chi theo 12 tháng", "So sánh ngân sách từng tháng", "Biểu đồ xu hướng chi tiêu trong năm", "Lọc báo cáo theo thành viên gia đình"]}
-      title="Báo cáo chi tiêu theo năm"
-    />
+    <YearlyExpenseDashboard />
   );
 }

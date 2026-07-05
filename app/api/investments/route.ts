@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { dateFromInput, toInvestmentResponse, investmentSchema } from "./investment-utils";
+import { requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireApiAccess(request, "investments");
+  if ("response" in auth) return auth.response;
+
   const investments = await prisma.investment.findMany({
     orderBy: [{ date: "desc" }, { id: "desc" }],
   });
@@ -15,6 +19,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiAccess(request, "investments");
+  if ("response" in auth) return auth.response;
+
   const parsed = investmentSchema.safeParse(await request.json());
 
   if (!parsed.success) {

@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { dateFromInput, monthRange, toIncomeResponse, incomeSchema } from "./income-utils";
+import { dateFromInput, monthRange, toIncomeResponse, incomeSchema, yearRange } from "./income-utils";
+import { requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const month = request.nextUrl.searchParams.get("month");
+  const year = request.nextUrl.searchParams.get("year");
+  const auth = await requireApiAccess(request, year ? "income.yearly" : "income.monthly");
+  if ("response" in auth) return auth.response;
 
-  if (!month) {
-    return NextResponse.json({ error: "Missing month query parameter." }, { status: 400 });
+  if (!month && !year) {
+    return NextResponse.json({ error: "Missing month or year query parameter." }, { status: 400 });
   }
 
-  const range = monthRange(month);
+  const range = year ? yearRange(year) : month ? monthRange(month) : null;
 
   if (!range) {
-    return NextResponse.json({ error: "Month must use YYYY-MM format." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid month or year format." }, { status: 400 });
   }
 
   const incomes = await prisma.income.findMany({
@@ -33,6 +37,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireApiAccess(request, "income.monthly");
+  if ("response" in auth) return auth.response;
+
   const parsed = incomeSchema.safeParse(await request.json());
 
   if (!parsed.success) {

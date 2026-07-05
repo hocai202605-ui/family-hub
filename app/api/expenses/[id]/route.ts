@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { dateFromInput, toExpenseResponse, expenseSchema } from "../expense-utils";
+import { requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ function expenseId(params: { id: string }) {
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireApiAccess(request, "expenses.monthly");
+  if ("response" in auth) return auth.response;
+
   const id = expenseId(params);
 
   if (!id) {
@@ -46,6 +50,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireApiAccess(_request, "expenses.monthly");
+  if ("response" in auth) return auth.response;
+
   const id = expenseId(params);
 
   if (!id) {

@@ -51,3 +51,17 @@ export function monthRange(month: string) {
 
   return { start, end };
 }
+
+export function yearRange(year: string) {
+  if (!/^\d{4}$/.test(year)) {
+    return null;
+  }
+
+  const yearNumber = Number(year);
+  
+  // From Jan 1st 00:00:00 UTC to Jan 1st of next year 00:00:00 UTC
+  const start = new Date(Date.UTC(yearNumber, 0, 1));
+  const end = new Date(Date.UTC(yearNumber + 1, 0, 1));
+
+  return { start, end };
+}

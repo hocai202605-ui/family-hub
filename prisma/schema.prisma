@@ -19,6 +19,8 @@ enum AssetType {
   SAVING
   REAL_ESTATE
   CRYPTO
+  DEBT
+  LOAN
   OTHER
 }
 
@@ -26,6 +28,38 @@ enum FamilyMember {
   CK
   VK
   CON
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model User {
+  id              Int              @id @default(autoincrement())
+  email           String           @unique
+  name            String
+  passwordHash    String
+  role            Role             @default(USER)
+  isActive        Boolean          @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  menuPermissions MenuPermission[]
+
+  @@map("users")
+}
+
+model MenuPermission {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  menuKey   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, menuKey])
+  @@index([menuKey])
+  @@map("menu_permissions")
 }
 
 model Category {

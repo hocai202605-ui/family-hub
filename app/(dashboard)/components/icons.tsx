@@ -8,7 +8,9 @@ export type IconName =
   | "gift"
   | "heart"
   | "home"
+  | "key"
   | "leaf"
+  | "logOut"
   | "menu"
   | "piggyBank"
   | "plus"
@@ -16,8 +18,10 @@ export type IconName =
   | "sparkles"
   | "target"
   | "trash"
+  | "trendingDown"
   | "trendingUp"
   | "utensils"
+  | "users"
   | "wallet"
   | "x";
 
@@ -111,6 +115,22 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     );
   }
 
+  if (name === "key") {
+    return (
+      <svg {...common}>
+        <path d="M15 7a4 4 0 1 0-3 6.9L12 17h3v3h3v-3h2v-3.2L16.2 10A4 4 0 0 0 15 7ZM9 7h.01" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === "logOut") {
+    return (
+      <svg {...common}>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
   if (name === "menu") {
     return (
       <svg {...common}>
@@ -167,6 +187,14 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     );
   }
 
+  if (name === "trendingDown") {
+    return (
+      <svg {...common}>
+        <path d="m4 8 6 6 4-4 6 8M15 18h5v-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
   if (name === "trendingUp") {
     return (
       <svg {...common}>
@@ -179,6 +207,14 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     return (
       <svg {...common}>
         <path d="M7 3v8M4 3v8M10 3v8M4 11h6M7 11v10M17 3v18M14 3h6v9h-6V3Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === "users") {
+    return (
+      <svg {...common}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
       </svg>
     );
   }

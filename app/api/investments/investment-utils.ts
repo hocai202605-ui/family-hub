@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const investmentSchema = z.object({
   name: z.string().trim().min(1),
-  type: z.enum(["GOLD", "STOCK", "SAVING", "REAL_ESTATE", "CRYPTO", "OTHER"]),
+  type: z.enum(["GOLD", "STOCK", "SAVING", "REAL_ESTATE", "CRYPTO", "DEBT", "LOAN", "OTHER"]),
   quantity: z.number().positive(),
   purchasePrice: z.number().nonnegative(),
   currentPrice: z.number().nonnegative(),

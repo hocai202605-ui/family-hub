@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireApiAccess(request, "investments");
+  if ("response" in auth) return auth.response;
+
   try {
     const response = await fetch("https://www.vang.today/api/prices", {
       next: { revalidate: 300 }, // Cache trong 5 phút

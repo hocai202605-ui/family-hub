@@ -1,6 +1,8 @@
 import { ComingSoonModule } from "../components/coming-soon-module";
+import { requirePageAccess } from "@/lib/auth";
 
-export default function CalendarPage() {
+export default async function CalendarPage() {
+  await requirePageAccess("calendar");
   return (
     <ComingSoonModule
       description="Lập lịch việc nhà, lịch học, lịch khám, sinh nhật và những việc cần nhớ mỗi ngày."

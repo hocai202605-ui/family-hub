@@ -1,6 +1,8 @@
 import { ComingSoonModule } from "../components/coming-soon-module";
+import { requirePageAccess } from "@/lib/auth";
 
-export default function HealthPage() {
+export default async function HealthPage() {
+  await requirePageAccess("health");
   return (
     <ComingSoonModule
       description="Ghi nhận thói quen sức khỏe, lịch khám, thuốc men, chỉ số cơ bản và nhắc chăm sóc định kỳ."

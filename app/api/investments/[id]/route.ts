@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { dateFromInput, toInvestmentResponse, investmentSchema } from "../investment-utils";
+import { requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ function investmentId(params: { id: string }) {
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireApiAccess(request, "investments");
+  if ("response" in auth) return auth.response;
+
   const id = investmentId(params);
 
   if (!id) {
@@ -40,6 +44,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireApiAccess(_request, "investments");
+  if ("response" in auth) return auth.response;
+
   const id = investmentId(params);
 
   if (!id) {

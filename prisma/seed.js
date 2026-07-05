@@ -1,6 +1,13 @@
 const { PrismaClient } = require("@prisma/client");
+const crypto = require("crypto");
 
 const prisma = new PrismaClient();
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("base64url");
+  const hash = crypto.pbkdf2Sync(password, salt, 210000, 32, "sha512").toString("base64url");
+  return `pbkdf2$210000$${salt}$${hash}`;
+}
 
 const categories = [
   {
@@ -115,6 +122,34 @@ const incomes = [
 ];
 
 async function main() {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminName = process.env.ADMIN_NAME || "Family Hub Admin";
+
+  if (adminEmail && adminPassword) {
+    const normalizedEmail = adminEmail.trim().toLowerCase();
+
+    await prisma.user.upsert({
+      where: { email: normalizedEmail },
+      create: {
+        email: normalizedEmail,
+        name: adminName,
+        passwordHash: hashPassword(adminPassword),
+        role: "ADMIN",
+        isActive: true,
+      },
+      update: {
+        name: adminName,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+
+    console.log(`Seeded admin user: ${normalizedEmail}`);
+  } else {
+    console.log("Seed skipped: set ADMIN_EMAIL and ADMIN_PASSWORD to create the first admin user.");
+  }
+
   for (const category of categories) {
     await prisma.category.upsert({
       where: { id: category.id },

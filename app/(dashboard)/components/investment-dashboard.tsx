@@ -4,7 +4,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { Icon, IconName } from "./icons";
 import { readMoney } from "@/app/utils/read-money";
 
-type AssetType = "GOLD" | "STOCK" | "SAVING" | "REAL_ESTATE" | "CRYPTO" | "OTHER";
+type AssetType = "GOLD" | "STOCK" | "SAVING" | "REAL_ESTATE" | "CRYPTO" | "DEBT" | "LOAN" | "OTHER";
 type FamilyMember = "CK" | "VK" | "CON";
 
 type Investment = {
@@ -53,6 +53,8 @@ const assetMeta: Record<AssetType, { label: string; icon: IconName; chart: strin
   SAVING: { label: "Sổ tiết kiệm", icon: "wallet", chart: "#10b981", badge: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
   REAL_ESTATE: { label: "Bất động sản", icon: "home", chart: "#f97316", badge: "bg-orange-50 text-orange-700 ring-orange-100" },
   CRYPTO: { label: "Crypto", icon: "banknote", chart: "#a855f7", badge: "bg-purple-50 text-purple-700 ring-purple-100" },
+  DEBT: { label: "Nợ", icon: "trendingDown", chart: "#f43f5e", badge: "bg-rose-50 text-rose-700 ring-rose-100" },
+  LOAN: { label: "Cho vay", icon: "trendingUp", chart: "#0ea5e9", badge: "bg-sky-50 text-sky-700 ring-sky-100" },
   OTHER: { label: "Khác", icon: "target", chart: "#64748b", badge: "bg-slate-50 text-slate-700 ring-slate-100" },
 };
 
@@ -207,6 +209,7 @@ function InvestmentDonut({
 }) {
   const radius = 64;
   const circumference = 2 * Math.PI * radius;
+  const sumOfAmounts = data.reduce((sum, item) => sum + item.amount, 0);
   let offset = 0;
 
   return (
@@ -215,7 +218,7 @@ function InvestmentDonut({
         <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
           <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
           {data.map((item) => {
-            const length = total > 0 ? (item.amount / total) * circumference : 0;
+            const length = sumOfAmounts > 0 ? (item.amount / sumOfAmounts) * circumference : 0;
             const meta = assetMeta[item.type];
             const segment = (
               <circle
@@ -237,7 +240,7 @@ function InvestmentDonut({
         </svg>
         <div className="absolute inset-0 grid place-items-center text-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tài sản</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tài sản ròng</p>
             <p className="mt-1 text-sm font-bold text-slate-950">{currency(total)}</p>
           </div>
         </div>
@@ -245,7 +248,7 @@ function InvestmentDonut({
 
       <div className="space-y-4">
         {data.map((item) => {
-          const percent = total ? Math.round((item.amount / total) * 100) : 0;
+          const percent = sumOfAmounts ? Math.round((item.amount / sumOfAmounts) * 100) : 0;
           const meta = assetMeta[item.type];
           return (
             <div key={item.type}>
@@ -308,6 +311,9 @@ export function InvestmentDashboard() {
   }, []);
 
   const totalAssets = useMemo(() => investments.reduce((sum, item) => {
+    if (item.type === "DEBT") {
+      return sum - (item.currentPrice * item.quantity);
+    }
     if (item.type === "SAVING" && item.interestRate && item.term) {
       const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
       return sum + (item.purchasePrice * item.quantity) + pnl;
@@ -315,9 +321,17 @@ export function InvestmentDashboard() {
     return sum + (item.currentPrice * item.quantity);
   }, 0), [investments]);
 
-  const totalCost = useMemo(() => investments.reduce((sum, item) => sum + (item.purchasePrice * item.quantity), 0), [investments]);
+  const totalCost = useMemo(() => investments.reduce((sum, item) => {
+    if (item.type === "DEBT" || item.type === "LOAN") {
+      return sum;
+    }
+    return sum + (item.purchasePrice * item.quantity);
+  }, 0), [investments]);
   
   const totalPnL = useMemo(() => investments.reduce((sum, item) => {
+    if (item.type === "DEBT" || item.type === "LOAN") {
+      return sum;
+    }
     if (item.type === "SAVING" && item.interestRate && item.term) {
       return sum + ((item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term));
     }
@@ -327,7 +341,7 @@ export function InvestmentDashboard() {
   const pnlPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
 
   const assetsByType = useMemo(() => {
-    const types: AssetType[] = ["GOLD", "STOCK", "SAVING", "REAL_ESTATE", "CRYPTO", "OTHER"];
+    const types: AssetType[] = ["GOLD", "STOCK", "SAVING", "REAL_ESTATE", "CRYPTO", "DEBT", "LOAN", "OTHER"];
     return types.map(type => {
       const amount = investments.filter(i => i.type === type).reduce((sum, item) => {
         if (item.type === "SAVING" && item.interestRate && item.term) {
@@ -362,6 +376,8 @@ export function InvestmentDashboard() {
       stock: investments.filter(i => i.type === "STOCK").reduce((sum, i) => sum + i.quantity, 0),
       crypto: investments.filter(i => i.type === "CRYPTO").reduce((sum, i) => sum + i.quantity, 0),
       realEstate: investments.filter(i => i.type === "REAL_ESTATE").length,
+      debt: investments.filter(i => i.type === "DEBT").length,
+      loan: investments.filter(i => i.type === "LOAN").length,
     };
   }, [investments]);
 
@@ -583,6 +599,8 @@ export function InvestmentDashboard() {
                 <option value="SAVING">Tiết kiệm</option>
                 <option value="REAL_ESTATE">Bất động sản</option>
                 <option value="CRYPTO">Tiền điện tử</option>
+                <option value="DEBT">Nợ</option>
+                <option value="LOAN">Cho vay</option>
                 <option value="OTHER">Khác</option>
               </select>
             </div>
@@ -595,7 +613,9 @@ export function InvestmentDashboard() {
             {stats.stock > 0 && <Badge className="bg-blue-50 text-blue-700 ring-blue-200">{stats.stock.toLocaleString('vi-VN')} Cổ phiếu</Badge>}
             {stats.crypto > 0 && <Badge className="bg-purple-50 text-purple-700 ring-purple-200">{stats.crypto.toLocaleString('vi-VN')} Coin / Crypto</Badge>}
             {stats.realEstate > 0 && <Badge className="bg-orange-50 text-orange-700 ring-orange-200">{stats.realEstate.toLocaleString('vi-VN')} Bất động sản</Badge>}
-            {(stats.gold === 0 && stats.saving === 0 && stats.stock === 0 && stats.crypto === 0 && stats.realEstate === 0) && (
+            {stats.debt > 0 && <Badge className="bg-rose-50 text-rose-700 ring-rose-200">{stats.debt.toLocaleString('vi-VN')} Khoản Nợ</Badge>}
+            {stats.loan > 0 && <Badge className="bg-sky-50 text-sky-700 ring-sky-200">{stats.loan.toLocaleString('vi-VN')} Khoản Cho Vay</Badge>}
+            {(stats.gold === 0 && stats.saving === 0 && stats.stock === 0 && stats.crypto === 0 && stats.realEstate === 0 && stats.debt === 0 && stats.loan === 0) && (
               <span className="text-slate-400 italic">Chưa có dữ liệu</span>
             )}
           </div>
@@ -625,7 +645,9 @@ export function InvestmentDashboard() {
                 {!isLoading && !error ? filteredInvestments.map((inv) => {
                   const meta = assetMeta[inv.type];
                   let pnl = 0;
-                  if (inv.type === "SAVING" && inv.interestRate && inv.term) {
+                  if (inv.type === "DEBT" || inv.type === "LOAN") {
+                    pnl = 0;
+                  } else if (inv.type === "SAVING" && inv.interestRate && inv.term) {
                     pnl = (inv.purchasePrice * inv.quantity) * (inv.interestRate / 100) / 12 * Number(inv.term);
                   } else {
                     pnl = (inv.currentPrice - inv.purchasePrice) * inv.quantity;
@@ -711,6 +733,8 @@ export function InvestmentDashboard() {
                 <option value="SAVING">Tiết kiệm</option>
                 <option value="REAL_ESTATE">Bất động sản</option>
                 <option value="CRYPTO">Tiền điện tử</option>
+                <option value="DEBT">Nợ</option>
+                <option value="LOAN">Cho vay</option>
                 <option value="OTHER">Khác</option>
               </select>
             </Field>

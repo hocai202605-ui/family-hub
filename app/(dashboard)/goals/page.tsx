@@ -1,6 +1,8 @@
 import { ComingSoonModule } from "../components/coming-soon-module";
+import { requirePageAccess } from "@/lib/auth";
 
-export default function GoalsPage() {
+export default async function GoalsPage() {
+  await requirePageAccess("goals");
   return (
     <ComingSoonModule
       description="Theo dõi các mục tiêu như quỹ dự phòng, du lịch, học phí, mua nhà hoặc chăm sóc sức khỏe."

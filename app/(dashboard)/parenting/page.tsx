@@ -1,6 +1,8 @@
 import { ComingSoonModule } from "../components/coming-soon-module";
+import { requirePageAccess } from "@/lib/auth";
 
-export default function ParentingPage() {
+export default async function ParentingPage() {
+  await requirePageAccess("parenting");
   return (
     <ComingSoonModule
       description="Theo dõi học tập, nề nếp, hoạt động ngoại khóa và những ghi chú quan trọng khi nuôi dạy con."

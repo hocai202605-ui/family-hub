@@ -9,25 +9,33 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "@ai-sdk/openai": "2.0.0",
+    "@prisma/client": "^5.22.0",
     "ai": "5.0.0",
     "next": "13.5.11",
+    "prisma": "^5.22.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.20",
     "@types/node": "^18",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "13.5.11",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { Icon } from "./icons";
 
 type TransactionType = "income" | "expense";
@@ -75,16 +75,6 @@ const categoryMeta: Record<
   },
 };
 
-const initialTransactions: Transaction[] = [
-  { id: 1, amount: 1850000, type: "expense", category: "Food", member: "VK", note: "Đi chợ cuối tuần", date: "2026-07-02" },
-  { id: 2, amount: 38000000, type: "income", category: "Others", member: "CK", note: "Lương tháng 7", date: "2026-07-01" },
-  { id: 3, amount: 920000, type: "expense", category: "Transport", member: "CK", note: "Xăng xe và gửi xe", date: "2026-07-03" },
-  { id: 4, amount: 2150000, type: "expense", category: "Utilities", member: "VK", note: "Tiền điện nước", date: "2026-07-01" },
-  { id: 5, amount: 3400000, type: "expense", category: "Shopping", member: "CON", note: "Đồ dùng học tập", date: "2026-06-28" },
-  { id: 6, amount: 720000, type: "expense", category: "Entertainment", member: "CON", note: "Xem phim cuối tuần", date: "2026-07-04" },
-  { id: 7, amount: 4500000, type: "income", category: "Others", member: "VK", note: "Freelance", date: "2026-07-03" },
-];
-
 const emptyForm: TransactionForm = {
   amount: "",
   type: "expense",
@@ -133,6 +123,80 @@ function currency(value: number) {
     currency: "VND",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function readThreeDigits(value: number, hasHigherGroup: boolean) {
+  const digits = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
+  const hundred = Math.floor(value / 100);
+  const ten = Math.floor((value % 100) / 10);
+  const unit = value % 10;
+  const words: string[] = [];
+
+  if (hundred > 0) {
+    words.push(digits[hundred], "trăm");
+  } else if (hasHigherGroup && (ten > 0 || unit > 0)) {
+    words.push("không", "trăm");
+  }
+
+  if (ten > 1) {
+    words.push(digits[ten], "mươi");
+
+    if (unit === 1) {
+      words.push("mốt");
+    } else if (unit === 5) {
+      words.push("lăm");
+    } else if (unit > 0) {
+      words.push(digits[unit]);
+    }
+  } else if (ten === 1) {
+    words.push("mười");
+
+    if (unit === 5) {
+      words.push("lăm");
+    } else if (unit > 0) {
+      words.push(digits[unit]);
+    }
+  } else if (unit > 0) {
+    if (hundred > 0 || hasHigherGroup) {
+      words.push("lẻ");
+    }
+
+    words.push(digits[unit]);
+  }
+
+  return words.join(" ");
+}
+
+function moneyInVietnamese(value: string) {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) {
+    return "";
+  }
+
+  const units = ["", "nghìn", "triệu", "tỷ"];
+  const groups: number[] = [];
+  let remaining = amount;
+
+  while (remaining > 0) {
+    groups.push(remaining % 1000);
+    remaining = Math.floor(remaining / 1000);
+  }
+
+  const words = groups
+    .map((group, index) => {
+      if (group === 0) {
+        return "";
+      }
+
+      const higherGroupExists = groups.slice(index + 1).some((item) => item > 0);
+      return [readThreeDigits(group, higherGroupExists), units[index]].filter(Boolean).join(" ");
+    })
+    .filter(Boolean)
+    .reverse()
+    .join(" ");
+
+  return words ? `${words} đồng` : "";
 }
 
 function dateLabel(date: string) {
@@ -345,96 +409,8 @@ function ExpenseDonut({ data, total }: { data: Array<{ category: Category; amoun
   );
 }
 
-function YearExpenseBars({
-  data,
-}: {
-  data: Array<{ month: string; income: number; expense: number; balance: number; active: boolean }>;
-}) {
-  const maxAmount = Math.max(...data.flatMap((item) => [item.income, item.expense]), 1);
-
-  return (
-    <div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-base font-bold text-slate-950">Biểu đồ năm</h3>
-          <p className="mt-1 text-sm text-slate-500">So sánh thu và chi từng tháng trong năm đang chọn.</p>
-        </div>
-        <div className="flex gap-3 text-xs font-semibold text-slate-600">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-            Thu
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm bg-rose-500" />
-            Chi
-          </span>
-        </div>
-      </div>
-      <div className="mt-5 space-y-3">
-        {data.map((item) => {
-          const incomeWidth = Math.max((item.income / maxAmount) * 100, item.income > 0 ? 6 : 1);
-          const expenseWidth = Math.max((item.expense / maxAmount) * 100, item.expense > 0 ? 6 : 1);
-
-          return (
-            <div
-              className={cn(
-                "rounded-lg border p-3",
-                item.active ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-slate-50",
-              )}
-              key={item.month}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className={cn("grid h-8 w-8 place-items-center rounded-md text-xs font-bold", item.active ? "bg-amber-500 text-white" : "bg-white text-slate-600")}>
-                    T{item.month}
-                  </span>
-                  <span className={cn("text-xs font-semibold", item.balance >= 0 ? "text-emerald-700" : "text-rose-700")}>
-                    {item.balance >= 0 ? "+" : "-"}
-                    {currency(Math.abs(item.balance))}
-                  </span>
-                </div>
-                <div className="text-right text-xs text-slate-500">
-                  <span className="font-semibold text-emerald-700">{currency(item.income)}</span>
-                  <span className="mx-1">/</span>
-                  <span className="font-semibold text-rose-700">{currency(item.expense)}</span>
-                </div>
-              </div>
-
-              <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                <div className="flex items-center justify-end gap-2">
-                  <span className="text-[11px] font-bold text-rose-700">Chi</span>
-                  <div className="flex h-3 w-full justify-end overflow-hidden rounded-l-full bg-white">
-                    <div
-                      className="h-full rounded-l-full bg-rose-500 transition-all"
-                      style={{ width: `${expenseWidth}%` }}
-                      title={`Chi: ${currency(item.expense)}`}
-                    />
-                  </div>
-                </div>
-
-                <div className="h-8 w-px bg-slate-300" />
-
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-full overflow-hidden rounded-r-full bg-white">
-                    <div
-                      className="h-full rounded-r-full bg-emerald-500 transition-all"
-                      style={{ width: `${incomeWidth}%` }}
-                      title={`Thu: ${currency(item.income)}`}
-                    />
-                  </div>
-                  <span className="text-[11px] font-bold text-emerald-700">Thu</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function ExpenseDashboard() {
-  const [transactions, setTransactions] = useState(initialTransactions);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedMonth, setSelectedMonth] = useState("2026-07");
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
@@ -444,6 +420,48 @@ export function ExpenseDashboard() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const amountInWords = useMemo(() => moneyInVietnamese(form.amount), [form.amount]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadTransactions() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/transactions?month=${encodeURIComponent(selectedMonth)}`);
+
+        if (!response.ok) {
+          throw new Error("Không thể tải danh sách giao dịch.");
+        }
+
+        const data = (await response.json()) as { transactions: Transaction[] };
+
+        if (isActive) {
+          setTransactions(data.transactions);
+        }
+      } catch (loadError) {
+        if (isActive) {
+          setTransactions([]);
+          setError(loadError instanceof Error ? loadError.message : "Không thể tải danh sách giao dịch.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadTransactions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedMonth]);
 
   const monthlyTransactions = useMemo(
     () => transactions.filter((item) => isSelectedMonth(item.date, selectedMonth)),
@@ -465,29 +483,6 @@ export function ExpenseDashboard() {
         .sort((a, b) => b.amount - a.amount),
     [monthlyTransactions],
   );
-
-  const yearlyCashflowByMonth = useMemo(() => {
-    const selectedYear = Number(selectedMonth.slice(0, 4));
-    const selectedMonthNumber = Number(selectedMonth.slice(5, 7));
-
-    return Array.from({ length: 12 }, (_, index) => {
-      const month = index + 1;
-      const monthTransactions = transactions.filter((item) => {
-        const target = new Date(`${item.date}T00:00:00`);
-        return target.getFullYear() === selectedYear && target.getMonth() === index;
-      });
-      const income = monthTransactions.filter((item) => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
-      const expense = monthTransactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
-
-      return {
-        month: String(month).padStart(2, "0"),
-        income,
-        expense,
-        balance: income - expense,
-        active: month === selectedMonthNumber,
-      };
-    });
-  }, [selectedMonth, transactions]);
 
   const filteredTransactions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -537,7 +532,7 @@ export function ExpenseDashboard() {
     setForm({ ...emptyForm, date: `${selectedMonth}-01` });
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const amount = Number(form.amount);
 
@@ -545,47 +540,78 @@ export function ExpenseDashboard() {
       return;
     }
 
-    if (editingId) {
-      setTransactions((current) =>
-        current.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                amount,
-                type: form.type,
-                category: form.category,
-                member: form.member,
-                note: form.note.trim() || categoryMeta[form.category].label,
-                date: form.date,
-              }
-            : item,
-        ),
-      );
-    } else {
-      setTransactions((current) => [
-        {
-          id: Date.now(),
-          amount,
-          type: form.type,
-          category: form.category,
-          member: form.member,
-          note: form.note.trim() || categoryMeta[form.category].label,
-          date: form.date,
-        },
-        ...current,
-      ]);
-    }
+    const payload = {
+      amount,
+      type: form.type,
+      category: form.category,
+      member: form.member,
+      note: form.note.trim() || categoryMeta[form.category].label,
+      date: form.date,
+    };
 
-    closeFormDialog();
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch(editingId ? `/api/transactions/${editingId}` : "/api/transactions", {
+        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: editingId ? "PATCH" : "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error(editingId ? "Không thể lưu thay đổi giao dịch." : "Không thể thêm giao dịch.");
+      }
+
+      const data = (await response.json()) as { transaction: Transaction };
+      const transaction = data.transaction;
+
+      setTransactions((current) => {
+        if (!isSelectedMonth(transaction.date, selectedMonth)) {
+          return current.filter((item) => item.id !== transaction.id);
+        }
+
+        if (editingId) {
+          return current.map((item) => (item.id === transaction.id ? transaction : item));
+        }
+
+        return [transaction, ...current];
+      });
+
+      closeFormDialog();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Không thể lưu giao dịch.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!pendingDelete) {
       return;
     }
 
-    setTransactions((current) => current.filter((item) => item.id !== pendingDelete.id));
-    setPendingDelete(null);
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/transactions/${pendingDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Không thể xóa giao dịch.");
+      }
+
+      setTransactions((current) => current.filter((item) => item.id !== pendingDelete.id));
+      setPendingDelete(null);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Không thể xóa giao dịch.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -598,7 +624,7 @@ export function ExpenseDashboard() {
             Theo dõi thu nhập, chi tiêu, ngân sách và từng giao dịch trong tháng của gia đình.
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-[auto_auto] sm:items-end">
+        <div className="grid gap-3 sm:grid-cols-[auto] sm:items-end">
           <Field id="selected-month" label="Chọn tháng">
             <input
               className={cn(inputClass(), "w-full sm:w-44")}
@@ -608,10 +634,6 @@ export function ExpenseDashboard() {
               value={selectedMonth}
             />
           </Field>
-          <Button className="w-full sm:w-fit" onClick={openCreateDialog}>
-            <Icon className="h-4 w-4" name="plus" />
-            Add Transaction
-          </Button>
         </div>
       </header>
 
@@ -655,20 +677,20 @@ export function ExpenseDashboard() {
           <Progress className="mt-5" value={budgetUsedPercent} />
           <p className="mt-3 text-sm text-slate-500">Ngân sách tháng: {currency(monthlyBudget)}</p>
         </Card>
-      </section>
 
-      <Card className="p-5">
-        <YearExpenseBars data={yearlyCashflowByMonth} />
-      </Card>
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
         <Card className="overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-slate-100 p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
+          <div className="flex flex-col gap-4 border-b border-slate-100 p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-bold text-slate-950">Giao dịch hằng ngày</h2>
-              <p className="mt-1 text-sm text-slate-500">Thêm, sửa, xóa và lọc giao dịch theo danh mục hoặc loại.</p>
+              <Button className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-fit" disabled={isSaving} onClick={openCreateDialog}>
+                <Icon className="h-4 w-4" name="plus" />
+                Add Transaction
+              </Button>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[780px] xl:grid-cols-[1fr_auto_auto_auto]">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto]">
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                   <Icon className="h-4 w-4" name="search" />
@@ -714,7 +736,22 @@ export function ExpenseDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredTransactions.map((transaction) => {
+                {isLoading ? (
+                  <tr>
+                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={6}>
+                      Đang tải giao dịch...
+                    </td>
+                  </tr>
+                ) : null}
+                {!isLoading && error ? (
+                  <tr>
+                    <td className="px-5 py-10 text-center text-sm text-rose-600" colSpan={6}>
+                      {error}
+                    </td>
+                  </tr>
+                ) : null}
+                {!isLoading && !error
+                  ? filteredTransactions.map((transaction) => {
                   const meta = categoryMeta[transaction.category];
                   const member = memberMeta[transaction.member];
 
@@ -755,8 +792,9 @@ export function ExpenseDashboard() {
                       </td>
                     </tr>
                   );
-                })}
-                {filteredTransactions.length === 0 ? (
+                })
+                  : null}
+                {!isLoading && !error && filteredTransactions.length === 0 ? (
                   <tr>
                     <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={6}>
                       Không tìm thấy giao dịch phù hợp.
@@ -784,7 +822,10 @@ export function ExpenseDashboard() {
         <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id="amount" label="Số tiền">
-              <input className={inputClass()} id="amount" min="1000" onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Ví dụ: 250000" required type="number" value={form.amount} />
+              <span className="grid gap-1.5">
+                <input className={inputClass()} id="amount" min="1000" onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Ví dụ: 250000" required type="number" value={form.amount} />
+                {amountInWords ? <span className="text-xs font-semibold text-emerald-700">{amountInWords}</span> : null}
+              </span>
             </Field>
             <Field id="type" label="Loại giao dịch">
               <select className={inputClass()} id="type" onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as TransactionType }))} value={form.type}>
@@ -824,11 +865,11 @@ export function ExpenseDashboard() {
           </Field>
 
           <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <Button className="w-full sm:w-fit" onClick={closeFormDialog} variant="secondary">
+            <Button className="w-full sm:w-fit" disabled={isSaving} onClick={closeFormDialog} variant="secondary">
               Hủy
             </Button>
-            <Button className="w-full sm:w-fit" type="submit">
-              {editingId ? "Lưu thay đổi" : "Thêm giao dịch"}
+            <Button className="w-full sm:w-fit" disabled={isSaving} type="submit">
+              {isSaving ? "Đang lưu..." : editingId ? "Lưu thay đổi" : "Thêm giao dịch"}
             </Button>
           </div>
         </form>
@@ -836,11 +877,11 @@ export function ExpenseDashboard() {
 
       <Dialog description={pendingDelete ? `Giao dịch "${pendingDelete.note}" sẽ được xóa khỏi danh sách.` : "Xác nhận xóa giao dịch."} onClose={() => setPendingDelete(null)} open={Boolean(pendingDelete)} title="Xóa giao dịch?">
         <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button className="w-full sm:w-fit" onClick={() => setPendingDelete(null)} variant="secondary">
+          <Button className="w-full sm:w-fit" disabled={isSaving} onClick={() => setPendingDelete(null)} variant="secondary">
             Hủy
           </Button>
-          <Button className="w-full sm:w-fit" onClick={confirmDelete} variant="danger">
-            Xóa
+          <Button className="w-full sm:w-fit" disabled={isSaving} onClick={confirmDelete} variant="danger">
+            {isSaving ? "Đang xóa..." : "Xóa"}
           </Button>
         </div>
       </Dialog>

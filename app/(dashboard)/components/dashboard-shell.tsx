@@ -10,11 +10,21 @@ type NavItem = {
   label: string;
   description: string;
   icon: IconName;
+  children?: Array<Omit<NavItem, "children">>;
 };
 
 const navItems: NavItem[] = [
   { href: "/", label: "Tổng quan", description: "Bức tranh gia đình", icon: "home" },
-  { href: "/expenses", label: "Chi tiêu", description: "Giao dịch hằng ngày", icon: "wallet" },
+  {
+    href: "/expenses",
+    label: "Chi tiêu",
+    description: "Báo cáo và giao dịch",
+    icon: "wallet",
+    children: [
+      { href: "/expenses/yearly", label: "Báo cáo năm", description: "Biểu đồ theo năm", icon: "barChart" },
+      { href: "/expenses", label: "Chi tiêu tháng", description: "Giao dịch từng tháng", icon: "wallet" },
+    ],
+  },
   { href: "/income", label: "Thu nhập", description: "Nguồn tiền vào", icon: "banknote" },
   { href: "/investments", label: "Đầu tư", description: "Tài sản & lợi nhuận", icon: "barChart" },
   { href: "/calendar", label: "Lịch hằng ngày", description: "Việc nhà & lịch hẹn", icon: "calendar" },
@@ -33,6 +43,10 @@ function isActive(pathname: string, href: string) {
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function isChildActive(pathname: string, href: string) {
+  return pathname === href;
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -57,31 +71,60 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           const active = isActive(pathname, item.href);
 
           return (
-            <Link
-              className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition",
-                active
-                  ? "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-100"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-950",
-              )}
-              href={item.href}
-              key={item.href}
-              onClick={onNavigate}
-            >
-              <span
+            <div className="space-y-1" key={item.href}>
+              <Link
                 className={cn(
-                  "grid h-9 w-9 shrink-0 place-items-center rounded-md",
-                  active ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-500 group-hover:text-slate-900",
+                  "group flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition",
+                  active
+                    ? "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-100"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-950",
                 )}
+                href={item.href}
+                onClick={onNavigate}
               >
-                <Icon className="h-4 w-4" name={item.icon} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{item.label}</span>
-                <span className="block truncate text-xs text-slate-500">{item.description}</span>
-              </span>
-              {active ? <Icon className="h-4 w-4 shrink-0" name="chevronRight" /> : null}
-            </Link>
+                <span
+                  className={cn(
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-md",
+                    active ? "bg-amber-500 text-white" : "bg-slate-100 text-slate-500 group-hover:text-slate-900",
+                  )}
+                >
+                  <Icon className="h-4 w-4" name={item.icon} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{item.label}</span>
+                  <span className="block truncate text-xs text-slate-500">{item.description}</span>
+                </span>
+                {active ? <Icon className="h-4 w-4 shrink-0" name="chevronRight" /> : null}
+              </Link>
+
+              {item.children ? (
+                <div className="ml-6 space-y-1 border-l border-amber-100 pl-3">
+                  {item.children.map((child) => {
+                    const childActive = isChildActive(pathname, child.href);
+
+                    return (
+                      <Link
+                        className={cn(
+                          "group flex items-center gap-2 rounded-md px-3 py-2 text-xs transition",
+                          childActive
+                            ? "bg-amber-100 text-amber-900"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-950",
+                        )}
+                        href={child.href}
+                        key={child.href}
+                        onClick={onNavigate}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" name={child.icon} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-semibold">{child.label}</span>
+                          <span className="block truncate text-[11px]">{child.description}</span>
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
           );
         })}
       </nav>

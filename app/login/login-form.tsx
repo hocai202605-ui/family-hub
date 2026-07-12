@@ -38,7 +38,7 @@ export function LoginForm({ nextPath, users }: { nextPath: string; users: LoginU
         throw new Error(data?.error || "Dang nhap khong thanh cong.");
       }
 
-      window.location.href = nextPath;
+      window.location.href = nextPath || "/expenses";
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Dang nhap khong thanh cong.");
     } finally {

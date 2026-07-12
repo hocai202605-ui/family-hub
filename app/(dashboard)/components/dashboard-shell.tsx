@@ -39,7 +39,7 @@ function SidebarContent({ navItems, onNavigate, user }: { navItems: NavItem[]; o
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="border-b border-amber-100 px-5 py-5">
-        <Link className="flex items-center gap-3" href="/" onClick={onNavigate}>
+        <Link className="flex items-center gap-3" href="/expenses" onClick={onNavigate}>
           <span className="grid h-11 w-11 place-items-center rounded-lg bg-amber-100 text-amber-700">
             <Icon name="sparkles" />
           </span>
@@ -147,7 +147,7 @@ export function DashboardShell({ children, navItems, user }: { children: ReactNo
 
       <div className="lg:pl-72">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-amber-100 bg-white/95 px-4 shadow-sm backdrop-blur lg:hidden">
-          <Link className="flex items-center gap-3" href="/">
+          <Link className="flex items-center gap-3" href="/expenses">
             <span className="grid h-9 w-9 place-items-center rounded-md bg-amber-100 text-amber-700">
               <Icon className="h-4 w-4" name="sparkles" />
             </span>

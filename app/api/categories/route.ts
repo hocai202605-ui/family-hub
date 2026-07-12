@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAnyApiAccess, requireApiAccess } from "@/lib/auth";
+import { requireAdminApiAccess, requireAnyApiAccess, requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -42,17 +42,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdminApiAccess(request);
+  if ("response" in auth) return auth.response;
+
   const parsed = categorySchema.safeParse(await request.json());
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid category payload." }, { status: 400 });
   }
-
-  const auth =
-    parsed.data.type === "INCOME"
-      ? await requireApiAccess(request, "income.monthly")
-      : await requireApiAccess(request, "expenses.monthly");
-  if ("response" in auth) return auth.response;
 
   const baseId = slugFromLabel(parsed.data.label) || `category-${Date.now()}`;
   let id = baseId;

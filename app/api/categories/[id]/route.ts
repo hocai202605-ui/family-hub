@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireApiAccess } from "@/lib/auth";
+import { requireAdminApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,9 @@ const categorySchema = z.object({
 });
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdminApiAccess(request);
+  if ("response" in auth) return auth.response;
+
   const parsed = categorySchema.safeParse(await request.json());
 
   if (!parsed.success) {
@@ -23,12 +26,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if (!existingCategory) {
     return NextResponse.json({ error: "Category not found." }, { status: 404 });
   }
-
-  const auth =
-    existingCategory.type === "INCOME"
-      ? await requireApiAccess(request, "income.monthly")
-      : await requireApiAccess(request, "expenses.monthly");
-  if ("response" in auth) return auth.response;
 
   try {
     const category = await prisma.category.update({

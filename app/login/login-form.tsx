@@ -3,11 +3,19 @@
 import { FormEvent, useState } from "react";
 import { Icon } from "@/app/(dashboard)/components/icons";
 
-export function LoginForm({ nextPath }: { nextPath: string }) {
-  const [email, setEmail] = useState("");
+type LoginUserOption = {
+  id: number;
+  name: string;
+  email: string;
+};
+
+export function LoginForm({ nextPath, users }: { nextPath: string; users: LoginUserOption[] }) {
+  const [email, setEmail] = useState(users[0]?.email ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const hasUsers = users.length > 0;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -15,6 +23,10 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
     setIsSubmitting(true);
 
     try {
+      if (!email) {
+        throw new Error("Vui long chon tai khoan.");
+      }
+
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,27 +54,34 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
         </span>
         <div>
           <h1 className="text-xl font-bold">Dang nhap Family Hub</h1>
-          <p className="mt-1 text-sm text-slate-500">Nhap tai khoan duoc admin cap.</p>
+          <p className="mt-1 text-sm text-slate-500">Chon tai khoan va nhap mat khau.</p>
         </div>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <label className="block">
-          <span className="text-sm font-semibold text-slate-700">Email</span>
-          <input
-            autoComplete="email"
-            className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+          <span className="text-sm font-semibold text-slate-700">Tai khoan</span>
+          <select
+            className="mt-2 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+            disabled={!hasUsers || isSubmitting}
             onChange={(event) => setEmail(event.target.value)}
             required
-            type="email"
             value={email}
-          />
+          >
+            {!hasUsers ? <option value="">Khong co tai khoan kich hoat</option> : null}
+            {users.map((user) => (
+              <option key={user.id} value={user.email}>
+                {user.name} ({user.email})
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="block">
           <span className="text-sm font-semibold text-slate-700">Mat khau</span>
           <input
             autoComplete="current-password"
+            autoFocus
             className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
             onChange={(event) => setPassword(event.target.value)}
             required
@@ -75,7 +94,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
 
         <button
           className="inline-flex h-11 w-full items-center justify-center rounded-md bg-amber-500 px-4 text-sm font-bold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !hasUsers}
           type="submit"
         >
           {isSubmitting ? "Dang kiem tra..." : "Dang nhap"}

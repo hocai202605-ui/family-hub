@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { Icon, IconName } from "./icons";
 import { readMoney } from "@/app/utils/read-money";
+import { vietnamToday } from "@/lib/vietnam-date";
+import { Icon, IconName } from "./icons";
 
 type AssetType = "GOLD" | "STOCK" | "SAVING" | "REAL_ESTATE" | "CRYPTO" | "DEBT" | "LOAN" | "OTHER";
 type FamilyMember = "CK" | "VK" | "CON";
@@ -34,18 +35,20 @@ type InvestmentForm = {
   date: string;
 };
 
-const emptyForm: InvestmentForm = {
-  name: "",
-  type: "GOLD",
-  quantity: "1",
-  purchasePrice: "",
-  currentPrice: "",
-  interestRate: "",
-  term: "",
-  member: "CK",
-  note: "",
-  date: "2026-07-05",
-};
+function createEmptyForm(): InvestmentForm {
+  return {
+    name: "",
+    type: "GOLD",
+    quantity: "1",
+    purchasePrice: "",
+    currentPrice: "",
+    interestRate: "",
+    term: "",
+    member: "CK",
+    note: "",
+    date: vietnamToday(),
+  };
+}
 
 const assetMeta: Record<AssetType, { label: string; icon: IconName; chart: string; badge: string }> = {
   GOLD: { label: "Vàng", icon: "sparkles", chart: "#eab308", badge: "bg-yellow-50 text-yellow-700 ring-yellow-100" },
@@ -274,7 +277,7 @@ export function InvestmentDashboard() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
-  const [form, setForm] = useState<InvestmentForm>(emptyForm);
+  const [form, setForm] = useState<InvestmentForm>(createEmptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Investment | null>(null);
@@ -383,7 +386,7 @@ export function InvestmentDashboard() {
 
   function openCreateDialog() {
     setEditingId(null);
-    setForm({ ...emptyForm });
+    setForm(createEmptyForm());
     setIsFormOpen(true);
   }
 
@@ -407,7 +410,7 @@ export function InvestmentDashboard() {
   function closeFormDialog() {
     setIsFormOpen(false);
     setEditingId(null);
-    setForm({ ...emptyForm });
+    setForm(createEmptyForm());
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

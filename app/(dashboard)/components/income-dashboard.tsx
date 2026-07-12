@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { vietnamCurrentMonth, vietnamToday } from "@/lib/vietnam-date";
 import { Icon, IconName } from "./icons";
 
 type Category = string;
@@ -81,13 +82,15 @@ const defaultCategories: CategoryMeta[] = [
   },
 ];
 
-const emptyForm: IncomeForm = {
-  amount: "",
-  category: "Salary",
-  member: "CK",
-  note: "",
-  date: "2026-07-02",
-};
+function createEmptyForm(member: FamilyMember = "CK"): IncomeForm {
+  return {
+    amount: "",
+    category: "Salary",
+    member,
+    note: "",
+    date: vietnamToday(),
+  };
+}
 
 const familyMembers: FamilyMember[] = ["CK", "VK", "CON"];
 
@@ -418,13 +421,19 @@ function IncomeDonut({
   );
 }
 
-export function IncomeDashboard() {
+export function IncomeDashboard({
+  canManageCategories = false,
+  defaultMember = "CK",
+}: {
+  canManageCategories?: boolean;
+  defaultMember?: FamilyMember;
+}) {
   const [incomes, setIncomes] = useState<Income[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState("2026-07");
+  const [selectedMonth, setSelectedMonth] = useState(vietnamCurrentMonth);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [memberFilter, setMemberFilter] = useState<FamilyMember | "all">("all");
-  const [form, setForm] = useState<IncomeForm>(emptyForm);
+  const [form, setForm] = useState<IncomeForm>(() => createEmptyForm(defaultMember));
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Income | null>(null);
@@ -578,7 +587,7 @@ export function IncomeDashboard() {
 
   function openCreateDialog() {
     setEditingId(null);
-    setForm({ ...emptyForm, date: `${selectedMonth}-01` });
+    setForm(createEmptyForm(defaultMember));
     setIsFormOpen(true);
   }
 
@@ -597,7 +606,7 @@ export function IncomeDashboard() {
   function closeFormDialog() {
     setIsFormOpen(false);
     setEditingId(null);
-    setForm({ ...emptyForm, date: `${selectedMonth}-01` });
+    setForm(createEmptyForm(defaultMember));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -957,7 +966,7 @@ export function IncomeDashboard() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2 text-sm font-medium text-slate-700">
               <span>Danh mục</span>
-              <div className="grid grid-cols-[1fr_auto] gap-2">
+              <div className={canManageCategories ? "grid grid-cols-[1fr_auto] gap-2" : undefined}>
                 <select className={inputClass()} id="category" onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Category }))} value={form.category}>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
@@ -965,9 +974,11 @@ export function IncomeDashboard() {
                     </option>
                   ))}
                 </select>
-                <IconButton label="Sửa danh mục" onClick={openCategoryDialog}>
-                  <Icon className="h-4 w-4" name="edit" />
-                </IconButton>
+                {canManageCategories ? (
+                  <IconButton label="Sửa danh mục" onClick={openCategoryDialog}>
+                    <Icon className="h-4 w-4" name="edit" />
+                  </IconButton>
+                ) : null}
               </div>
             </div>
             <Field id="member" label="Người đóng góp">
@@ -1000,56 +1011,58 @@ export function IncomeDashboard() {
         </form>
       </Dialog>
 
-      <Dialog description="Thêm danh mục mới hoặc sửa tên danh mục đang có." onClose={() => setIsCategoryDialogOpen(false)} open={isCategoryDialogOpen} title="Quản lý danh mục">
-        <form className="mt-5 grid gap-4" onSubmit={handleCategorySubmit}>
-          <Field id="category-label" label={editingCategoryId ? "Tên danh mục mới" : "Thêm danh mục"}>
-            <input
-              className={inputClass()}
-              id="category-label"
-              maxLength={40}
-              onChange={(event) => setCategoryDraft(event.target.value)}
-              placeholder="Ví dụ: Freelance, Cổ tức..."
-              required
-              type="text"
-              value={categoryDraft}
-            />
-          </Field>
-          {categoryError ? <p className="text-sm font-semibold text-rose-600">{categoryError}</p> : null}
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            {editingCategoryId ? (
-              <Button
-                className="w-full sm:w-fit"
-                disabled={isSaving}
-                onClick={() => {
-                  setEditingCategoryId(null);
-                  setCategoryDraft("");
-                  setCategoryError(null);
-                }}
-                variant="secondary"
-              >
-                Hủy sửa
+      {canManageCategories ? (
+        <Dialog description="Thêm danh mục mới hoặc sửa tên danh mục đang có." onClose={() => setIsCategoryDialogOpen(false)} open={isCategoryDialogOpen} title="Quản lý danh mục">
+          <form className="mt-5 grid gap-4" onSubmit={handleCategorySubmit}>
+            <Field id="category-label" label={editingCategoryId ? "Tên danh mục mới" : "Thêm danh mục"}>
+              <input
+                className={inputClass()}
+                id="category-label"
+                maxLength={40}
+                onChange={(event) => setCategoryDraft(event.target.value)}
+                placeholder="Ví dụ: Freelance, Cổ tức..."
+                required
+                type="text"
+                value={categoryDraft}
+              />
+            </Field>
+            {categoryError ? <p className="text-sm font-semibold text-rose-600">{categoryError}</p> : null}
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              {editingCategoryId ? (
+                <Button
+                  className="w-full sm:w-fit"
+                  disabled={isSaving}
+                  onClick={() => {
+                    setEditingCategoryId(null);
+                    setCategoryDraft("");
+                    setCategoryError(null);
+                  }}
+                  variant="secondary"
+                >
+                  Hủy sửa
+                </Button>
+              ) : null}
+              <Button className="w-full sm:w-fit" disabled={isSaving} type="submit">
+                {isSaving ? "Đang lưu..." : editingCategoryId ? "Lưu danh mục" : "Thêm danh mục"}
               </Button>
-            ) : null}
-            <Button className="w-full sm:w-fit" disabled={isSaving} type="submit">
-              {isSaving ? "Đang lưu..." : editingCategoryId ? "Lưu danh mục" : "Thêm danh mục"}
-            </Button>
-          </div>
-        </form>
-
-        <div className="mt-5 max-h-64 space-y-2 overflow-y-auto">
-          {categories.map((category) => (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3" key={category.id}>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: category.chart }} />
-                <span className="text-sm font-semibold text-slate-800">{category.label}</span>
-              </div>
-              <IconButton label={`Sửa ${category.label}`} onClick={() => startEditCategory(category)}>
-                <Icon className="h-4 w-4" name="edit" />
-              </IconButton>
             </div>
-          ))}
-        </div>
-      </Dialog>
+          </form>
+
+          <div className="mt-5 max-h-64 space-y-2 overflow-y-auto">
+            {categories.map((category) => (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3" key={category.id}>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: category.chart }} />
+                  <span className="text-sm font-semibold text-slate-800">{category.label}</span>
+                </div>
+                <IconButton label={`Sửa ${category.label}`} onClick={() => startEditCategory(category)}>
+                  <Icon className="h-4 w-4" name="edit" />
+                </IconButton>
+              </div>
+            ))}
+          </div>
+        </Dialog>
+      ) : null}
 
       <Dialog description={pendingDelete ? `Khoản thu "${pendingDelete.note}" sẽ được xóa khỏi danh sách.` : "Xác nhận xóa khoản thu."} onClose={() => setPendingDelete(null)} open={Boolean(pendingDelete)} title="Xóa khoản thu?">
         <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

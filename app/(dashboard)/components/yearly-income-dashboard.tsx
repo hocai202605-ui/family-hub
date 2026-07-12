@@ -118,7 +118,10 @@ function IncomeDonut({ data, total, categoryMeta }: { data: Array<{ category: Ca
                   <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: meta.chart }} />
                   {meta.label}
                 </div>
-                <span className="text-slate-500">{percent}%</span>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold text-slate-800">{currency(item.amount)}</p>
+                  <p className="text-xs text-slate-500">{percent}%</p>
+                </div>
               </div>
               <Progress className="mt-2 h-2" value={percent} />
             </div>

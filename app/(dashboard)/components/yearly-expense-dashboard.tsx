@@ -118,7 +118,10 @@ function ExpenseDonut({ data, total, categoryMeta }: { data: Array<{ category: C
                   <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: meta.chart }} />
                   {meta.label}
                 </div>
-                <span className="text-slate-500">{percent}%</span>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold text-slate-800">{currency(item.amount)}</p>
+                  <p className="text-xs text-slate-500">{percent}%</p>
+                </div>
               </div>
               <Progress className="mt-2 h-2" value={percent} />
             </div>
@@ -186,8 +189,10 @@ export function YearlyExpenseDashboard() {
     const categoryMap: Record<string, number> = {};
 
     expenses.forEach(exp => {
-      const m = new Date(exp.date).getUTCMonth() + 1; // 1-12
-      monthlyMap[m] += exp.amount;
+      const m = Number(exp.date.slice(5, 7)); // YYYY-MM-DDTHH:mm → month 1-12
+      if (m >= 1 && m <= 12) {
+        monthlyMap[m] += exp.amount;
+      }
       categoryMap[exp.category] = (categoryMap[exp.category] || 0) + exp.amount;
     });
 
@@ -370,7 +375,22 @@ export function YearlyExpenseDashboard() {
                 return (
                   <tr key={exp.id} className="transition-colors hover:bg-slate-50/50">
                     <td className="py-3 text-slate-500">
-                      {new Intl.DateTimeFormat("vi-VN").format(new Date(exp.date))}
+                      {(() => {
+                        const normalized = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(exp.date)
+                          ? exp.date.slice(0, 16)
+                          : `${exp.date.slice(0, 10)}T00:00`;
+                        const [dayPart, timePart] = normalized.split("T");
+                        const [year, month, day] = dayPart.split("-").map(Number);
+                        const [hour, minute] = timePart.split(":").map(Number);
+                        return new Intl.DateTimeFormat("vi-VN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hourCycle: "h23",
+                        }).format(new Date(year, month - 1, day, hour, minute));
+                      })()}
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-2">

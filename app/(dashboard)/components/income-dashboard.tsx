@@ -31,6 +31,11 @@ type IncomeForm = {
   date: string;
 };
 
+type Notice = {
+  type: "success" | "error";
+  message: string;
+};
+
 const fallbackCategoryMeta: Omit<CategoryMeta, "id" | "label"> = {
   icon: "banknote",
   badge: "bg-slate-100 text-slate-700 ring-slate-200",
@@ -317,6 +322,49 @@ function inputClass() {
   return "h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
 }
 
+function NoticeToast({ notice, onClose }: { notice: Notice | null; onClose: () => void }) {
+  if (!notice) {
+    return null;
+  }
+
+  const isSuccess = notice.type === "success";
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4 sm:justify-end sm:px-6">
+      <div
+        className={cn(
+          "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-lg border px-4 py-3 shadow-lg",
+          isSuccess ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900",
+        )}
+        role="status"
+      >
+        <span
+          className={cn(
+            "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md",
+            isSuccess ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700",
+          )}
+        >
+          <Icon className="h-4 w-4" name={isSuccess ? "check" : "x"} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold">{isSuccess ? "Thành công" : "Thất bại"}</p>
+          <p className="mt-0.5 text-sm leading-5">{notice.message}</p>
+        </div>
+        <button
+          className={cn(
+            "mt-0.5 rounded-md p-1 text-sm font-semibold transition",
+            isSuccess ? "text-emerald-700 hover:bg-emerald-100" : "text-rose-700 hover:bg-rose-100",
+          )}
+          onClick={onClose}
+          type="button"
+        >
+          Đóng
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Dialog({
   open,
   title,
@@ -406,11 +454,14 @@ function IncomeDonut({
           return (
             <div key={item.category}>
               <div className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 font-medium text-slate-800">
-                  <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: meta.chart }} />
-                  {meta.label}
+                <div className="flex min-w-0 items-center gap-2 font-medium text-slate-800">
+                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: meta.chart }} />
+                  <span className="truncate">{meta.label}</span>
                 </div>
-                <span className="text-slate-500">{percent}%</span>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold text-slate-800">{currency(item.amount)}</p>
+                  <p className="text-xs text-slate-500">{percent}%</p>
+                </div>
               </div>
               <Progress className="mt-2 h-2" value={percent} />
             </div>
@@ -440,12 +491,26 @@ export function IncomeDashboard({
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [categories, setCategories] = useState<CategoryMeta[]>(defaultCategories);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [categoryDraft, setCategoryDraft] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<Category | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const amountInWords = useMemo(() => moneyInVietnamese(form.amount), [form.amount]);
+
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setNotice(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  function showNotice(type: Notice["type"], message: string) {
+    setNotice({ type, message });
+  }
 
   const categoryMeta = useMemo(
     () =>
@@ -499,43 +564,30 @@ export function IncomeDashboard({
     };
   }, []);
 
-  useEffect(() => {
-    let isActive = true;
+  const loadIncomes = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-    async function loadIncomes() {
-      setIsLoading(true);
-      setError(null);
+    try {
+      const response = await fetch(`/api/incomes?month=${encodeURIComponent(selectedMonth)}`);
 
-      try {
-        const response = await fetch(`/api/incomes?month=${encodeURIComponent(selectedMonth)}`);
-
-        if (!response.ok) {
-          throw new Error("Không thể tải danh sách thu nhập.");
-        }
-
-        const data = (await response.json()) as { incomes: Income[] };
-
-        if (isActive) {
-          setIncomes(data.incomes);
-        }
-      } catch (loadError) {
-        if (isActive) {
-          setIncomes([]);
-          setError(loadError instanceof Error ? loadError.message : "Không thể tải danh sách thu nhập.");
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+      if (!response.ok) {
+        throw new Error("Không thể tải danh sách thu nhập.");
       }
+
+      const data = (await response.json()) as { incomes: Income[] };
+      setIncomes(data.incomes);
+    } catch (loadError) {
+      setIncomes([]);
+      setError(loadError instanceof Error ? loadError.message : "Không thể tải danh sách thu nhập.");
+    } finally {
+      setIsLoading(false);
     }
-
-    void loadIncomes();
-
-    return () => {
-      isActive = false;
-    };
   }, [selectedMonth]);
+
+  useEffect(() => {
+    void loadIncomes();
+  }, [loadIncomes]);
 
   const monthlyIncomes = useMemo(
     () => incomes.filter((item) => isSelectedMonth(item.date, selectedMonth)),
@@ -544,13 +596,24 @@ export function IncomeDashboard({
   
   const totalIncome = useMemo(() => monthlyIncomes.reduce((sum, item) => sum + item.amount, 0), [monthlyIncomes]);
 
+  const incomeByMember = useMemo(
+    () =>
+      familyMembers.map((member) => {
+        const memberIncomes = monthlyIncomes.filter((item) => item.member === member);
+        const amount = memberIncomes.reduce((sum, item) => sum + item.amount, 0);
+        return {
+          member,
+          amount,
+          count: memberIncomes.length,
+          percent: totalIncome > 0 ? Math.round((amount / totalIncome) * 100) : 0,
+        };
+      }),
+    [monthlyIncomes, totalIncome],
+  );
+
   const topEarner = useMemo(() => {
-    const memberTotals = familyMembers.map((member) => ({
-      member,
-      amount: monthlyIncomes.filter((item) => item.member === member).reduce((sum, item) => sum + item.amount, 0),
-    })).sort((a, b) => b.amount - a.amount);
-    return memberTotals[0];
-  }, [monthlyIncomes]);
+    return [...incomeByMember].sort((a, b) => b.amount - a.amount)[0];
+  }, [incomeByMember]);
 
   const incomeByCategory = useMemo(
     () =>
@@ -604,6 +667,10 @@ export function IncomeDashboard({
   }
 
   function closeFormDialog() {
+    if (isSaving) {
+      return;
+    }
+
     setIsFormOpen(false);
     setEditingId(null);
     setForm(createEmptyForm(defaultMember));
@@ -613,7 +680,7 @@ export function IncomeDashboard({
     event.preventDefault();
     const amount = Number(form.amount);
 
-    if (!amount || amount <= 0 || !form.date) {
+    if (!amount || amount <= 0 || !form.date || isSaving) {
       return;
     }
 
@@ -625,6 +692,7 @@ export function IncomeDashboard({
       date: form.date,
     };
 
+    const wasEditing = Boolean(editingId);
     setIsSaving(true);
     setError(null);
 
@@ -638,34 +706,25 @@ export function IncomeDashboard({
       });
 
       if (!response.ok) {
-        throw new Error(editingId ? "Không thể lưu thay đổi thu nhập." : "Không thể thêm thu nhập.");
+        throw new Error(wasEditing ? "Không thể lưu thay đổi thu nhập." : "Không thể thêm thu nhập.");
       }
 
-      const data = (await response.json()) as { income: Income };
-      const income = data.income;
-
-      setIncomes((current) => {
-        if (!isSelectedMonth(income.date, selectedMonth)) {
-          return current.filter((item) => item.id !== income.id);
-        }
-
-        if (editingId) {
-          return current.map((item) => (item.id === income.id ? income : item));
-        }
-
-        return [income, ...current];
-      });
-
-      closeFormDialog();
+      setIsFormOpen(false);
+      setEditingId(null);
+      setForm(createEmptyForm(defaultMember));
+      await loadIncomes();
+      showNotice("success", wasEditing ? "Đã cập nhật thu nhập." : "Đã thêm thu nhập.");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Không thể lưu thu nhập.");
+      const message = submitError instanceof Error ? submitError.message : "Không thể lưu thu nhập.";
+      setError(message);
+      showNotice("error", message);
     } finally {
       setIsSaving(false);
     }
   }
 
   async function confirmDelete() {
-    if (!pendingDelete) {
+    if (!pendingDelete || isSaving) {
       return;
     }
 
@@ -681,10 +740,13 @@ export function IncomeDashboard({
         throw new Error("Không thể xóa thu nhập.");
       }
 
-      setIncomes((current) => current.filter((item) => item.id !== pendingDelete.id));
       setPendingDelete(null);
+      await loadIncomes();
+      showNotice("success", "Đã xóa thu nhập.");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Không thể xóa thu nhập.");
+      const message = deleteError instanceof Error ? deleteError.message : "Không thể xóa thu nhập.";
+      setError(message);
+      showNotice("error", message);
     } finally {
       setIsSaving(false);
     }
@@ -711,6 +773,7 @@ export function IncomeDashboard({
       return;
     }
 
+    const wasEditingCategory = Boolean(editingCategoryId);
     setIsSaving(true);
     setCategoryError(null);
 
@@ -724,27 +787,30 @@ export function IncomeDashboard({
       });
 
       if (!response.ok) {
-        throw new Error(editingCategoryId ? "Không thể sửa danh mục." : "Không thể thêm danh mục.");
+        throw new Error(wasEditingCategory ? "Không thể sửa danh mục." : "Không thể thêm danh mục.");
       }
 
       const data = (await response.json()) as { category: CategoryMeta };
 
       setCategories((current) => {
-        if (editingCategoryId) {
+        if (wasEditingCategory) {
           return current.map((category) => (category.id === data.category.id ? data.category : category));
         }
 
         return [...current, data.category];
       });
 
-      if (!editingCategoryId) {
+      if (!wasEditingCategory) {
         setForm((current) => ({ ...current, category: data.category.id }));
       }
 
       setEditingCategoryId(null);
       setCategoryDraft("");
+      showNotice("success", wasEditingCategory ? "Đã cập nhật danh mục." : "Đã thêm danh mục.");
     } catch (categorySubmitError) {
-      setCategoryError(categorySubmitError instanceof Error ? categorySubmitError.message : "Không thể lưu danh mục.");
+      const message = categorySubmitError instanceof Error ? categorySubmitError.message : "Không thể lưu danh mục.";
+      setCategoryError(message);
+      showNotice("error", message);
     } finally {
       setIsSaving(false);
     }
@@ -752,6 +818,7 @@ export function IncomeDashboard({
 
   return (
     <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
+      <NoticeToast notice={notice} onClose={() => setNotice(null)} />
       <header className="flex flex-col gap-5 rounded-lg border border-amber-100 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm font-semibold text-emerald-700">Income Management</p>
@@ -834,6 +901,27 @@ export function IncomeDashboard({
                 Add Income
               </Button>
             </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {incomeByMember.map((item) => {
+                const meta = memberMeta[item.member];
+                return (
+                  <div className={cn("rounded-lg border border-slate-100 p-3 ring-1 ring-inset", meta.badge)} key={item.member}>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("h-2.5 w-2.5 rounded-full", meta.dot)} />
+                      <p className="text-xs font-semibold uppercase tracking-wide">
+                        {meta.label} · {meta.role}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-lg font-bold text-slate-950">{currency(item.amount)}</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {item.count} khoản thu · {item.percent}% tổng thu
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[600px] xl:grid-cols-[1fr_auto_auto]">
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -956,49 +1044,51 @@ export function IncomeDashboard({
 
       <Dialog description="Nhập số tiền, danh mục, người đóng góp và ngày phát sinh." onClose={closeFormDialog} open={isFormOpen} title={editingId ? "Edit Income" : "Add Income"}>
         <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="amount" label="Số tiền">
-              <input className={inputClass()} id="amount" min="1000" onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Ví dụ: 2500000" required type="number" value={form.amount} />
-            </Field>
-            {amountInWords ? <p className="text-xs font-semibold text-emerald-700 sm:col-span-2">{amountInWords}</p> : null}
-          </div>
+          <fieldset className="grid gap-4 disabled:opacity-70" disabled={isSaving}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="amount" label="Số tiền">
+                <input className={inputClass()} id="amount" min="1000" onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Ví dụ: 2500000" required type="number" value={form.amount} />
+              </Field>
+              {amountInWords ? <p className="text-xs font-semibold text-emerald-700 sm:col-span-2">{amountInWords}</p> : null}
+            </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2 text-sm font-medium text-slate-700">
-              <span>Danh mục</span>
-              <div className={canManageCategories ? "grid grid-cols-[1fr_auto] gap-2" : undefined}>
-                <select className={inputClass()} id="category" onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Category }))} value={form.category}>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.label}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2 text-sm font-medium text-slate-700">
+                <span>Danh mục</span>
+                <div className={canManageCategories ? "grid grid-cols-[1fr_auto] gap-2" : undefined}>
+                  <select className={inputClass()} id="category" onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Category }))} value={form.category}>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                  {canManageCategories ? (
+                    <IconButton label="Sửa danh mục" onClick={openCategoryDialog}>
+                      <Icon className="h-4 w-4" name="edit" />
+                    </IconButton>
+                  ) : null}
+                </div>
+              </div>
+              <Field id="member" label="Người đóng góp">
+                <select className={inputClass()} id="member" onChange={(event) => setForm((current) => ({ ...current, member: event.target.value as FamilyMember }))} value={form.member}>
+                  {familyMembers.map((member) => (
+                    <option key={member} value={member}>
+                      {memberMeta[member].label} - {memberMeta[member].role}
                     </option>
                   ))}
                 </select>
-                {canManageCategories ? (
-                  <IconButton label="Sửa danh mục" onClick={openCategoryDialog}>
-                    <Icon className="h-4 w-4" name="edit" />
-                  </IconButton>
-                ) : null}
-              </div>
+              </Field>
             </div>
-            <Field id="member" label="Người đóng góp">
-              <select className={inputClass()} id="member" onChange={(event) => setForm((current) => ({ ...current, member: event.target.value as FamilyMember }))} value={form.member}>
-                {familyMembers.map((member) => (
-                  <option key={member} value={member}>
-                    {memberMeta[member].label} - {memberMeta[member].role}
-                  </option>
-                ))}
-              </select>
+
+            <Field id="date" label="Ngày nhận">
+              <input className={inputClass()} id="date" onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required type="date" value={form.date} />
             </Field>
-          </div>
 
-          <Field id="date" label="Ngày nhận">
-            <input className={inputClass()} id="date" onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required type="date" value={form.date} />
-          </Field>
-
-          <Field id="note" label="Ghi chú">
-            <input className={inputClass()} id="note" onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} placeholder="Ví dụ: Lương công ty, dự án web..." type="text" value={form.note} />
-          </Field>
+            <Field id="note" label="Ghi chú">
+              <input className={inputClass()} id="note" onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} placeholder="Ví dụ: Lương công ty, dự án web..." type="text" value={form.note} />
+            </Field>
+          </fieldset>
 
           <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button className="w-full sm:w-fit" disabled={isSaving} onClick={closeFormDialog} variant="secondary">

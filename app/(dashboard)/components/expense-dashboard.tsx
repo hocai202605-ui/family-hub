@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { vietnamCurrentMonth, vietnamToday } from "@/lib/vietnam-date";
+import { vietnamCurrentMonth, vietnamNowDateTime } from "@/lib/vietnam-date";
 import { Icon, IconName } from "./icons";
 
 type Category = string;
@@ -29,6 +29,11 @@ type ExpenseForm = {
   member: FamilyMember;
   note: string;
   date: string;
+};
+
+type Notice = {
+  type: "success" | "error";
+  message: string;
 };
 
 const monthlyBudget = 20000000; // Ngân sách ví dụ 20 triệu
@@ -84,13 +89,46 @@ const defaultCategories: CategoryMeta[] = [
   },
 ];
 
+const othersCategory: CategoryMeta = {
+  id: "Others",
+  label: "Khác",
+  icon: "banknote",
+  badge: "bg-slate-100 text-slate-700 ring-slate-200",
+  chart: "#64748b",
+};
+
+/** Always keep "Khác" available in expense category dropdowns. */
+function ensureOthersCategory(categories: CategoryMeta[]): CategoryMeta[] {
+  const hasOthers = categories.some(
+    (category) => category.id === "Others" || category.label.trim().toLowerCase() === "khác",
+  );
+
+  if (hasOthers) {
+    return categories;
+  }
+
+  return [...categories, othersCategory];
+}
+
+function toDateTimeLocalValue(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+    return value.slice(0, 16);
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return `${value}T00:00`;
+  }
+
+  return vietnamNowDateTime();
+}
+
 function createEmptyForm(member: FamilyMember = "VK"): ExpenseForm {
   return {
     amount: "",
     category: "Food",
     member,
     note: "",
-    date: vietnamToday(),
+    date: vietnamNowDateTime(),
   };
 }
 
@@ -204,17 +242,23 @@ function moneyInVietnamese(value: string) {
 }
 
 function dateLabel(date: string) {
+  const normalized = toDateTimeLocalValue(date);
+  const [dayPart, timePart] = normalized.split("T");
+  const [year, month, day] = dayPart.split("-").map(Number);
+  const [hour, minute] = (timePart ?? "00:00").split(":").map(Number);
+
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(`${date}T00:00:00`));
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(year, month - 1, day, hour, minute));
 }
 
 function isSelectedMonth(date: string, selectedMonth: string) {
-  const target = new Date(`${date}T00:00:00`);
-  const [year, month] = selectedMonth.split("-").map(Number);
-  return target.getFullYear() === year && target.getMonth() === month - 1;
+  return date.slice(0, 7) === selectedMonth;
 }
 
 function monthLabel(monthValue: string) {
@@ -319,6 +363,49 @@ function inputClass() {
   return "h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
 }
 
+function NoticeToast({ notice, onClose }: { notice: Notice | null; onClose: () => void }) {
+  if (!notice) {
+    return null;
+  }
+
+  const isSuccess = notice.type === "success";
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4 sm:justify-end sm:px-6">
+      <div
+        className={cn(
+          "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-lg border px-4 py-3 shadow-lg",
+          isSuccess ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900",
+        )}
+        role="status"
+      >
+        <span
+          className={cn(
+            "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md",
+            isSuccess ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700",
+          )}
+        >
+          <Icon className="h-4 w-4" name={isSuccess ? "check" : "x"} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold">{isSuccess ? "Thành công" : "Thất bại"}</p>
+          <p className="mt-0.5 text-sm leading-5">{notice.message}</p>
+        </div>
+        <button
+          className={cn(
+            "mt-0.5 rounded-md p-1 text-sm font-semibold transition",
+            isSuccess ? "text-emerald-700 hover:bg-emerald-100" : "text-rose-700 hover:bg-rose-100",
+          )}
+          onClick={onClose}
+          type="button"
+        >
+          Đóng
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Dialog({
   open,
   title,
@@ -408,11 +495,14 @@ function ExpenseDonut({
           return (
             <div key={item.category}>
               <div className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 font-medium text-slate-800">
-                  <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: meta.chart }} />
-                  {meta.label}
+                <div className="flex min-w-0 items-center gap-2 font-medium text-slate-800">
+                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: meta.chart }} />
+                  <span className="truncate">{meta.label}</span>
                 </div>
-                <span className="text-slate-500">{percent}%</span>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold text-slate-800">{currency(item.amount)}</p>
+                  <p className="text-xs text-slate-500">{percent}%</p>
+                </div>
               </div>
               <Progress className="mt-2 h-2" value={percent} />
             </div>
@@ -442,12 +532,26 @@ export function ExpenseDashboard({
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [categories, setCategories] = useState<CategoryMeta[]>(defaultCategories);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [categoryDraft, setCategoryDraft] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<Category | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const amountInWords = useMemo(() => moneyInVietnamese(form.amount), [form.amount]);
+
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setNotice(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  function showNotice(type: Notice["type"], message: string) {
+    setNotice({ type, message });
+  }
 
   const categoryMeta = useMemo(
     () =>
@@ -480,10 +584,11 @@ export function ExpenseDashboard({
         const data = (await response.json()) as { categories: CategoryMeta[] };
 
         if (isActive && data.categories.length > 0) {
-          setCategories(data.categories);
+          const nextCategories = ensureOthersCategory(data.categories);
+          setCategories(nextCategories);
           setForm((current) => ({
             ...current,
-            category: data.categories.some((category) => category.id === current.category) ? current.category : data.categories[0].id,
+            category: nextCategories.some((category) => category.id === current.category) ? current.category : nextCategories[0].id,
           }));
         }
       } catch (categoryError) {
@@ -500,43 +605,30 @@ export function ExpenseDashboard({
     };
   }, []);
 
-  useEffect(() => {
-    let isActive = true;
+  const loadExpenses = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-    async function loadExpenses() {
-      setIsLoading(true);
-      setError(null);
+    try {
+      const response = await fetch(`/api/expenses?month=${encodeURIComponent(selectedMonth)}`);
 
-      try {
-        const response = await fetch(`/api/expenses?month=${encodeURIComponent(selectedMonth)}`);
-
-        if (!response.ok) {
-          throw new Error("Không thể tải danh sách chi tiêu.");
-        }
-
-        const data = (await response.json()) as { expenses: Expense[] };
-
-        if (isActive) {
-          setExpenses(data.expenses);
-        }
-      } catch (loadError) {
-        if (isActive) {
-          setExpenses([]);
-          setError(loadError instanceof Error ? loadError.message : "Không thể tải danh sách chi tiêu.");
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+      if (!response.ok) {
+        throw new Error("Không thể tải danh sách chi tiêu.");
       }
+
+      const data = (await response.json()) as { expenses: Expense[] };
+      setExpenses(data.expenses);
+    } catch (loadError) {
+      setExpenses([]);
+      setError(loadError instanceof Error ? loadError.message : "Không thể tải danh sách chi tiêu.");
+    } finally {
+      setIsLoading(false);
     }
-
-    void loadExpenses();
-
-    return () => {
-      isActive = false;
-    };
   }, [selectedMonth]);
+
+  useEffect(() => {
+    void loadExpenses();
+  }, [loadExpenses]);
 
   const monthlyExpenses = useMemo(
     () => expenses.filter((item) => isSelectedMonth(item.date, selectedMonth)),
@@ -546,6 +638,21 @@ export function ExpenseDashboard({
   const totalExpense = useMemo(() => monthlyExpenses.reduce((sum, item) => sum + item.amount, 0), [monthlyExpenses]);
   const remainingBudget = monthlyBudget - totalExpense;
   const budgetUsedPercent = Math.round((totalExpense / monthlyBudget) * 100);
+
+  const expenseByMember = useMemo(
+    () =>
+      familyMembers.map((member) => {
+        const memberExpenses = monthlyExpenses.filter((item) => item.member === member);
+        const amount = memberExpenses.reduce((sum, item) => sum + item.amount, 0);
+        return {
+          member,
+          amount,
+          count: memberExpenses.length,
+          percent: totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0,
+        };
+      }),
+    [monthlyExpenses, totalExpense],
+  );
 
   const expenseByCategory = useMemo(
     () =>
@@ -593,12 +700,16 @@ export function ExpenseDashboard({
       category: expense.category,
       member: expense.member,
       note: expense.note,
-      date: expense.date,
+      date: toDateTimeLocalValue(expense.date),
     });
     setIsFormOpen(true);
   }
 
   function closeFormDialog() {
+    if (isSaving) {
+      return;
+    }
+
     setIsFormOpen(false);
     setEditingId(null);
     setForm(createEmptyForm(defaultMember));
@@ -608,7 +719,7 @@ export function ExpenseDashboard({
     event.preventDefault();
     const amount = Number(form.amount);
 
-    if (!amount || amount <= 0 || !form.date) {
+    if (!amount || amount <= 0 || !form.date || isSaving) {
       return;
     }
 
@@ -620,6 +731,7 @@ export function ExpenseDashboard({
       date: form.date,
     };
 
+    const wasEditing = Boolean(editingId);
     setIsSaving(true);
     setError(null);
 
@@ -633,34 +745,25 @@ export function ExpenseDashboard({
       });
 
       if (!response.ok) {
-        throw new Error(editingId ? "Không thể lưu thay đổi chi tiêu." : "Không thể thêm chi tiêu.");
+        throw new Error(wasEditing ? "Không thể lưu thay đổi chi tiêu." : "Không thể thêm chi tiêu.");
       }
 
-      const data = (await response.json()) as { expense: Expense };
-      const expense = data.expense;
-
-      setExpenses((current) => {
-        if (!isSelectedMonth(expense.date, selectedMonth)) {
-          return current.filter((item) => item.id !== expense.id);
-        }
-
-        if (editingId) {
-          return current.map((item) => (item.id === expense.id ? expense : item));
-        }
-
-        return [expense, ...current];
-      });
-
-      closeFormDialog();
+      setIsFormOpen(false);
+      setEditingId(null);
+      setForm(createEmptyForm(defaultMember));
+      await loadExpenses();
+      showNotice("success", wasEditing ? "Đã cập nhật khoản chi." : "Đã thêm khoản chi.");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Không thể lưu chi tiêu.");
+      const message = submitError instanceof Error ? submitError.message : "Không thể lưu chi tiêu.";
+      setError(message);
+      showNotice("error", message);
     } finally {
       setIsSaving(false);
     }
   }
 
   async function confirmDelete() {
-    if (!pendingDelete) {
+    if (!pendingDelete || isSaving) {
       return;
     }
 
@@ -676,10 +779,13 @@ export function ExpenseDashboard({
         throw new Error("Không thể xóa chi tiêu.");
       }
 
-      setExpenses((current) => current.filter((item) => item.id !== pendingDelete.id));
       setPendingDelete(null);
+      await loadExpenses();
+      showNotice("success", "Đã xóa khoản chi.");
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Không thể xóa chi tiêu.");
+      const message = deleteError instanceof Error ? deleteError.message : "Không thể xóa chi tiêu.";
+      setError(message);
+      showNotice("error", message);
     } finally {
       setIsSaving(false);
     }
@@ -706,6 +812,7 @@ export function ExpenseDashboard({
       return;
     }
 
+    const wasEditingCategory = Boolean(editingCategoryId);
     setIsSaving(true);
     setCategoryError(null);
 
@@ -719,27 +826,30 @@ export function ExpenseDashboard({
       });
 
       if (!response.ok) {
-        throw new Error(editingCategoryId ? "Không thể sửa danh mục." : "Không thể thêm danh mục.");
+        throw new Error(wasEditingCategory ? "Không thể sửa danh mục." : "Không thể thêm danh mục.");
       }
 
       const data = (await response.json()) as { category: CategoryMeta };
 
       setCategories((current) => {
-        if (editingCategoryId) {
+        if (wasEditingCategory) {
           return current.map((category) => (category.id === data.category.id ? data.category : category));
         }
 
         return [...current, data.category];
       });
 
-      if (!editingCategoryId) {
+      if (!wasEditingCategory) {
         setForm((current) => ({ ...current, category: data.category.id }));
       }
 
       setEditingCategoryId(null);
       setCategoryDraft("");
+      showNotice("success", wasEditingCategory ? "Đã cập nhật danh mục." : "Đã thêm danh mục.");
     } catch (categorySubmitError) {
-      setCategoryError(categorySubmitError instanceof Error ? categorySubmitError.message : "Không thể lưu danh mục.");
+      const message = categorySubmitError instanceof Error ? categorySubmitError.message : "Không thể lưu danh mục.";
+      setCategoryError(message);
+      showNotice("error", message);
     } finally {
       setIsSaving(false);
     }
@@ -747,6 +857,7 @@ export function ExpenseDashboard({
 
   return (
     <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
+      <NoticeToast notice={notice} onClose={() => setNotice(null)} />
       <header className="flex flex-col gap-5 rounded-lg border border-amber-100 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm font-semibold text-amber-700">Daily Expense Management</p>
@@ -808,6 +919,27 @@ export function ExpenseDashboard({
                 Thêm khoản chi
               </Button>
             </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {expenseByMember.map((item) => {
+                const meta = memberMeta[item.member];
+                return (
+                  <div className={cn("rounded-lg border border-slate-100 p-3 ring-1 ring-inset", meta.badge)} key={item.member}>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("h-2.5 w-2.5 rounded-full", meta.dot)} />
+                      <p className="text-xs font-semibold uppercase tracking-wide">
+                        {meta.label} · {meta.role}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-lg font-bold text-slate-950">{currency(item.amount)}</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {item.count} giao dịch · {item.percent}% tổng chi
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto]">
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -930,49 +1062,58 @@ export function ExpenseDashboard({
 
       <Dialog description="Nhập số tiền, danh mục, người chi và ngày phát sinh." onClose={closeFormDialog} open={isFormOpen} title={editingId ? "Sửa khoản chi" : "Thêm khoản chi"}>
         <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="amount" label="Số tiền">
-              <input className={inputClass()} id="amount" min="1000" onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Ví dụ: 250000" required type="number" value={form.amount} />
-            </Field>
-            {amountInWords ? <p className="text-xs font-semibold text-emerald-700 sm:col-span-2">{amountInWords}</p> : null}
-          </div>
+          <fieldset className="grid gap-4 disabled:opacity-70" disabled={isSaving}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="amount" label="Số tiền">
+                <input className={inputClass()} id="amount" min="1000" onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Ví dụ: 250000" required type="number" value={form.amount} />
+              </Field>
+              {amountInWords ? <p className="text-xs font-semibold text-emerald-700 sm:col-span-2">{amountInWords}</p> : null}
+            </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2 text-sm font-medium text-slate-700">
-              <span>Danh mục</span>
-              <div className={canManageCategories ? "grid grid-cols-[1fr_auto] gap-2" : undefined}>
-                <select className={inputClass()} id="category" onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Category }))} value={form.category}>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.label}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2 text-sm font-medium text-slate-700">
+                <span>Danh mục</span>
+                <div className={canManageCategories ? "grid grid-cols-[1fr_auto] gap-2" : undefined}>
+                  <select className={inputClass()} id="category" onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Category }))} value={form.category}>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                  {canManageCategories ? (
+                    <IconButton label="Sửa danh mục" onClick={openCategoryDialog}>
+                      <Icon className="h-4 w-4" name="edit" />
+                    </IconButton>
+                  ) : null}
+                </div>
+              </div>
+              <Field id="member" label="Người chi">
+                <select className={inputClass()} id="member" onChange={(event) => setForm((current) => ({ ...current, member: event.target.value as FamilyMember }))} value={form.member}>
+                  {familyMembers.map((member) => (
+                    <option key={member} value={member}>
+                      {memberMeta[member].role}
                     </option>
                   ))}
                 </select>
-                {canManageCategories ? (
-                  <IconButton label="Sửa danh mục" onClick={openCategoryDialog}>
-                    <Icon className="h-4 w-4" name="edit" />
-                  </IconButton>
-                ) : null}
-              </div>
+              </Field>
             </div>
-            <Field id="member" label="Người chi">
-              <select className={inputClass()} id="member" onChange={(event) => setForm((current) => ({ ...current, member: event.target.value as FamilyMember }))} value={form.member}>
-                {familyMembers.map((member) => (
-                  <option key={member} value={member}>
-                    {memberMeta[member].role}
-                  </option>
-                ))}
-              </select>
+
+            <Field id="date" label="Ngày phát sinh">
+              <input
+                className={inputClass()}
+                id="date"
+                onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+                required
+                type="datetime-local"
+                value={form.date}
+              />
             </Field>
-          </div>
 
-          <Field id="date" label="Ngày phát sinh">
-            <input className={inputClass()} id="date" onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required type="date" value={form.date} />
-          </Field>
-
-          <Field id="note" label="Ghi chú">
-            <input className={inputClass()} id="note" onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} placeholder="Ví dụ: Siêu thị, tiền điện, lương..." type="text" value={form.note} />
-          </Field>
+            <Field id="note" label="Ghi chú">
+              <input className={inputClass()} id="note" onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} placeholder="Ví dụ: Siêu thị, tiền điện, lương..." type="text" value={form.note} />
+            </Field>
+          </fieldset>
 
           <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button className="w-full sm:w-fit" disabled={isSaving} onClick={closeFormDialog} variant="secondary">

@@ -82,7 +82,7 @@ model Expense {
   category  String
   member    FamilyMember
   note      String
-  date      DateTime     @db.Date
+  date      DateTime
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 

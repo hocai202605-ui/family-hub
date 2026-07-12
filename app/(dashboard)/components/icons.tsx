@@ -3,6 +3,7 @@ export type IconName =
   | "barChart"
   | "briefcase"
   | "calendar"
+  | "check"
   | "chevronRight"
   | "edit"
   | "gift"
@@ -62,6 +63,14 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     return (
       <svg {...common}>
         <path d="M7 3v4M17 3v4M4 9h16M6 5h12a2 2 0 0 1 2 2v12H4V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === "check") {
+    return (
+      <svg {...common}>
+        <path d="M20 6 9 17l-5-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
       </svg>
     );
   }

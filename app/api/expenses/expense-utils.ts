@@ -1,19 +1,43 @@
 import { z } from "zod";
 
+/** `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm` / `YYYY-MM-DDTHH:mm:ss` (wall-clock, stored as UTC components). */
+export const expenseDateTimeRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/;
+
 export const expenseSchema = z.object({
   amount: z.number().int().positive(),
   category: z.string().trim().min(1),
   member: z.enum(["CK", "VK", "CON"]),
   note: z.string().trim().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: z.string().regex(expenseDateTimeRegex),
 });
 
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
 export function dateFromInput(date: string) {
-  return new Date(`${date}T00:00:00.000Z`);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return new Date(`${date}T00:00:00.000Z`);
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(date)) {
+    return new Date(`${date}:00.000Z`);
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(date)) {
+    return new Date(`${date}.000Z`);
+  }
+
+  return new Date(`${date.slice(0, 10)}T00:00:00.000Z`);
+}
+
+/** `YYYY-MM-DDTHH:mm` from stored UTC wall-clock components (for datetime-local). */
+export function formatExpenseDateTime(date: Date) {
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}T${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}`;
 }
 
 export function formatExpenseDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return formatExpenseDateTime(date).slice(0, 10);
 }
 
 export function toExpenseResponse(expense: {
@@ -31,7 +55,7 @@ export function toExpenseResponse(expense: {
     category: expense.category,
     member: expense.member,
     note: expense.note,
-    date: formatExpenseDate(expense.date),
+    date: formatExpenseDateTime(expense.date),
   };
 }
 
@@ -58,7 +82,7 @@ export function yearRange(year: string) {
   }
 
   const yearNumber = Number(year);
-  
+
   const start = new Date(Date.UTC(yearNumber, 0, 1));
   const end = new Date(Date.UTC(yearNumber + 1, 0, 1));
 

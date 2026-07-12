@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LoginPage({ searchParams }: { searchParams?: { next?: string } }) {
   const nextParam = searchParams?.next;
-  const nextPath = nextParam && nextParam.startsWith("/") ? nextParam : "/";
+  const nextPath = nextParam && nextParam.startsWith("/") ? nextParam : "/expenses";
 
   const users = await prisma.user.findMany({
     where: { isActive: true },

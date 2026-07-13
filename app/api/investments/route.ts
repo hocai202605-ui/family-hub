@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { dateFromInput, toInvestmentResponse, investmentSchema } from "./investment-utils";
 import { requireApiAccess } from "@/lib/auth";
@@ -28,10 +29,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid investment payload." }, { status: 400 });
   }
 
+  const username = auditUsername(auth.user);
   const investment = await prisma.investment.create({
     data: {
       ...parsed.data,
       date: dateFromInput(parsed.data.date),
+      createdBy: username,
+      updatedBy: username,
     },
   });
 

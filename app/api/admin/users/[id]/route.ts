@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auditUsername } from "@/lib/audit";
 import { requireAdminApiAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -55,7 +56,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   try {
     const user = await prisma.user.update({
       where: { id },
-      data: parsed.data,
+      data: {
+        ...parsed.data,
+        updatedBy: auditUsername(auth.user),
+      },
       include: { menuPermissions: true },
     });
 

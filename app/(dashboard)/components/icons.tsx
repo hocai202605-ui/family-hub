@@ -1,6 +1,7 @@
 export type IconName =
   | "banknote"
   | "barChart"
+  | "bell"
   | "briefcase"
   | "calendar"
   | "check"
@@ -55,6 +56,20 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
       <svg {...common}>
         <rect width="20" height="14" x="2" y="7" rx="2" ry="2" stroke="currentColor" strokeWidth="2" />
         <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === "bell") {
+    return (
+      <svg {...common}>
+        <path
+          d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9ZM10.3 21a1.94 1.94 0 0 0 3.4 0"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+        />
       </svg>
     );
   }

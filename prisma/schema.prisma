@@ -35,6 +35,7 @@ enum Role {
   USER
 }
 
+/// `createdBy` / `updatedBy` on domain tables store **User.name** (username text), not FK relations.
 model User {
   id              Int              @id @default(autoincrement())
   email           String           @unique
@@ -43,6 +44,8 @@ model User {
   role            Role             @default(USER)
   isActive        Boolean          @default(true)
   lastLoginAt     DateTime?
+  createdBy       String?
+  updatedBy       String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   menuPermissions MenuPermission[]
@@ -54,7 +57,10 @@ model MenuPermission {
   id        Int      @id @default(autoincrement())
   userId    Int
   menuKey   String
+  createdBy String?
+  updatedBy String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, menuKey])
@@ -69,6 +75,8 @@ model Category {
   badge     String       @default("bg-slate-100 text-slate-700 ring-slate-200")
   chart     String       @default("#64748b")
   type      CategoryType @default(EXPENSE)
+  createdBy String?
+  updatedBy String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -83,6 +91,8 @@ model Expense {
   member    FamilyMember
   note      String
   date      DateTime
+  createdBy String?
+  updatedBy String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -98,6 +108,8 @@ model Income {
   member    FamilyMember
   note      String
   date      DateTime     @db.Date
+  createdBy String?
+  updatedBy String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -118,8 +130,116 @@ model Investment {
   member        FamilyMember
   note          String?
   date          DateTime     @db.Date
+  createdBy     String?
+  updatedBy     String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   @@map("investments")
+}
+
+// --- Personal growth / daily calendar (menuKey: calendar) ---
+
+/// Habit definition for a member within a calendar month (YYYY-MM).
+model GrowthHabit {
+  id        String             @id @default(cuid())
+  member    FamilyMember
+  month     String
+  name      String
+  color     String             @default("amber")
+  sortOrder Int                @default(0)
+  createdBy String
+  updatedBy String
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  checks    GrowthHabitCheck[]
+
+  @@index([member, month])
+  @@map("growth_habits")
+}
+
+/// Per-day completion for a habit within a Mon–Sun week (dayIndex 0–6).
+model GrowthHabitCheck {
+  id        String      @id @default(cuid())
+  habitId   String
+  weekStart DateTime    @db.Date
+  dayIndex  Int
+  completed Boolean     @default(false)
+  createdBy String
+  updatedBy String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  habit     GrowthHabit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, weekStart, dayIndex])
+  @@index([weekStart])
+  @@map("growth_habit_checks")
+}
+
+/// Weekly or monthly plan checklist item.
+model GrowthPlanItem {
+  id          String       @id @default(cuid())
+  member      FamilyMember
+  scope       String
+  month       String
+  weekStart   DateTime?    @db.Date
+  text        String
+  isCompleted Boolean      @default(false)
+  sortOrder   Int          @default(0)
+  createdBy   String
+  updatedBy   String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([member, month])
+  @@index([member, weekStart])
+  @@map("growth_plan_items")
+}
+
+/// One daily log row (top 5 + reflection); tick-notes are children.
+model GrowthDailyLog {
+  id         String           @id @default(cuid())
+  member     FamilyMember
+  date       DateTime         @db.Date
+  reflection String           @default("")
+  top5Tasks  Json
+  createdBy  String
+  updatedBy  String
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  tickNotes  GrowthTickNote[]
+
+  @@unique([member, date])
+  @@index([date])
+  @@map("growth_daily_logs")
+}
+
+model GrowthTickNote {
+  id          String         @id @default(cuid())
+  dailyLogId  String
+  text        String
+  isCompleted Boolean        @default(false)
+  sortOrder   Int            @default(0)
+  createdBy   String
+  updatedBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  dailyLog    GrowthDailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+
+  @@index([dailyLogId])
+  @@map("growth_tick_notes")
+}
+
+model GrowthCalendarEvent {
+  id        String       @id @default(cuid())
+  member    FamilyMember
+  date      DateTime     @db.Date
+  text      String
+  createdBy String
+  updatedBy String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([member, date])
+  @@map("growth_calendar_events")
 }

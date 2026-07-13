@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { dateFromInput, toInvestmentResponse, investmentSchema } from "../investment-utils";
 import { requireApiAccess } from "@/lib/auth";
@@ -27,7 +28,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   try {
-    const dataToUpdate: any = { ...parsed.data };
+    const dataToUpdate: any = { ...parsed.data, updatedBy: auditUsername(auth.user) };
     if (parsed.data.date) {
       dataToUpdate.date = dateFromInput(parsed.data.date);
     }

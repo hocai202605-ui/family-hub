@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { requireAdminApiAccess } from "@/lib/auth";
 
@@ -32,6 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       where: { id: params.id },
       data: {
         label: parsed.data.label,
+        updatedBy: auditUsername(auth.user),
       },
     });
 

@@ -1,0 +1,623 @@
+{
+  "activeMember": "CK",
+  "byMember": {
+    "CK": {
+      "months": {
+        "2026-07": {
+          "monthlyPlan": [
+            {
+              "id": "mp1",
+              "text": "Đạt mục tiêu tiết kiệm 5 triệu",
+              "isCompleted": false
+            },
+            {
+              "id": "mp2",
+              "text": "Khám sức khỏe định kỳ cả nhà",
+              "isCompleted": false
+            },
+            {
+              "id": "mp3",
+              "text": "Hoàn thành khóa học online",
+              "isCompleted": true
+            },
+            {
+              "id": "mp4",
+              "text": "Dọn dẹp / sắp xếp lại nhà cửa",
+              "isCompleted": false
+            }
+          ],
+          "weeks": {
+            "2026-07-06": {
+              "weekStart": "2026-07-06",
+              "weeklyPlan": [
+                {
+                  "id": "w0-1",
+                  "text": "Chuẩn bị lịch tháng 7",
+                  "isCompleted": true
+                },
+                {
+                  "id": "w0-2",
+                  "text": "Mua sắm đầu tháng",
+                  "isCompleted": false
+                }
+              ],
+              "weeklyLog": [],
+              "habitChecks": {
+                "h1": [
+                  true,
+                  true,
+                  true,
+                  false,
+                  true,
+                  false,
+                  false
+                ],
+                "h2": [
+                  false,
+                  true,
+                  false,
+                  true,
+                  false,
+                  true,
+                  false
+                ],
+                "h3": [
+                  true,
+                  true,
+                  false,
+                  true,
+                  true,
+                  false,
+                  false
+                ],
+                "h4": [
+                  true,
+                  true,
+                  true,
+                  true,
+                  true,
+                  false,
+                  false
+                ]
+              }
+            },
+            "2026-07-13": {
+              "weekStart": "2026-07-13",
+              "weeklyPlan": [
+                {
+                  "id": "wp1",
+                  "text": "Hoàn thành báo cáo tài chính tháng",
+                  "isCompleted": false
+                },
+                {
+                  "id": "wp2",
+                  "text": "Đưa con đi khám định kỳ",
+                  "isCompleted": false
+                },
+                {
+                  "id": "wp3",
+                  "text": "Tập gym ít nhất 3 buổi",
+                  "isCompleted": true
+                },
+                {
+                  "id": "wp4",
+                  "text": "Gọi điện về quê",
+                  "isCompleted": false
+                },
+                {
+                  "id": "wp5",
+                  "text": "Dọn kho đồ gia đình",
+                  "isCompleted": false
+                }
+              ],
+              "weeklyLog": [
+                {
+                  "date": "2026-07-13",
+                  "dayLabel": "Thứ 2",
+                  "top5Tasks": [
+                    {
+                      "id": "t1-1",
+                      "text": "Hoàn thành báo cáo tháng",
+                      "isCompleted": true
+                    },
+                    {
+                      "id": "t1-2",
+                      "text": "Gọi điện cho bố mẹ",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t1-3",
+                      "text": "Ôn bài với con 30 phút",
+                      "isCompleted": true
+                    },
+                    {
+                      "id": "t1-4",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t1-5",
+                      "text": "",
+                      "isCompleted": false
+                    }
+                  ],
+                  "tickNotes": [
+                    {
+                      "id": "n1-1",
+                      "text": "Mua bỉm cho con",
+                      "isCompleted": true
+                    },
+                    {
+                      "id": "n1-2",
+                      "text": "Gọi điện cho nội",
+                      "isCompleted": false
+                    }
+                  ],
+                  "reflection": "Hôm nay làm việc khá tập trung. Biết ơn đã có thời gian đọc sách tối."
+                },
+                {
+                  "date": "2026-07-14",
+                  "dayLabel": "Thứ 3",
+                  "top5Tasks": [
+                    {
+                      "id": "t2-1",
+                      "text": "Review code PR quan trọng",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t2-2",
+                      "text": "Đặt lịch khám định kỳ",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t2-3",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t2-4",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t2-5",
+                      "text": "",
+                      "isCompleted": false
+                    }
+                  ],
+                  "tickNotes": [
+                    {
+                      "id": "n2-1",
+                      "text": "Sửa bóng đèn phòng khách",
+                      "isCompleted": false
+                    }
+                  ],
+                  "reflection": ""
+                },
+                {
+                  "date": "2026-07-15",
+                  "dayLabel": "Thứ 4",
+                  "top5Tasks": [
+                    {
+                      "id": "t3-1",
+                      "text": "Chuẩn bị slide họp team",
+                      "isCompleted": true
+                    },
+                    {
+                      "id": "t3-2",
+                      "text": "Tập gym 45 phút",
+                      "isCompleted": true
+                    },
+                    {
+                      "id": "t3-3",
+                      "text": "Viết nhật ký 5 dòng",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t3-4",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t3-5",
+                      "text": "",
+                      "isCompleted": false
+                    }
+                  ],
+                  "tickNotes": [],
+                  "reflection": "Buổi sáng tỉnh táo nhờ dậy sớm. Chiều hơi mệt nhưng vẫn giữ được thói quen tập."
+                },
+                {
+                  "date": "2026-07-16",
+                  "dayLabel": "Thứ 5",
+                  "top5Tasks": [
+                    {
+                      "id": "t4-1",
+                      "text": "Gửi hóa đơn điện nước",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t4-2",
+                      "text": "Họp 1:1 với đồng nghiệp",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t4-3",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t4-4",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t4-5",
+                      "text": "",
+                      "isCompleted": false
+                    }
+                  ],
+                  "tickNotes": [
+                    {
+                      "id": "n4-1",
+                      "text": "Mua quà sinh nhật bạn",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "n4-2",
+                      "text": "Sạc phụ kiện pin dự phòng",
+                      "isCompleted": true
+                    }
+                  ],
+                  "reflection": ""
+                },
+                {
+                  "date": "2026-07-17",
+                  "dayLabel": "Thứ 6",
+                  "top5Tasks": [
+                    {
+                      "id": "t5-1",
+                      "text": "Đóng sprint và note lesson learned",
+                      "isCompleted": true
+                    },
+                    {
+                      "id": "t5-2",
+                      "text": "Dọn bàn làm việc",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t5-3",
+                      "text": "Xem phim cùng gia đình",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t5-4",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t5-5",
+                      "text": "",
+                      "isCompleted": false
+                    }
+                  ],
+                  "tickNotes": [
+                    {
+                      "id": "n5-1",
+                      "text": "Đặt pizza tối thứ 6",
+                      "isCompleted": false
+                    }
+                  ],
+                  "reflection": ""
+                },
+                {
+                  "date": "2026-07-18",
+                  "dayLabel": "Thứ 7",
+                  "top5Tasks": [
+                    {
+                      "id": "t6-1",
+                      "text": "Đưa con ra công viên",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t6-2",
+                      "text": "Nấu bữa trưa gia đình",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t6-3",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t6-4",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t6-5",
+                      "text": "",
+                      "isCompleted": false
+                    }
+                  ],
+                  "tickNotes": [],
+                  "reflection": ""
+                },
+                {
+                  "date": "2026-07-19",
+                  "dayLabel": "Chủ nhật",
+                  "top5Tasks": [
+                    {
+                      "id": "t7-1",
+                      "text": "Lên kế hoạch tuần sau",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t7-2",
+                      "text": "Giặt đồ và dọn nhà",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t7-3",
+                      "text": "Đọc 20 trang sách",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t7-4",
+                      "text": "",
+                      "isCompleted": false
+                    },
+                    {
+                      "id": "t7-5",
+                      "text": "",
+                      "isCompleted": false
+                    }
+                  ],
+                  "tickNotes": [
+                    {
+                      "id": "n7-1",
+                      "text": "Sạc máy ảnh",
+                      "isCompleted": false
+                    }
+                  ],
+                  "reflection": ""
+                }
+              ],
+              "habitChecks": {
+                "h1": [
+                  true,
+                  true,
+                  false,
+                  true,
+                  false,
+                  true,
+                  false
+                ],
+                "h2": [
+                  true,
+                  false,
+                  true,
+                  true,
+                  true,
+                  false,
+                  false
+                ],
+                "h3": [
+                  true,
+                  true,
+                  true,
+                  false,
+                  true,
+                  false,
+                  false
+                ],
+                "h4": [
+                  true,
+                  true,
+                  true,
+                  true,
+                  false,
+                  false,
+                  false
+                ]
+              }
+            },
+            "2026-07-20": {
+              "weekStart": "2026-07-20",
+              "weeklyPlan": [
+                {
+                  "id": "w3-1",
+                  "text": "Review ngân sách giữa tháng",
+                  "isCompleted": false
+                }
+              ],
+              "weeklyLog": [],
+              "habitChecks": {
+                "h1": [
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false
+                ],
+                "h2": [
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false
+                ],
+                "h3": [
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false
+                ],
+                "h4": [
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false,
+                  false
+                ]
+              }
+            }
+          },
+          "habits": [
+            {
+              "id": "h1",
+              "name": "Đọc sách",
+              "color": "amber"
+            },
+            {
+              "id": "h2",
+              "name": "Tập thể dục",
+              "color": "emerald"
+            },
+            {
+              "id": "h3",
+              "name": "Dậy sớm",
+              "color": "sky"
+            },
+            {
+              "id": "h4",
+              "name": "Uống đủ nước",
+              "color": "violet"
+            }
+          ]
+        },
+        "2026-06": {
+          "monthlyPlan": [
+            {
+              "id": "mp-jun-1",
+              "text": "Chốt sổ chi tiêu tháng 6",
+              "isCompleted": true
+            },
+            {
+              "id": "mp-jun-2",
+              "text": "Du lịch cuối tuần",
+              "isCompleted": true
+            }
+          ],
+          "weeks": {
+            "2026-06-29": {
+              "weekStart": "2026-06-29",
+              "weeklyPlan": [
+                {
+                  "id": "wj-1",
+                  "text": "Tổng kết tháng 6",
+                  "isCompleted": true
+                }
+              ],
+              "weeklyLog": [],
+              "habitChecks": {
+                "h1": [
+                  true,
+                  true,
+                  true,
+                  true,
+                  false,
+                  true,
+                  false
+                ],
+                "h2": [
+                  true,
+                  false,
+                  true,
+                  false,
+                  true,
+                  false,
+                  false
+                ],
+                "h3": [
+                  true,
+                  true,
+                  true,
+                  true,
+                  true,
+                  false,
+                  false
+                ],
+                "h4": [
+                  true,
+                  true,
+                  false,
+                  true,
+                  true,
+                  true,
+                  false
+                ]
+              }
+            }
+          },
+          "habits": [
+            {
+              "id": "h1",
+              "name": "Đọc sách",
+              "color": "amber"
+            },
+            {
+              "id": "h2",
+              "name": "Tập thể dục",
+              "color": "emerald"
+            },
+            {
+              "id": "h3",
+              "name": "Dậy sớm",
+              "color": "sky"
+            },
+            {
+              "id": "h4",
+              "name": "Uống đủ nước",
+              "color": "violet"
+            }
+          ]
+        }
+      },
+      "events": [
+        {
+          "id": "e1",
+          "date": "2026-07-15",
+          "text": "Về quê thăm nội"
+        },
+        {
+          "id": "e2",
+          "date": "2026-07-18",
+          "text": "Đám cưới bạn học"
+        },
+        {
+          "id": "e3",
+          "date": "2026-07-22",
+          "text": "Sinh nhật con"
+        },
+        {
+          "id": "e4",
+          "date": "2026-07-28",
+          "text": "Họp phụ huynh"
+        },
+        {
+          "id": "e5",
+          "date": "2026-08-02",
+          "text": "Du lịch cuối tuần"
+        }
+      ]
+    },
+    "VK": {
+      "months": {},
+      "events": []
+    },
+    "CON": {
+      "months": {},
+      "events": []
+    }
+  }
+}

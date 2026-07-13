@@ -61,7 +61,7 @@ Defined in `lib/menu.ts` as `MenuKey`:
 | `income.monthly` | `/income` |
 | `income.yearly` | `/income/yearly` |
 | `investments` | `/investments` |
-| `calendar` | `/calendar` |
+| `calendar` | `/calendar` (thói quen + nhật ký ngày; mock) |
 | `goals` | `/goals` |
 | `health` | `/health` |
 | `parenting` | `/parenting` |

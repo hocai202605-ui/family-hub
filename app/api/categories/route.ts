@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { requireAdminApiAccess, requireAnyApiAccess, requireApiAccess } from "@/lib/auth";
 
@@ -61,11 +62,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const username = auditUsername(auth.user);
     const category = await prisma.category.create({
       data: {
         id,
         label: parsed.data.label,
         type: parsed.data.type,
+        createdBy: username,
+        updatedBy: username,
       },
     });
 

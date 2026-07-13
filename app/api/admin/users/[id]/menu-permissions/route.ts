@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auditUsername } from "@/lib/audit";
 import { requireAdminApiAccess } from "@/lib/auth";
 import { allMenuKeys, type MenuKey } from "@/lib/menu";
 import { prisma } from "@/lib/prisma";
@@ -40,10 +41,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ permissions: [] });
   }
 
+  const username = auditUsername(auth.user);
   await prisma.$transaction([
     prisma.menuPermission.deleteMany({ where: { userId: id } }),
     prisma.menuPermission.createMany({
-      data: parsed.data.permissions.map((menuKey) => ({ userId: id, menuKey })),
+      data: parsed.data.permissions.map((menuKey) => ({
+        userId: id,
+        menuKey,
+        createdBy: username,
+        updatedBy: username,
+      })),
       skipDuplicates: true,
     }),
   ]);

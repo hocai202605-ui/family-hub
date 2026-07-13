@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auditUsername } from "@/lib/audit";
 import { hashPassword, requireAdminApiAccess } from "@/lib/auth";
 import { allMenuKeys, type MenuKey } from "@/lib/menu";
 import { prisma } from "@/lib/prisma";
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
   const email = parsed.data.email.toLowerCase();
 
   try {
+    const username = auditUsername(auth.user);
     const user = await prisma.user.create({
       data: {
         email,
@@ -71,10 +73,16 @@ export async function POST(request: NextRequest) {
         passwordHash: hashPassword(parsed.data.password),
         role: parsed.data.role,
         isActive: parsed.data.isActive,
+        createdBy: username,
+        updatedBy: username,
         menuPermissions:
           parsed.data.role === "USER"
             ? {
-                create: parsed.data.permissions.map((menuKey) => ({ menuKey })),
+                create: parsed.data.permissions.map((menuKey) => ({
+                  menuKey,
+                  createdBy: username,
+                  updatedBy: username,
+                })),
               }
             : undefined,
       },

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Family Hub is a single-household web app for finance (expenses, income, investments) and placeholder lifestyle modules (calendar, goals, health, parenting), with role-based menu access for family members.
+Family Hub is a single-household web app for finance (expenses, income, investments) and lifestyle modules (calendar / daily habits, goals, health, parenting), with role-based menu access for family members.
 
 ## High-level layout
 
@@ -30,7 +30,8 @@ Browser
 | `app/(dashboard)/income/` | Monthly income + `yearly/` |
 | `app/(dashboard)/investments/` | Investments UI |
 | `app/(dashboard)/admin/users/` | User management (admin) |
-| `app/(dashboard)/calendar|goals|health|parenting/` | Coming-soon placeholders |
+| `app/(dashboard)/calendar/` | Daily habits + weekly log (mock data via `PersonalGrowthDashboard`) |
+| `app/(dashboard)/goals|health|parenting/` | Coming-soon placeholders |
 | `app/(dashboard)/components/` | Large client dashboards + shell + icons |
 | `app/api/auth/` | `login`, `logout`, `me` |
 | `app/api/expenses|incomes|investments|categories/` | CRUD + list filters |
@@ -70,7 +71,8 @@ Browser
 | Income monthly/yearly UI + API | Done |
 | Investments + gold price proxy | Done |
 | Overview as true family summary | Partial (reuses expenses UI) |
-| Calendar / goals / health / parenting | Scaffold only (`ComingSoonModule`) |
+| Calendar (habits + daily log) | UI mock on `/calendar` (`data/mockGrowth.json`), no API yet |
+| Goals / health / parenting | Scaffold only (`ComingSoonModule`) |
 
 ## Design notes for agents
 

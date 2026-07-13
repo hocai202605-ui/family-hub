@@ -1,15 +1,13 @@
-import { ComingSoonModule } from "../components/coming-soon-module";
+import { PersonalGrowthDashboard } from "../components/personal-growth-dashboard";
 import { requirePageAccess } from "@/lib/auth";
+import { defaultMemberForAccount } from "@/lib/default-member";
 
 export default async function CalendarPage() {
-  await requirePageAccess("calendar");
-  return (
-    <ComingSoonModule
-      description="Lập lịch việc nhà, lịch học, lịch khám, sinh nhật và những việc cần nhớ mỗi ngày."
-      eyebrow="Daily Calendar"
-      icon="calendar"
-      ideas={["Lịch ngày/tuần/tháng", "Nhắc việc gia đình", "Phân công người phụ trách", "Liên kết chi phí với sự kiện"]}
-      title="Quản lý lịch hằng ngày"
-    />
+  const user = await requirePageAccess("calendar");
+  const defaultMember = defaultMemberForAccount(
+    { email: user.email, role: user.role },
+    "CK",
   );
+
+  return <PersonalGrowthDashboard defaultMember={defaultMember} />;
 }

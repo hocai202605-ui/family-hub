@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { dateFromInput, monthRange, toIncomeResponse, incomeSchema, yearRange } from "./income-utils";
 import { requireApiAccess } from "@/lib/auth";
@@ -56,10 +57,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Income category not found." }, { status: 400 });
   }
 
+  const username = auditUsername(auth.user);
   const income = await prisma.income.create({
     data: {
       ...parsed.data,
       date: dateFromInput(parsed.data.date),
+      createdBy: username,
+      updatedBy: username,
     },
   });
 

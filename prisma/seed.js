@@ -125,6 +125,8 @@ async function main() {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
   const adminName = process.env.ADMIN_NAME || "Family Hub Admin";
+  /** Username stored in createdBy/updatedBy audit fields (User.name text, not FK). */
+  const actor = adminName;
 
   if (adminEmail && adminPassword) {
     const normalizedEmail = adminEmail.trim().toLowerCase();
@@ -137,11 +139,14 @@ async function main() {
         passwordHash: hashPassword(adminPassword),
         role: "ADMIN",
         isActive: true,
+        createdBy: actor,
+        updatedBy: actor,
       },
       update: {
         name: adminName,
         role: "ADMIN",
         isActive: true,
+        updatedBy: actor,
       },
     });
 
@@ -153,8 +158,8 @@ async function main() {
   for (const category of categories) {
     await prisma.category.upsert({
       where: { id: category.id },
-      create: category,
-      update: category,
+      create: { ...category, createdBy: actor, updatedBy: actor },
+      update: { ...category, updatedBy: actor },
     });
   }
 
@@ -166,6 +171,8 @@ async function main() {
       data: expenses.map((item) => ({
         ...item,
         date: new Date(`${item.date}T00:00:00.000Z`),
+        createdBy: actor,
+        updatedBy: actor,
       })),
     });
     console.log(`Seeded ${expenses.length} expenses.`);
@@ -178,6 +185,8 @@ async function main() {
       data: incomes.map((item) => ({
         ...item,
         date: new Date(`${item.date}T00:00:00.000Z`),
+        createdBy: actor,
+        updatedBy: actor,
       })),
     });
     console.log(`Seeded ${incomes.length} incomes.`);

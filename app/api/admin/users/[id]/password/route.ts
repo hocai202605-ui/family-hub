@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auditUsername } from "@/lib/audit";
 import { hashPassword, requireAdminApiAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -31,7 +32,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   try {
     await prisma.user.update({
       where: { id },
-      data: { passwordHash: hashPassword(parsed.data.password) },
+      data: {
+        passwordHash: hashPassword(parsed.data.password),
+        updatedBy: auditUsername(auth.user),
+      },
     });
 
     return NextResponse.json({ ok: true });

@@ -167,6 +167,22 @@ function currency(value: number) {
   }).format(value);
 }
 
+/** Digits-only string → "25.000" (vi-VN thousand separators). */
+function formatAmountInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+
+  if (!digits) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("vi-VN").format(Number(digits));
+}
+
+/** Strip thousand separators / non-digits from a typed amount. */
+function parseAmountInput(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 function readThreeDigits(value: number, hasHigherGroup: boolean) {
   const digits = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"];
   const hundred = Math.floor(value / 100);
@@ -412,30 +428,55 @@ function Dialog({
   description,
   children,
   onClose,
+  icon,
+  tone = "neutral",
 }: {
   open: boolean;
   title: string;
   description?: string;
   children: ReactNode;
   onClose: () => void;
+  icon?: IconName;
+  tone?: "neutral" | "create" | "edit";
 }) {
   if (!open) {
     return null;
   }
 
+  const headerTone =
+    tone === "create"
+      ? "rounded-t-lg border-b border-rose-100/80 bg-gradient-to-r from-rose-50/90 via-white to-amber-50/70"
+      : tone === "edit"
+        ? "rounded-t-lg border-b border-amber-100/80 bg-gradient-to-r from-amber-50/90 via-white to-rose-50/50"
+        : "";
+
+  const iconTone =
+    tone === "create"
+      ? "bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-100"
+      : tone === "edit"
+        ? "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-100"
+        : "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200";
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4 py-6" role="presentation">
-      <div aria-modal="true" className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-xl" role="dialog">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
-            {description ? <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p> : null}
+      <div aria-modal="true" className="w-full max-w-lg overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl" role="dialog">
+        <div className={cn("flex items-start justify-between gap-4 p-5", headerTone)}>
+          <div className="flex min-w-0 items-start gap-3">
+            {icon ? (
+              <span className={cn("mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg", iconTone)}>
+                <Icon className="h-5 w-5" name={icon} />
+              </span>
+            ) : null}
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
+              {description ? <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p> : null}
+            </div>
           </div>
           <IconButton label="Đóng" onClick={onClose}>
             <Icon className="h-4 w-4" name="x" />
           </IconButton>
         </div>
-        {children}
+        <div className="p-5 pt-4">{children}</div>
       </div>
     </div>
   );
@@ -455,8 +496,8 @@ function ExpenseDonut({
   let offset = 0;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[220px_1fr] lg:items-center">
-      <div className="relative mx-auto h-56 w-56">
+    <div className="grid gap-4">
+      <div className="relative mx-auto h-44 w-44 sm:h-48 sm:w-48">
         <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
           <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
           {data.map((item) => {
@@ -483,28 +524,28 @@ function ExpenseDonut({
         <div className="absolute inset-0 grid place-items-center text-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tổng chi</p>
-            <p className="mt-1 text-lg font-bold text-slate-950">{currency(total)}</p>
+            <p className="mt-1 text-base font-bold text-slate-950 sm:text-lg">{currency(total)}</p>
           </div>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
         {data.map((item) => {
           const percent = total ? Math.round((item.amount / total) * 100) : 0;
           const meta = categoryMeta[item.category] ?? { id: item.category, label: item.category, ...fallbackCategoryMeta };
           return (
             <div key={item.category}>
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex min-w-0 items-center gap-2 font-medium text-slate-800">
-                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: meta.chart }} />
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <div className="flex min-w-0 items-center gap-1.5 font-medium text-slate-800">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: meta.chart }} />
                   <span className="truncate">{meta.label}</span>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="font-semibold text-slate-800">{currency(item.amount)}</p>
-                  <p className="text-xs text-slate-500">{percent}%</p>
+                  <p className="text-xs font-semibold text-slate-800 sm:text-sm">{currency(item.amount)}</p>
+                  <p className="text-[11px] text-slate-500">{percent}%</p>
                 </div>
               </div>
-              <Progress className="mt-2 h-2" value={percent} />
+              <Progress className="mt-1.5 h-1.5" value={percent} />
             </div>
           );
         })}
@@ -909,8 +950,8 @@ export function ExpenseDashboard({
 
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
-        <Card className="overflow-hidden">
+      <div className="grid gap-6 xl:grid-cols-[2fr_1fr] xl:items-start">
+        <Card className="min-w-0 overflow-hidden">
           <div className="flex flex-col gap-4 border-b border-slate-100 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-bold text-slate-950">Giao dịch hằng ngày</h2>
@@ -966,9 +1007,9 @@ export function ExpenseDashboard({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="max-h-[28rem] overflow-auto">
             <table className="w-full min-w-[940px] border-collapse text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 shadow-sm">
                 <tr>
                   <th className="px-5 py-4 font-semibold">Ngày</th>
                   <th className="px-5 py-4 font-semibold">Danh mục</th>
@@ -1048,33 +1089,105 @@ export function ExpenseDashboard({
           </div>
         </Card>
 
-        <Card className="p-5">
-          <div className="mb-5 flex items-start justify-between gap-4">
+        <Card className="p-5 xl:sticky xl:top-4">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold text-slate-950">Biểu đồ trực quan</h2>
-              <p className="mt-1 text-sm text-slate-500">Tỷ trọng chi tiêu theo danh mục.</p>
+              <p className="mt-1 text-sm text-slate-500">Tỷ trọng theo danh mục.</p>
             </div>
-            <Badge className="bg-slate-100 text-slate-700 ring-slate-200">{monthLabel(selectedMonth)}</Badge>
+            <Badge className="shrink-0 bg-slate-100 text-slate-700 ring-slate-200">{monthLabel(selectedMonth)}</Badge>
           </div>
           <ExpenseDonut categoryMeta={categoryMeta} data={expenseByCategory} total={totalExpense} />
         </Card>
       </div>
 
-      <Dialog description="Nhập số tiền, danh mục, người chi và ngày phát sinh." onClose={closeFormDialog} open={isFormOpen} title={editingId ? "Sửa khoản chi" : "Thêm khoản chi"}>
-        <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
+      <Dialog
+        description="Nhập số tiền, danh mục, người chi và ngày phát sinh."
+        icon={editingId ? "edit" : "wallet"}
+        onClose={closeFormDialog}
+        open={isFormOpen}
+        title={editingId ? "Sửa khoản chi" : "Thêm khoản chi"}
+        tone={editingId ? "edit" : "create"}
+      >
+        <form className="grid gap-4" onSubmit={handleSubmit}>
           <fieldset className="grid gap-4 disabled:opacity-70" disabled={isSaving}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field id="amount" label="Số tiền">
-                <input className={inputClass()} id="amount" min="1000" onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Ví dụ: 250000" required type="number" value={form.amount} />
-              </Field>
-              {amountInWords ? <p className="text-xs font-semibold text-emerald-700 sm:col-span-2">{amountInWords}</p> : null}
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3.5 shadow-sm shadow-emerald-100/40">
+              <label className="grid gap-2 text-sm font-medium text-emerald-900" htmlFor="amount">
+                <span className="flex items-center gap-1.5">
+                  <Icon className="h-4 w-4 text-emerald-600" name="banknote" />
+                  Số tiền
+                </span>
+                <div className="relative">
+                  <input
+                    className={cn(
+                      inputClass(),
+                      "h-12 border-emerald-200 bg-white pr-10 text-lg font-bold tabular-nums text-slate-950 focus:border-emerald-500 focus:ring-emerald-100",
+                    )}
+                    id="amount"
+                    inputMode="numeric"
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        amount: parseAmountInput(event.target.value),
+                      }))
+                    }
+                    placeholder="Ví dụ: 250.000"
+                    required
+                    type="text"
+                    value={formatAmountInput(form.amount)}
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-bold text-emerald-700">đ</span>
+                </div>
+              </label>
+              {amountInWords ? <p className="mt-2 text-xs font-semibold capitalize text-emerald-700">{amountInWords}</p> : null}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <span className="text-sm font-medium text-slate-700">Người chi</span>
+              <div aria-label="Người chi" className="grid grid-cols-3 gap-2" role="radiogroup">
+                {familyMembers.map((member) => {
+                  const meta = memberMeta[member];
+                  const selected = form.member === member;
+                  const shortLabel = member === "CON" ? "Con" : meta.label;
+
+                  return (
+                    <button
+                      aria-checked={selected}
+                      className={cn(
+                        "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1",
+                        meta.badge,
+                        selected ? "ring-2 ring-slate-900/15 ring-offset-1" : "opacity-80 hover:opacity-100",
+                      )}
+                      disabled={isSaving}
+                      key={member}
+                      onClick={() => setForm((current) => ({ ...current, member }))}
+                      role="radio"
+                      type="button"
+                    >
+                      <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
+                      {shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end">
               <div className="grid gap-2 text-sm font-medium text-slate-700">
-                <span>Danh mục</span>
-                <div className={canManageCategories ? "grid grid-cols-[1fr_auto] gap-2" : undefined}>
-                  <select className={inputClass()} id="category" onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Category }))} value={form.category}>
+                <span className="flex h-5 items-center gap-2">
+                  Danh mục
+                  <Badge className={cn("normal-case", getCategoryMeta(form.category).badge)}>
+                    <Icon className="h-3 w-3" name={getCategoryMeta(form.category).icon} />
+                    {getCategoryMeta(form.category).label}
+                  </Badge>
+                </span>
+                <div className={cn("grid gap-2", canManageCategories && "grid-cols-[1fr_auto]")}>
+                  <select
+                    className={cn(inputClass(), "w-full min-w-0")}
+                    id="category"
+                    onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as Category }))}
+                    value={form.category}
+                  >
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.label}
@@ -1088,38 +1201,52 @@ export function ExpenseDashboard({
                   ) : null}
                 </div>
               </div>
-              <Field id="member" label="Người chi">
-                <select className={inputClass()} id="member" onChange={(event) => setForm((current) => ({ ...current, member: event.target.value as FamilyMember }))} value={form.member}>
-                  {familyMembers.map((member) => (
-                    <option key={member} value={member}>
-                      {memberMeta[member].role}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+
+              <div className="grid gap-2 text-sm font-medium text-slate-700">
+                <span className="flex h-5 items-center">Ngày phát sinh</span>
+                <input
+                  className={cn(inputClass(), "w-full min-w-0")}
+                  id="date"
+                  onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+                  required
+                  type="datetime-local"
+                  value={form.date}
+                />
+              </div>
             </div>
 
-            <Field id="date" label="Ngày phát sinh">
-              <input
-                className={inputClass()}
-                id="date"
-                onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
-                required
-                type="datetime-local"
-                value={form.date}
-              />
-            </Field>
-
             <Field id="note" label="Ghi chú">
-              <input className={inputClass()} id="note" onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} placeholder="Ví dụ: Siêu thị, tiền điện, lương..." type="text" value={form.note} />
+              <textarea
+                className={cn(inputClass(), "h-auto min-h-[5.5rem] resize-y py-2.5 leading-5")}
+                id="note"
+                onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
+                placeholder="Ví dụ: Siêu thị, tiền điện..."
+                rows={3}
+                value={form.note}
+              />
             </Field>
           </fieldset>
 
-          <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          {form.amount && Number(form.amount) > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tóm tắt</span>
+              <span className="text-sm font-bold text-slate-950">{currency(Number(form.amount))}</span>
+              <Badge className={memberMeta[form.member].badge}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", memberMeta[form.member].dot)} />
+                {memberMeta[form.member].role}
+              </Badge>
+              <Badge className={getCategoryMeta(form.category).badge}>
+                <Icon className="h-3.5 w-3.5" name={getCategoryMeta(form.category).icon} />
+                {getCategoryMeta(form.category).label}
+              </Badge>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button className="w-full sm:w-fit" disabled={isSaving} onClick={closeFormDialog} variant="secondary">
               Hủy
             </Button>
-            <Button className="w-full sm:w-fit" disabled={isSaving} type="submit">
+            <Button className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-fit" disabled={isSaving} type="submit">
               {isSaving ? "Đang lưu..." : editingId ? "Lưu thay đổi" : "Thêm khoản chi"}
             </Button>
           </div>
@@ -1128,7 +1255,7 @@ export function ExpenseDashboard({
 
       {canManageCategories ? (
         <Dialog description="Thêm danh mục chi tiêu mới hoặc sửa tên danh mục đang có." onClose={() => setIsCategoryDialogOpen(false)} open={isCategoryDialogOpen} title="Quản lý danh mục chi tiêu">
-          <form className="mt-5 grid gap-4" onSubmit={handleCategorySubmit}>
+          <form className="grid gap-4" onSubmit={handleCategorySubmit}>
             <Field id="category-label" label={editingCategoryId ? "Tên danh mục mới" : "Thêm danh mục"}>
               <input
                 className={inputClass()}
@@ -1180,7 +1307,7 @@ export function ExpenseDashboard({
       ) : null}
 
       <Dialog description={pendingDelete ? `Khoản chi "${pendingDelete.note}" sẽ được xóa khỏi danh sách.` : "Xác nhận xóa khoản chi."} onClose={() => setPendingDelete(null)} open={Boolean(pendingDelete)} title="Xóa khoản chi?">
-        <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button className="w-full sm:w-fit" disabled={isSaving} onClick={() => setPendingDelete(null)} variant="secondary">
             Hủy
           </Button>

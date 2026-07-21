@@ -394,6 +394,7 @@ export function YearlyIncomeDashboard() {
         </div>
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-6 font-semibold text-slate-950">Biểu đồ thu nhập 12 tháng</h2>
         <div className="flex h-64 w-full gap-2">
@@ -440,9 +441,8 @@ export function YearlyIncomeDashboard() {
         </div>
       </div>
 
-      {/* Top Incomes */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="font-semibold text-slate-950 mb-6">Top khoản thu lớn nhất</h2>
+        <h2 className="mb-6 font-semibold text-slate-950">Top khoản thu lớn nhất</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -484,6 +484,7 @@ export function YearlyIncomeDashboard() {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
 
     </div>

@@ -39,24 +39,27 @@ const defaultCategories: CategoryMeta[] = [
 
 const familyMembers: FamilyMember[] = ["CK", "VK", "CON"];
 
-const memberMeta: Record<FamilyMember, { label: string; role: string; badge: string; dot: string }> = {
+const memberMeta: Record<FamilyMember, { label: string; role: string; badge: string; dot: string; chart: string }> = {
   CK: {
     label: "CK",
     role: "Chồng",
     badge: "bg-blue-50 text-blue-700 ring-blue-100",
     dot: "bg-blue-500",
+    chart: "#3b82f6",
   },
   VK: {
     label: "VK",
     role: "Vợ",
     badge: "bg-pink-50 text-pink-700 ring-pink-100",
     dot: "bg-pink-500",
+    chart: "#ec4899",
   },
   CON: {
     label: "CON",
     role: "Con",
     badge: "bg-lime-50 text-lime-700 ring-lime-100",
     dot: "bg-lime-500",
+    chart: "#84cc16",
   },
 };
 
@@ -96,6 +99,77 @@ function Progress({ value, className }: { value: number; className?: string }) {
   return (
     <div className={cn("overflow-hidden rounded-full bg-slate-100", className)}>
       <div className="h-full bg-slate-800 transition-all duration-500 ease-in-out" style={{ width: `${value}%` }} />
+    </div>
+  );
+}
+
+function MemberIncomeDonut({
+  data,
+  total,
+}: {
+  data: Array<{ member: FamilyMember; amount: number; count: number; percent: number }>;
+  total: number;
+}) {
+  const radius = 64;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const segments = data.filter((item) => item.amount > 0);
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[220px_1fr] lg:items-center">
+      <div className="relative mx-auto h-56 w-56">
+        <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
+          <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
+          {segments.map((item) => {
+            const length = total > 0 ? (item.amount / total) * circumference : 0;
+            const meta = memberMeta[item.member];
+            const segment = (
+              <circle
+                key={item.member}
+                cx="90"
+                cy="90"
+                fill="none"
+                r={radius}
+                stroke={meta.chart}
+                strokeDasharray={`${length} ${circumference}`}
+                strokeDashoffset={-offset}
+                strokeLinecap="round"
+                strokeWidth="22"
+              />
+            );
+            offset += length;
+            return segment;
+          })}
+        </svg>
+        <div className="absolute inset-0 grid place-items-center text-center">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Theo TV</p>
+            <p className="mt-1 text-lg font-bold text-slate-950">{currency(total)}</p>
+          </div>
+        </div>
+      </div>
+      <div className="space-y-4">
+        {data.map((item) => {
+          const meta = memberMeta[item.member];
+          return (
+            <div key={item.member}>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-2 font-medium text-slate-800">
+                  <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: meta.chart }} />
+                  {meta.label} · {meta.role}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-semibold text-slate-800">{currency(item.amount)}</p>
+                  <p className="text-xs text-slate-500">
+                    {item.percent}% · {item.count} khoản
+                  </p>
+                </div>
+              </div>
+              <Progress className="mt-2 h-2" value={item.percent} />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -309,74 +383,60 @@ export function YearlyIncomeDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {incomeByMember.map((item) => {
-          const meta = memberMeta[item.member];
-          return (
-            <div
-              className={cn("rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-1 ring-inset", meta.badge)}
-              key={item.member}
-            >
-              <div className="flex items-center gap-2">
-                <span className={cn("h-2.5 w-2.5 rounded-full", meta.dot)} />
-                <p className="text-sm font-semibold">
-                  {meta.label} · {meta.role}
-                </p>
-              </div>
-              <p className="mt-3 text-2xl font-bold text-slate-950">{currency(item.amount)}</p>
-              <p className="mt-1 text-xs text-slate-600">
-                {item.count} khoản thu · {item.percent}% tổng thu
-              </p>
-            </div>
-          );
-        })}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-6 font-semibold text-slate-950">Thu nhập theo thành viên</h2>
+          <MemberIncomeDonut data={incomeByMember} total={totalIncome} />
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-6 font-semibold text-slate-950">Cơ cấu theo danh mục</h2>
+          <IncomeDonut data={categoryData} total={totalIncome} categoryMeta={categoryMeta} />
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Bar Chart */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-950 mb-6">Biểu đồ thu nhập 12 tháng</h2>
-          <div className="flex h-64 w-full gap-2">
-            {/* Y-axis markers */}
-            <div className="flex h-full w-12 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-xs font-medium text-slate-400">
-              {ticks.map((t, i) => <span key={i} className="leading-none mt-1">{compactCurrency(t)}</span>)}
-            </div>
-
-            {/* Bars Area */}
-            <div className="relative flex flex-1 items-end justify-between gap-1 pb-6">
-              {/* Background grid lines */}
-              <div className="absolute inset-0 flex flex-col justify-between pb-[1.75rem] pointer-events-none">
-                {ticks.map((t, i) => (
-                  <div key={i} className={cn("w-full border-t border-slate-200", i === ticks.length - 1 ? "mb-[1px]" : "border-dashed mt-1.5")} />
-                ))}
-              </div>
-
-              {/* Bars */}
-              {monthlyData.map((item) => {
-                const heightPercent = chartMax > 0 ? (item.amount / chartMax) * 100 : 0;
-                return (
-                  <div key={item.month} className="group relative flex h-full w-full flex-col items-center justify-end gap-2 z-10">
-                    <div 
-                      className="w-full max-w-[40px] rounded-t-md bg-emerald-500 transition-all group-hover:bg-emerald-600"
-                      style={{ height: `${Math.max(heightPercent, 2)}%` }}
-                    >
-                      <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-xs text-white shadow-md group-hover:block z-20 pointer-events-none">
-                        {currency(item.amount)}
-                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-                      </div>
-                    </div>
-                    <span className="text-xs font-medium text-slate-500">T{item.month}</span>
-                  </div>
-                );
-              })}
-            </div>
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-6 font-semibold text-slate-950">Biểu đồ thu nhập 12 tháng</h2>
+        <div className="flex h-64 w-full gap-2">
+          <div className="flex h-full w-12 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-xs font-medium text-slate-400">
+            {ticks.map((tick, i) => (
+              <span key={i} className="mt-1 leading-none">
+                {compactCurrency(tick)}
+              </span>
+            ))}
           </div>
-        </div>
-
-        {/* Donut Chart */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-950 mb-6">Cơ cấu thu nhập</h2>
-          <IncomeDonut data={categoryData} total={totalIncome} categoryMeta={categoryMeta} />
+          <div className="relative flex flex-1 items-end justify-between gap-1 pb-6">
+            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between pb-[1.75rem]">
+              {ticks.map((tick, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "w-full border-t border-slate-200",
+                    i === ticks.length - 1 ? "mb-[1px]" : "mt-1.5 border-dashed",
+                  )}
+                />
+              ))}
+            </div>
+            {monthlyData.map((item) => {
+              const heightPercent = chartMax > 0 ? (item.amount / chartMax) * 100 : 0;
+              return (
+                <div
+                  key={item.month}
+                  className="group relative z-10 flex h-full w-full flex-col items-center justify-end gap-2"
+                >
+                  <div
+                    className="w-full max-w-[40px] rounded-t-md bg-emerald-500 transition-all group-hover:bg-emerald-600"
+                    style={{ height: `${Math.max(heightPercent, 2)}%` }}
+                  >
+                    <div className="pointer-events-none absolute -top-10 left-1/2 z-20 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-xs text-white shadow-md group-hover:block">
+                      {currency(item.amount)}
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium text-slate-500">T{item.month}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

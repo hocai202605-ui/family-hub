@@ -78,6 +78,14 @@ type DailyLog = {
   reflection: string;
 };
 
+/** Local draft for one day (Top5 + tick-notes + reflection) before batch save. */
+type DayDraft = {
+  top5Tasks: Top5Task[];
+  tickNotes: TickNote[];
+  deletedTickNoteIds: string[];
+  reflection: string;
+};
+
 type WeekData = {
   weekStart: string;
   weeklyPlan: PlanItem[];
@@ -388,6 +396,68 @@ function ensureSevenChecks(checks: boolean[]): boolean[] {
   return next;
 }
 
+function emptyTop5Slots(): Top5Task[] {
+  return Array.from({ length: 5 }, (_, index) => ({
+    id: `slot-${index + 1}`,
+    text: "",
+    isCompleted: false,
+  }));
+}
+
+function normalizeDayTop5(tasks: Top5Task[] | undefined): Top5Task[] {
+  const base = emptyTop5Slots();
+  if (!tasks?.length) return base;
+  return base.map((slot, index) => {
+    const task = tasks[index];
+    if (!task) return slot;
+    return {
+      id: task.id || slot.id,
+      text: task.text ?? "",
+      isCompleted: Boolean(task.isCompleted),
+    };
+  });
+}
+
+function buildDayDraft(log: DailyLog | undefined): DayDraft {
+  return {
+    top5Tasks: normalizeDayTop5(log?.top5Tasks),
+    tickNotes: (log?.tickNotes ?? []).map((note) => ({ ...note })),
+    deletedTickNoteIds: [],
+    reflection: log?.reflection ?? "",
+  };
+}
+
+function dayDraftFingerprint(draft: DayDraft): string {
+  return JSON.stringify({
+    top5Tasks: draft.top5Tasks.map((task) => ({
+      id: task.id,
+      text: task.text,
+      isCompleted: task.isCompleted,
+    })),
+    tickNotes: draft.tickNotes.map((note) => ({
+      id: note.id,
+      text: note.text,
+      isCompleted: note.isCompleted,
+    })),
+    deletedTickNoteIds: [...draft.deletedTickNoteIds].sort(),
+    reflection: draft.reflection,
+  });
+}
+
+function isDayDraftDirty(draft: DayDraft, server: DailyLog | undefined): boolean {
+  return dayDraftFingerprint(draft) !== dayDraftFingerprint(buildDayDraft(server));
+}
+
+function isTempId(id: string) {
+  return id.startsWith("temp-");
+}
+
+function planItemsFingerprint(items: PlanItem[]): string {
+  return JSON.stringify(
+    items.map((item) => ({ id: item.id, text: item.text, isCompleted: item.isCompleted })),
+  );
+}
+
 function planProgressOf(items: PlanItem[]) {
   const total = items.length;
   const done = items.filter((item) => item.isCompleted).length;
@@ -445,9 +515,13 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
   const [editingHabits, setEditingHabits] = useState(false);
   const [draftHabitName, setDraftHabitName] = useState("");
   const [habitNameDrafts, setHabitNameDrafts] = useState<Record<string, string>>({});
-  const [planTextDrafts, setPlanTextDrafts] = useState<Record<string, string>>({});
-  const [top5Drafts, setTop5Drafts] = useState<Record<string, string>>({});
-  const [reflectionDrafts, setReflectionDrafts] = useState<Record<string, string>>({});
+  /** Pending habit checks: key = weekStart:habitId:dayIndex */
+  const [habitCheckDrafts, setHabitCheckDrafts] = useState<Record<string, boolean>>({});
+  /** Plan item drafts keyed by week:YYYY-MM-DD or month:YYYY-MM */
+  const [planItemDrafts, setPlanItemDrafts] = useState<Record<string, PlanItem[]>>({});
+  const [planDeletedIds, setPlanDeletedIds] = useState<Record<string, string[]>>({});
+  /** Day log drafts keyed by date YYYY-MM-DD */
+  const [dayDrafts, setDayDrafts] = useState<Record<string, DayDraft>>({});
   const [isBusy, setIsBusy] = useState(false);
   const [isLoadingMonth, setIsLoadingMonth] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -530,16 +604,29 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
   const habits = habitRowsForWeek(monthData, weekData);
   const weeklyPlan = weekData.weeklyPlan ?? [];
   const monthlyPlan = monthData.monthlyPlan ?? [];
-  const activePlan = planTab === "week" ? weeklyPlan : monthlyPlan;
+  const planScopeKeyValue =
+    planTab === "week" ? `week:${activeWeekStart}` : `month:${selectedMonth}`;
+  const serverActivePlan = planTab === "week" ? weeklyPlan : monthlyPlan;
+  const activePlan = planItemDrafts[planScopeKeyValue] ?? serverActivePlan;
   const planProgress = useMemo(() => planProgressOf(activePlan), [activePlan]);
+  const planDirty = useMemo(() => {
+    const draftItems = planItemDrafts[planScopeKeyValue];
+    if (!draftItems) return false;
+    return planItemsFingerprint(draftItems) !== planItemsFingerprint(serverActivePlan);
+  }, [planItemDrafts, planScopeKeyValue, serverActivePlan]);
 
   const habitProgress = useMemo(() => {
-    const checks = habits.flatMap((habit) => ensureSevenChecks(habit.checks));
+    const checks = habits.flatMap((habit) =>
+      ensureSevenChecks(habit.checks).map((checked, dayIndex) => {
+        const key = `${activeWeekStart}:${habit.id}:${dayIndex}`;
+        return key in habitCheckDrafts ? habitCheckDrafts[key] : checked;
+      }),
+    );
     const total = checks.length;
     const done = checks.filter(Boolean).length;
     const percent = total ? Math.round((done / total) * 100) : 0;
     return { done, total, percent };
-  }, [habits]);
+  }, [habits, habitCheckDrafts, activeWeekStart]);
 
   const weeklyLog = useMemo(() => {
     if (weekData.weeklyLog.length > 0) return weekData.weeklyLog;
@@ -562,6 +649,13 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
     }
     return map;
   }, [allEvents]);
+
+  const monthEventList = useMemo(() => {
+    return allEvents
+      .filter((event) => event.date.slice(0, 7) === selectedMonth)
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || a.text.localeCompare(b.text));
+  }, [allEvents, selectedMonth]);
 
   const monthCells = useMemo(() => buildMonthCells(selectedMonth), [selectedMonth]);
 
@@ -661,10 +755,18 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
     setFlashNotice({ type, message });
   }
 
-  function mockDelay(ms = 450) {
-    return new Promise<void>((resolve) => {
-      window.setTimeout(resolve, ms);
-    });
+
+  async function runSave(action: () => Promise<void>, successMessage: string) {
+    if (isBusy) return;
+    setIsBusy(true);
+    try {
+      await action();
+      showFlash("success", successMessage);
+    } catch {
+      showFlash("error", "Có lỗi xảy ra. Vui lòng thử lại.");
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   function askConfirm(options: {
@@ -685,7 +787,6 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
         setConfirmDialog(null);
         setIsBusy(true);
         try {
-          await mockDelay();
           await options.action();
           showFlash("success", options.successMessage);
         } catch {
@@ -697,33 +798,69 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
     });
   }
 
-  function requestToggleHabitCheck(
-    habitId: string,
-    habitName: string,
-    dayIndex: number,
-    currentlyChecked: boolean,
-  ) {
-    const dayLabel = DAY_HEADERS[dayIndex] ?? `Ngày ${dayIndex + 1}`;
-    const nextChecked = !currentlyChecked;
-    askConfirm({
-      title: "Cập nhật thói quen",
-      message: nextChecked
-        ? `Đánh dấu hoàn thành "${habitName}" · ${dayLabel}?`
-        : `Bỏ đánh dấu "${habitName}" · ${dayLabel}?`,
-      confirmLabel: "Cập nhật",
-      successMessage: nextChecked
-        ? `Đã đánh dấu "${habitName}" (${dayLabel}).`
-        : `Đã bỏ đánh dấu "${habitName}" (${dayLabel}).`,
-      action: async () => {
-        await apiPutHabitCheck({
-          habitId,
-          weekStart: activeWeekStart,
-          dayIndex,
-          completed: nextChecked,
-        });
-        await reloadMonth(selectedMonth);
-      },
+  function habitCheckKey(weekStart: string, habitId: string, dayIndex: number) {
+    return `${weekStart}:${habitId}:${dayIndex}`;
+  }
+
+  function getHabitChecked(habitId: string, dayIndex: number, serverChecked: boolean) {
+    const key = habitCheckKey(activeWeekStart, habitId, dayIndex);
+    return key in habitCheckDrafts ? habitCheckDrafts[key] : serverChecked;
+  }
+
+  function habitChecksDirtyForWeek(weekStart: string) {
+    const prefix = `${weekStart}:`;
+    return Object.keys(habitCheckDrafts).some((key) => key.startsWith(prefix));
+  }
+
+  function toggleHabitCheckLocal(habitId: string, dayIndex: number, serverChecked: boolean) {
+    if (isBusy || editingHabits) return;
+    const key = habitCheckKey(activeWeekStart, habitId, dayIndex);
+    const currentlyChecked = getHabitChecked(habitId, dayIndex, serverChecked);
+    const next = !currentlyChecked;
+    setHabitCheckDrafts((current) => {
+      const copy = { ...current };
+      if (next === serverChecked) delete copy[key];
+      else copy[key] = next;
+      return copy;
     });
+  }
+
+  function clearHabitDraftsForWeek(weekStart: string) {
+    const prefix = `${weekStart}:`;
+    setHabitCheckDrafts((current) => {
+      const next: Record<string, boolean> = {};
+      for (const [key, value] of Object.entries(current)) {
+        if (!key.startsWith(prefix)) next[key] = value;
+      }
+      return next;
+    });
+  }
+
+  function saveHabitChecks() {
+    if (!habitChecksDirtyForWeek(activeWeekStart)) return;
+    void runSave(async () => {
+      const prefix = `${activeWeekStart}:`;
+      const ops: Promise<unknown>[] = [];
+      for (const [key, completed] of Object.entries(habitCheckDrafts)) {
+        if (!key.startsWith(prefix)) continue;
+        // key = "YYYY-MM-DD:habitId:dayIndex" (date uses dashes, separators are colons)
+        const parts = key.split(":");
+        const weekStartKey = parts[0];
+        const dayIndex = Number(parts[parts.length - 1]);
+        const habitIdKey = parts.slice(1, -1).join(":");
+        ops.push(
+          apiPutHabitCheck({
+            habitId: habitIdKey,
+            weekStart: weekStartKey,
+            dayIndex,
+            completed,
+          }),
+        );
+      }
+      await Promise.all(ops);
+      clearHabitDraftsForWeek(activeWeekStart);
+      await reloadMonth(selectedMonth);
+    }, "Đã lưu thói quen tuần.");
   }
 
   function addHabit() {
@@ -803,197 +940,194 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
     });
   }
 
-  function dayTop5(date: string): Top5Task[] {
-    const log = weeklyLog.find((day) => day.date === date);
-    if (log?.top5Tasks?.length) return log.top5Tasks;
-    return Array.from({ length: 5 }, (_, index) => ({
-      id: `slot-${index + 1}`,
-      text: "",
-      isCompleted: false,
+  function serverDayLog(date: string): DailyLog | undefined {
+    return weeklyLog.find((day) => day.date === date);
+  }
+
+  function getDayDraft(date: string): DayDraft {
+    return dayDrafts[date] ?? buildDayDraft(serverDayLog(date));
+  }
+
+  function ensureDayDraft(date: string) {
+    setDayDrafts((current) => {
+      if (current[date]) return current;
+      return { ...current, [date]: buildDayDraft(serverDayLog(date)) };
+    });
+  }
+
+  function updateDayDraft(date: string, updater: (draft: DayDraft) => DayDraft) {
+    setDayDrafts((current) => {
+      const base = current[date] ?? buildDayDraft(serverDayLog(date));
+      return { ...current, [date]: updater(base) };
+    });
+  }
+
+  function isDayDirty(date: string) {
+    const draft = dayDrafts[date];
+    if (!draft) return false;
+    return isDayDraftDirty(draft, serverDayLog(date));
+  }
+
+  function setTop5Text(date: string, taskId: string, text: string) {
+    updateDayDraft(date, (draft) => ({
+      ...draft,
+      top5Tasks: draft.top5Tasks.map((task) => (task.id === taskId ? { ...task, text } : task)),
     }));
   }
 
-  function requestSaveTop5Text(date: string, taskId: string, previousText: string, index: number) {
-    const key = `${date}:${taskId}`;
-    const nextText = top5Drafts[key] ?? previousText;
-    if (nextText === previousText) return;
-    const nextTasks = dayTop5(date).map((task) =>
-      task.id === taskId ? { ...task, text: nextText } : task,
-    );
-    askConfirm({
-      title: "Sửa việc ưu tiên",
-      message: `Lưu việc ưu tiên #${index + 1}?`,
-      confirmLabel: "Lưu",
-      successMessage: "Đã cập nhật việc ưu tiên.",
-      action: async () => {
-        await apiUpsertDailyLog({
-          member,
-          date,
-          top5Tasks: nextTasks,
-        });
-        setTop5Drafts((current) => {
-          const copy = { ...current };
-          delete copy[key];
-          return copy;
-        });
-        await reloadMonth(selectedMonth);
-      },
+  function toggleTop5Local(date: string, taskId: string) {
+    updateDayDraft(date, (draft) => ({
+      ...draft,
+      top5Tasks: draft.top5Tasks.map((task) =>
+        task.id === taskId ? { ...task, isCompleted: !task.isCompleted } : task,
+      ),
+    }));
+  }
+
+  function toggleTickNoteLocal(date: string, noteId: string) {
+    updateDayDraft(date, (draft) => ({
+      ...draft,
+      tickNotes: draft.tickNotes.map((note) =>
+        note.id === noteId ? { ...note, isCompleted: !note.isCompleted } : note,
+      ),
+    }));
+  }
+
+  function removeTickNoteLocal(date: string, noteId: string) {
+    updateDayDraft(date, (draft) => {
+      const nextDeleted = isTempId(noteId)
+        ? draft.deletedTickNoteIds
+        : draft.deletedTickNoteIds.includes(noteId)
+          ? draft.deletedTickNoteIds
+          : [...draft.deletedTickNoteIds, noteId];
+      return {
+        ...draft,
+        tickNotes: draft.tickNotes.filter((note) => note.id !== noteId),
+        deletedTickNoteIds: nextDeleted,
+      };
     });
   }
 
-  function requestToggleTop5(date: string, taskId: string, nextCompleted: boolean, label: string) {
-    const nextTasks = dayTop5(date).map((task) =>
-      task.id === taskId ? { ...task, isCompleted: nextCompleted } : task,
-    );
-    askConfirm({
-      title: "Cập nhật trạng thái",
-      message: nextCompleted
-        ? `Đánh dấu hoàn thành "${label || "việc ưu tiên"}"?`
-        : `Bỏ đánh dấu hoàn thành "${label || "việc ưu tiên"}"?`,
-      confirmLabel: "Cập nhật",
-      successMessage: "Đã cập nhật trạng thái việc ưu tiên.",
-      action: async () => {
-        await apiUpsertDailyLog({
-          member,
-          date,
-          top5Tasks: nextTasks,
-        });
-        await reloadMonth(selectedMonth);
-      },
-    });
-  }
-
-  function toggleTickNote(date: string, noteId: string, noteText: string, nextCompleted: boolean) {
-    askConfirm({
-      title: "Cập nhật việc vặt",
-      message: nextCompleted ? `Đánh dấu xong "${noteText}"?` : `Bỏ đánh dấu "${noteText}"?`,
-      confirmLabel: "Cập nhật",
-      successMessage: "Đã cập nhật việc vặt.",
-      action: async () => {
-        await apiUpdateTickNote(noteId, { isCompleted: nextCompleted });
-        await reloadMonth(selectedMonth);
-      },
-    });
-  }
-
-  function removeTickNote(date: string, noteId: string, noteText: string) {
-    askConfirm({
-      title: "Xóa việc vặt",
-      message: `Xóa ghi chú "${noteText}"?`,
-      confirmLabel: "Xóa",
-      tone: "danger",
-      successMessage: "Đã xóa việc vặt.",
-      action: async () => {
-        await apiDeleteTickNote(noteId);
-        await reloadMonth(selectedMonth);
-      },
-    });
-  }
-
-  function addTickNote(date: string) {
+  function addTickNoteLocal(date: string) {
     const text = (draftNote[date] ?? "").trim();
     if (!text) return;
-    askConfirm({
-      title: "Thêm việc vặt",
-      message: `Thêm ghi chú "${text}"?`,
-      confirmLabel: "Thêm",
-      successMessage: "Đã thêm việc vặt.",
-      action: async () => {
-        await apiCreateTickNote({ member, date, text });
-        setDraftNote((current) => ({ ...current, [date]: "" }));
-        await reloadMonth(selectedMonth);
-      },
-    });
+    updateDayDraft(date, (draft) => ({
+      ...draft,
+      tickNotes: [
+        ...draft.tickNotes,
+        { id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, text, isCompleted: false },
+      ],
+    }));
+    setDraftNote((current) => ({ ...current, [date]: "" }));
   }
 
-  function requestSaveReflection(date: string, previous: string) {
-    const next = reflectionDrafts[date] ?? previous;
-    if (next === previous) return;
-    askConfirm({
-      title: "Lưu nhận xét ngày",
-      message: "Lưu daily reflection cho ngày này?",
-      confirmLabel: "Lưu",
-      successMessage: "Đã lưu nhận xét ngày.",
-      action: async () => {
-        await apiUpsertDailyLog({
-          member,
-          date,
-          reflection: next,
-        });
-        setReflectionDrafts((current) => {
-          const copy = { ...current };
-          delete copy[date];
-          return copy;
-        });
-        await reloadMonth(selectedMonth);
-      },
-    });
+  function setReflectionLocal(date: string, reflection: string) {
+    updateDayDraft(date, (draft) => ({ ...draft, reflection }));
   }
 
-  function addPlanItem() {
-    const text = draftPlan.trim();
-    if (!text) return;
-    const scope = planTab === "week" ? `tuần ${weekNumber}` : formatMonthLabel(selectedMonth);
-    askConfirm({
-      title: planTab === "week" ? "Thêm kế hoạch tuần" : "Thêm kế hoạch tháng",
-      message: `Thêm mục "${text}" vào ${scope}?`,
-      confirmLabel: "Thêm",
-      successMessage: "Đã thêm mục kế hoạch.",
-      action: async () => {
-        await apiCreatePlanItem({
-          member,
-          scope: planTab,
-          month: selectedMonth,
-          weekStart: planTab === "week" ? activeWeekStart : null,
-          text,
-        });
-        setDraftPlan("");
-        await reloadMonth(selectedMonth);
-      },
-    });
-  }
+  function saveDayLog(date: string) {
+    const draft = getDayDraft(date);
+    if (!isDayDraftDirty(draft, serverDayLog(date))) return;
+    void runSave(async () => {
+      await apiUpsertDailyLog({
+        member,
+        date,
+        top5Tasks: draft.top5Tasks,
+        reflection: draft.reflection,
+      });
 
-  function togglePlanItem(itemId: string, itemText: string, nextCompleted: boolean) {
-    askConfirm({
-      title: "Cập nhật kế hoạch",
-      message: nextCompleted ? `Đánh dấu xong "${itemText}"?` : `Bỏ đánh dấu "${itemText}"?`,
-      confirmLabel: "Cập nhật",
-      successMessage: "Đã cập nhật kế hoạch.",
-      action: async () => {
-        await apiUpdatePlanItem(itemId, { isCompleted: nextCompleted });
-        await reloadMonth(selectedMonth);
-      },
-    });
-  }
+      const serverNotes = serverDayLog(date)?.tickNotes ?? [];
+      const serverById = new Map(serverNotes.map((note) => [note.id, note]));
 
-  function commitPlanItemText(itemId: string, previousText: string) {
-    const nextText = planTextDrafts[itemId] ?? previousText;
-    if (nextText === previousText) {
-      setPlanTextDrafts((current) => {
+      for (const id of draft.deletedTickNoteIds) {
+        if (!isTempId(id)) await apiDeleteTickNote(id);
+      }
+
+      for (const note of draft.tickNotes) {
+        if (isTempId(note.id)) {
+          const created = await apiCreateTickNote({ member, date, text: note.text });
+          if (note.isCompleted) {
+            await apiUpdateTickNote(created.note.id, { isCompleted: true });
+          }
+        } else {
+          const prev = serverById.get(note.id);
+          if (prev && prev.isCompleted !== note.isCompleted) {
+            await apiUpdateTickNote(note.id, { isCompleted: note.isCompleted });
+          }
+        }
+      }
+
+      setDayDrafts((current) => {
         const copy = { ...current };
-        delete copy[itemId];
+        delete copy[date];
         return copy;
       });
-      return;
-    }
-    askConfirm({
-      title: "Sửa kế hoạch",
-      message: `Lưu nội dung mục kế hoạch thành "${nextText}"?`,
-      confirmLabel: "Lưu",
-      successMessage: "Đã cập nhật mục kế hoạch.",
-      action: async () => {
-        await apiUpdatePlanItem(itemId, { text: nextText });
-        setPlanTextDrafts((current) => {
-          const copy = { ...current };
-          delete copy[itemId];
-          return copy;
-        });
-        await reloadMonth(selectedMonth);
-      },
+      await reloadMonth(selectedMonth);
+    }, "Đã lưu nhật ký ngày.");
+  }
+
+  function planScopeKey() {
+    return planTab === "week" ? `week:${activeWeekStart}` : `month:${selectedMonth}`;
+  }
+
+  function serverPlanItems(): PlanItem[] {
+    return planTab === "week" ? weeklyPlan : monthlyPlan;
+  }
+
+  function getPlanDraftItems(): PlanItem[] {
+    const key = planScopeKey();
+    return planItemDrafts[key] ?? serverPlanItems().map((item) => ({ ...item }));
+  }
+
+  function isPlanDirty() {
+    const key = planScopeKey();
+    const draftItems = planItemDrafts[key];
+    const deleted = planDeletedIds[key] ?? [];
+    if (!draftItems && deleted.length === 0) return false;
+    const items = draftItems ?? serverPlanItems();
+    if (deleted.length > 0) return true;
+    // Compare to server items that are not deleted (deleted already removed from draft)
+    return planItemsFingerprint(items) !== planItemsFingerprint(serverPlanItems());
+  }
+
+  function updatePlanDraft(updater: (items: PlanItem[]) => PlanItem[]) {
+    const key = planScopeKey();
+    setPlanItemDrafts((current) => {
+      const base = current[key] ?? serverPlanItems().map((item) => ({ ...item }));
+      return { ...current, [key]: updater(base) };
     });
   }
 
-  function removePlanItem(itemId: string, itemText: string) {
+  function togglePlanItemLocal(itemId: string) {
+    updatePlanDraft((items) =>
+      items.map((item) => (item.id === itemId ? { ...item, isCompleted: !item.isCompleted } : item)),
+    );
+  }
+
+  function setPlanItemTextLocal(itemId: string, text: string) {
+    updatePlanDraft((items) => items.map((item) => (item.id === itemId ? { ...item, text } : item)));
+  }
+
+  function addPlanItemLocal() {
+    const text = draftPlan.trim();
+    if (!text) return;
+    updatePlanDraft((items) => [
+      ...items,
+      {
+        id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        text,
+        isCompleted: false,
+      },
+    ]);
+    setDraftPlan("");
+  }
+
+  function removePlanItemLocal(itemId: string, itemText: string) {
+    // Destructive: confirm then either drop temp or mark server id deleted + remove from draft
+    if (isTempId(itemId)) {
+      updatePlanDraft((items) => items.filter((item) => item.id !== itemId));
+      return;
+    }
     askConfirm({
       title: "Xóa mục kế hoạch",
       message: `Xóa "${itemText || "mục kế hoạch"}"?`,
@@ -1002,10 +1136,63 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
       successMessage: "Đã xóa mục kế hoạch.",
       action: async () => {
         await apiDeletePlanItem(itemId);
+        const key = planScopeKey();
+        setPlanItemDrafts((current) => {
+          if (!current[key]) return current;
+          return { ...current, [key]: current[key].filter((item) => item.id !== itemId) };
+        });
         await reloadMonth(selectedMonth);
       },
     });
   }
+
+  function savePlan() {
+    if (!isPlanDirty()) return;
+    const key = planScopeKey();
+    const draftItems = getPlanDraftItems();
+    const serverItems = serverPlanItems();
+    const serverById = new Map(serverItems.map((item) => [item.id, item]));
+
+    void runSave(async () => {
+      for (const item of draftItems) {
+        if (isTempId(item.id)) {
+          const text = item.text.trim();
+          if (!text) continue;
+          const created = await apiCreatePlanItem({
+            member,
+            scope: planTab,
+            month: selectedMonth,
+            weekStart: planTab === "week" ? activeWeekStart : null,
+            text,
+          });
+          if (item.isCompleted) {
+            await apiUpdatePlanItem(created.item.id, { isCompleted: true });
+          }
+        } else {
+          const prev = serverById.get(item.id);
+          if (!prev) continue;
+          const patch: { text?: string; isCompleted?: boolean } = {};
+          if (item.text !== prev.text) patch.text = item.text;
+          if (item.isCompleted !== prev.isCompleted) patch.isCompleted = item.isCompleted;
+          if (Object.keys(patch).length > 0) {
+            await apiUpdatePlanItem(item.id, patch);
+          }
+        }
+      }
+      setPlanItemDrafts((current) => {
+        const copy = { ...current };
+        delete copy[key];
+        return copy;
+      });
+      setPlanDeletedIds((current) => {
+        const copy = { ...current };
+        delete copy[key];
+        return copy;
+      });
+      await reloadMonth(selectedMonth);
+    }, "Đã lưu kế hoạch.");
+  }
+
 
   function openCalendarDay(dateKey: string) {
     setCalendarDay(dateKey);
@@ -1067,7 +1254,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
             <p className="text-sm font-semibold text-amber-700">Lịch hằng ngày</p>
             <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Thói quen & nhật ký ngày</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Chọn tháng / tuần để theo dõi thói quen, nhật ký ngày và kế hoạch. Dữ liệu lưu database qua API.
+              Chọn tháng / tuần để theo dõi thói quen, nhật ký ngày và kế hoạch. Nhập / tích xong rồi bấm Lưu từng khối.
             </p>
             {loadError ? (
               <p className="mt-2 text-sm font-semibold text-rose-600">{loadError}</p>
@@ -1238,6 +1425,22 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <button
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-3 py-2 text-xs font-semibold transition",
+                  habitChecksDirtyForWeek(activeWeekStart)
+                    ? "bg-amber-500 text-white hover:bg-amber-600"
+                    : "border border-slate-200 bg-white text-slate-400",
+                )}
+                disabled={!habitChecksDirtyForWeek(activeWeekStart) || isBusy}
+                onClick={saveHabitChecks}
+                type="button"
+              >
+                Lưu thói quen
+                {habitChecksDirtyForWeek(activeWeekStart) ? (
+                  <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px]">Chưa lưu</span>
+                ) : null}
+              </button>
+              <button
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 onClick={() => {
                   setEditingHabits((open) => !open);
@@ -1386,7 +1589,9 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                             </div>
                           )}
                         </td>
-                        {checks.map((checked, dayIndex) => (
+                        {checks.map((serverChecked, dayIndex) => {
+                          const checked = getHabitChecked(habit.id, dayIndex, serverChecked);
+                          return (
                           <td className="px-1 py-2.5 text-center" key={`${habit.id}-${dayIndex}`}>
                             <button
                               aria-label={`${habit.name} ${DAY_HEADERS[dayIndex]}: ${checked ? "đã xong" : "chưa xong"}`}
@@ -1399,15 +1604,14 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                 editingHabits && "opacity-60",
                               )}
                               disabled={editingHabits || isBusy}
-                              onClick={() =>
-                                requestToggleHabitCheck(habit.id, habit.name, dayIndex, checked)
-                              }
+                              onClick={() => toggleHabitCheckLocal(habit.id, dayIndex, serverChecked)}
                               type="button"
                             >
                               <Icon className="h-4 w-4" name="check" />
                             </button>
                           </td>
-                        ))}
+                          );
+                        })}
                         {editingHabits ? (
                           <td className="py-2.5 pl-2 text-right">
                             <button
@@ -1544,6 +1748,48 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
             Dương / âm · <span className="text-rose-600">chấm đỏ</span> = lễ/sự kiện ·{" "}
             <span className="rounded bg-orange-100 px-1 font-semibold text-orange-800">cam</span> = còn trong tháng
           </p>
+
+          <div className="mt-3 border-t border-slate-100 pt-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Sự kiện tháng</p>
+            {monthEventList.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-400">Chưa có sự kiện tháng này.</p>
+            ) : (
+              <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto pr-0.5">
+                {monthEventList.map((event) => {
+                  const daysLeft = daysBetween(todayKey, event.date);
+                  const upcoming = daysLeft >= 0;
+                  return (
+                    <li key={event.id}>
+                      <button
+                        className={cn(
+                          "flex w-full items-start gap-2 rounded-md border px-2 py-1.5 text-left transition",
+                          calendarDay === event.date
+                            ? "border-amber-300 bg-amber-50"
+                            : upcoming
+                              ? "border-orange-100 bg-orange-50/60 hover:border-orange-200"
+                              : "border-slate-100 bg-slate-50 hover:border-slate-200 hover:bg-white",
+                        )}
+                        onClick={() => openCalendarDay(event.date)}
+                        type="button"
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
+                            upcoming ? "bg-orange-100 text-orange-800" : "bg-slate-200 text-slate-600",
+                          )}
+                        >
+                          {event.date.slice(8)}
+                        </span>
+                        <span className="min-w-0 flex-1 text-xs font-medium leading-4 text-slate-800">
+                          {event.text}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </aside>
       </section>
 
@@ -1553,16 +1799,18 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
           <div className="mb-4">
             <h2 className="text-lg font-bold text-slate-950">Nhật ký & đánh giá hằng ngày</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Tuần {weekNumber} · {formatMonthLabel(selectedMonth)} · mở từng ngày để ghi chi tiết.
+              Tuần {weekNumber} · {formatMonthLabel(selectedMonth)} · chỉnh xong bấm Lưu ngày.
             </p>
           </div>
 
           <div className="flex flex-col gap-3">
             {weeklyLog.map((day) => {
               const open = resolvedOpenDate === day.date;
-              const topDone = day.top5Tasks.filter((task) => task.text.trim() && task.isCompleted).length;
-              const topFilled = day.top5Tasks.filter((task) => task.text.trim()).length;
-              const notesDone = day.tickNotes.filter((note) => note.isCompleted).length;
+              const view = open || dayDrafts[day.date] ? getDayDraft(day.date) : buildDayDraft(day);
+              const dirty = isDayDirty(day.date);
+              const topDone = view.top5Tasks.filter((task) => task.text.trim() && task.isCompleted).length;
+              const topFilled = view.top5Tasks.filter((task) => task.text.trim()).length;
+              const notesDone = view.tickNotes.filter((note) => note.isCompleted).length;
 
               return (
                 <div
@@ -1575,7 +1823,14 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                 >
                   <button
                     className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                    onClick={() => setOpenDate(open ? null : day.date)}
+                    onClick={() => {
+                      if (open) {
+                        setOpenDate(null);
+                      } else {
+                        ensureDayDraft(day.date);
+                        setOpenDate(day.date);
+                      }
+                    }}
                     type="button"
                   >
                     <div className="flex min-w-0 items-center gap-3">
@@ -1598,8 +1853,9 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                         </p>
                         <p className="truncate text-xs text-slate-500">
                           {day.date} · Top 5: {topDone}/{topFilled || 0} · Việc vặt: {notesDone}/
-                          {day.tickNotes.length}
-                          {day.reflection.trim() ? " · Đã có reflection" : ""}
+                          {view.tickNotes.length}
+                          {(view.reflection ?? "").trim() ? " · Đã có reflection" : ""}
+                          {dirty ? " · Chưa lưu" : ""}
                         </p>
                       </div>
                     </div>
@@ -1620,9 +1876,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                               <span className="text-xs text-slate-500">Tối đa 5</span>
                             </div>
                             <ul className="space-y-2">
-                              {day.top5Tasks.map((task, index) => {
-                                const draftKey = `${day.date}:${task.id}`;
-                                return (
+                              {view.top5Tasks.map((task, index) => (
                                   <li className="flex items-center gap-2" key={task.id}>
                                     <button
                                       aria-label={`Đánh dấu việc ${index + 1}`}
@@ -1633,9 +1887,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                           ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                                           : "border-slate-200 bg-white text-slate-300 hover:bg-slate-50",
                                       )}
-                                      onClick={() =>
-                                        requestToggleTop5(day.date, task.id, !task.isCompleted, task.text)
-                                      }
+                                      disabled={isBusy}
+                                      onClick={() => toggleTop5Local(day.date, task.id)}
                                       type="button"
                                     >
                                       <Icon className="h-4 w-4" name="check" />
@@ -1648,38 +1901,25 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                         "w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-amber-200 placeholder:text-slate-400 focus:ring-2",
                                         task.isCompleted && task.text.trim() && "text-slate-500 line-through",
                                       )}
-                                      onBlur={() => requestSaveTop5Text(day.date, task.id, task.text, index)}
-                                      onChange={(event) =>
-                                        setTop5Drafts((current) => ({
-                                          ...current,
-                                          [draftKey]: event.target.value,
-                                        }))
-                                      }
-                                      onKeyDown={(event) => {
-                                        if (event.key === "Enter") {
-                                          event.preventDefault();
-                                          (event.target as HTMLInputElement).blur();
-                                        }
-                                      }}
+                                      onChange={(event) => setTop5Text(day.date, task.id, event.target.value)}
                                       placeholder={`Việc ưu tiên #${index + 1}`}
                                       type="text"
-                                      value={top5Drafts[draftKey] ?? task.text}
+                                      value={task.text}
                                     />
                                   </li>
-                                );
-                              })}
+                              ))}
                             </ul>
                           </div>
 
                           <div>
                             <h3 className="mb-2 text-sm font-bold text-slate-900">Tick-notes · Việc vặt</h3>
                             <ul className="space-y-2">
-                              {day.tickNotes.length === 0 ? (
+                              {view.tickNotes.length === 0 ? (
                                 <li className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500">
                                   Chưa có việc vặt. Thêm nhanh bên dưới.
                                 </li>
                               ) : (
-                                day.tickNotes.map((note) => (
+                                view.tickNotes.map((note) => (
                                   <li className="flex items-center gap-2" key={note.id}>
                                     <button
                                       aria-label={note.isCompleted ? "Bỏ đánh dấu" : "Đánh dấu xong"}
@@ -1690,9 +1930,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                           ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                                           : "border-slate-200 bg-white text-slate-300 hover:bg-slate-50",
                                       )}
-                                      onClick={() =>
-                                        toggleTickNote(day.date, note.id, note.text, !note.isCompleted)
-                                      }
+                                      disabled={isBusy}
+                                      onClick={() => toggleTickNoteLocal(day.date, note.id)}
                                       type="button"
                                     >
                                       <Icon className="h-4 w-4" name="check" />
@@ -1708,7 +1947,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                     <button
                                       aria-label="Xóa ghi chú"
                                       className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                                      onClick={() => removeTickNote(day.date, note.id, note.text)}
+                                      disabled={isBusy}
+                                      onClick={() => removeTickNoteLocal(day.date, note.id)}
                                       type="button"
                                     >
                                       <Icon className="h-4 w-4" name="trash" />
@@ -1726,16 +1966,17 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                 onKeyDown={(event) => {
                                   if (event.key === "Enter") {
                                     event.preventDefault();
-                                    addTickNote(day.date);
+                                    addTickNoteLocal(day.date);
                                   }
                                 }}
-                                placeholder="Thêm việc vặt (Enter để thêm)…"
+                                placeholder="Thêm việc vặt (Enter để thêm vào nháp)…"
                                 type="text"
                                 value={draftNote[day.date] ?? ""}
                               />
                               <button
                                 className="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-                                onClick={() => addTickNote(day.date)}
+                                disabled={isBusy}
+                                onClick={() => addTickNoteLocal(day.date)}
                                 type="button"
                               >
                                 <Icon className="h-4 w-4" name="plus" />
@@ -1749,22 +1990,31 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                           <h3 className="mb-2 text-sm font-bold text-slate-900">Daily reflection</h3>
                           <textarea
                             className="min-h-[16rem] w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-amber-200 placeholder:text-slate-400 focus:ring-2 md:min-h-[22rem]"
-                            onChange={(event) =>
-                              setReflectionDrafts((current) => ({
-                                ...current,
-                                [day.date]: event.target.value,
-                              }))
-                            }
+                            onChange={(event) => setReflectionLocal(day.date, event.target.value)}
                             placeholder="1–2 câu: cảm xúc, bài học, hoặc điều biết ơn hôm nay…"
-                            value={reflectionDrafts[day.date] ?? day.reflection}
+                            value={view.reflection}
                           />
-                          <button
-                            className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                            onClick={() => requestSaveReflection(day.date, day.reflection)}
-                            type="button"
-                          >
-                            Lưu nhận xét
-                          </button>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-md px-3 py-2 text-xs font-semibold transition",
+                                dirty
+                                  ? "bg-amber-500 text-white hover:bg-amber-600"
+                                  : "border border-slate-200 bg-white text-slate-400",
+                              )}
+                              disabled={!dirty || isBusy}
+                              onClick={() => saveDayLog(day.date)}
+                              type="button"
+                            >
+                              Lưu ngày
+                              {dirty ? (
+                                <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px]">Chưa lưu</span>
+                              ) : null}
+                            </button>
+                            <span className="text-[11px] text-slate-500">
+                              Nhập / tích xong rồi bấm Lưu một lần
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1812,8 +2062,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
             </h2>
             <p className="mt-1 text-xs text-slate-500">
               {planTab === "week"
-                ? `${formatWeekRange(activeWeekStart)} · luôn hiện, tick khi xong`
-                : `Cả ${formatMonthLabel(selectedMonth).toLowerCase()} · luôn hiện, tick khi xong`}
+                ? `${formatWeekRange(activeWeekStart)} · tick / sửa nháp, bấm Lưu kế hoạch`
+                : `Cả ${formatMonthLabel(selectedMonth).toLowerCase()} · tick / sửa nháp, bấm Lưu kế hoạch`}
             </p>
           </div>
 
@@ -1857,7 +2107,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                         ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                         : "border-slate-200 bg-white text-slate-300 hover:bg-white",
                     )}
-                    onClick={() => togglePlanItem(item.id, item.text, !item.isCompleted)}
+                    disabled={isBusy}
+                    onClick={() => togglePlanItemLocal(item.id)}
                     type="button"
                   >
                     <Icon className="h-4 w-4" name="check" />
@@ -1867,26 +2118,15 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                       "min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1.5 text-sm text-slate-900 outline-none ring-amber-200 focus:border-slate-200 focus:bg-white focus:ring-2",
                       item.isCompleted && "text-slate-500 line-through",
                     )}
-                    onBlur={() => commitPlanItemText(item.id, item.text)}
-                    onChange={(event) =>
-                      setPlanTextDrafts((current) => ({
-                        ...current,
-                        [item.id]: event.target.value,
-                      }))
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        (event.target as HTMLInputElement).blur();
-                      }
-                    }}
+                    onChange={(event) => setPlanItemTextLocal(item.id, event.target.value)}
                     type="text"
-                    value={planTextDrafts[item.id] ?? item.text}
+                    value={item.text}
                   />
                   <button
                     aria-label="Xóa mục kế hoạch"
                     className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                    onClick={() => removePlanItem(item.id, item.text)}
+                    disabled={isBusy}
+                    onClick={() => removePlanItemLocal(item.id, item.text)}
                     type="button"
                   >
                     <Icon className="h-4 w-4" name="trash" />
@@ -1903,7 +2143,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  addPlanItem();
+                  addPlanItemLocal();
                 }
               }}
               placeholder={planTab === "week" ? "Thêm mục kế hoạch tuần…" : "Thêm mục kế hoạch tháng…"}
@@ -1912,11 +2152,28 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
             />
             <button
               className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-              onClick={addPlanItem}
+              disabled={isBusy}
+              onClick={addPlanItemLocal}
               type="button"
             >
               <Icon className="h-4 w-4" name="plus" />
               {planTab === "week" ? `Thêm vào tuần ${weekNumber}` : "Thêm vào kế hoạch tháng"}
+            </button>
+            <button
+              className={cn(
+                "inline-flex w-full items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition",
+                planDirty
+                  ? "bg-amber-500 text-white hover:bg-amber-600"
+                  : "border border-slate-200 bg-white text-slate-400",
+              )}
+              disabled={!planDirty || isBusy}
+              onClick={savePlan}
+              type="button"
+            >
+              Lưu kế hoạch
+              {planDirty ? (
+                <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px]">Chưa lưu</span>
+              ) : null}
             </button>
           </div>
         </aside>

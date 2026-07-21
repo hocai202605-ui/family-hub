@@ -37,6 +37,29 @@ const defaultCategories: CategoryMeta[] = [
   { id: "Income_Others", label: "Khác", icon: "banknote", badge: "bg-slate-100 text-slate-700 ring-slate-200", chart: "#64748b" },
 ];
 
+const familyMembers: FamilyMember[] = ["CK", "VK", "CON"];
+
+const memberMeta: Record<FamilyMember, { label: string; role: string; badge: string; dot: string }> = {
+  CK: {
+    label: "CK",
+    role: "Chồng",
+    badge: "bg-blue-50 text-blue-700 ring-blue-100",
+    dot: "bg-blue-500",
+  },
+  VK: {
+    label: "VK",
+    role: "Vợ",
+    badge: "bg-pink-50 text-pink-700 ring-pink-100",
+    dot: "bg-pink-500",
+  },
+  CON: {
+    label: "CON",
+    role: "Con",
+    badge: "bg-lime-50 text-lime-700 ring-lime-100",
+    dot: "bg-lime-500",
+  },
+};
+
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -179,7 +202,7 @@ export function YearlyIncomeDashboard() {
     [categories]
   );
 
-  const { totalIncome, averageIncome, highestMonth, monthlyData, categoryData, topIncomes } = useMemo(() => {
+  const { totalIncome, averageIncome, highestMonth, monthlyData, categoryData, topIncomes, incomeByMember } = useMemo(() => {
     const totalIncome = incomes.reduce((sum, item) => sum + item.amount, 0);
     const averageIncome = Math.round(totalIncome / 12);
     
@@ -213,7 +236,15 @@ export function YearlyIncomeDashboard() {
 
     const topIncomes = [...incomes].sort((a, b) => b.amount - a.amount).slice(0, 5);
 
-    return { totalIncome, averageIncome, highestMonth, monthlyData, categoryData, topIncomes };
+    const incomeByMember = familyMembers.map((member) => {
+      const memberIncomes = incomes.filter((item) => item.member === member);
+      const amount = memberIncomes.reduce((sum, item) => sum + item.amount, 0);
+      const count = memberIncomes.length;
+      const percent = totalIncome > 0 ? Math.round((amount / totalIncome) * 100) : 0;
+      return { member, amount, count, percent };
+    });
+
+    return { totalIncome, averageIncome, highestMonth, monthlyData, categoryData, topIncomes, incomeByMember };
   }, [incomes]);
 
   const maxMonthAmount = Math.max(...monthlyData.map(d => d.amount), 1);
@@ -276,6 +307,29 @@ export function YearlyIncomeDashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {incomeByMember.map((item) => {
+          const meta = memberMeta[item.member];
+          return (
+            <div
+              className={cn("rounded-xl border border-slate-200 bg-white p-6 shadow-sm ring-1 ring-inset", meta.badge)}
+              key={item.member}
+            >
+              <div className="flex items-center gap-2">
+                <span className={cn("h-2.5 w-2.5 rounded-full", meta.dot)} />
+                <p className="text-sm font-semibold">
+                  {meta.label} · {meta.role}
+                </p>
+              </div>
+              <p className="mt-3 text-2xl font-bold text-slate-950">{currency(item.amount)}</p>
+              <p className="mt-1 text-xs text-slate-600">
+                {item.count} khoản thu · {item.percent}% tổng thu
+              </p>
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

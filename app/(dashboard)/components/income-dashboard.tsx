@@ -174,6 +174,21 @@ function readThreeDigits(value: number, hasHigherGroup: boolean) {
   return words.join(" ");
 }
 
+function formatAmountInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+
+  if (!digits) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("vi-VN").format(Number(digits));
+}
+
+/** Strip thousand separators / non-digits from a typed amount. */
+function parseAmountInput(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 function moneyInVietnamese(value: string) {
   const amount = Number(value);
 
@@ -1047,7 +1062,21 @@ export function IncomeDashboard({
           <fieldset className="grid gap-4 disabled:opacity-70" disabled={isSaving}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field id="amount" label="Số tiền">
-                <input className={inputClass()} id="amount" min="1000" onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="Ví dụ: 2500000" required type="number" value={form.amount} />
+                <input
+                  className={cn(inputClass(), "tabular-nums")}
+                  id="amount"
+                  inputMode="numeric"
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      amount: parseAmountInput(event.target.value),
+                    }))
+                  }
+                  placeholder="Ví dụ: 2.500.000"
+                  required
+                  type="text"
+                  value={formatAmountInput(form.amount)}
+                />
               </Field>
               {amountInWords ? <p className="text-xs font-semibold text-emerald-700 sm:col-span-2">{amountInWords}</p> : null}
             </div>

@@ -30,7 +30,7 @@ export function toInvestmentResponse(investment: {
   currentPrice: number;
   interestRate: number | null;
   term: string | null;
-  member: "CK" | "VK" | "CON";
+  member: "CK" | "VK" | "CON" | "GIA_DINH";
   note: string | null;
   date: Date;
 }) {

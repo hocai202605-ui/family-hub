@@ -5,7 +5,7 @@
 | Concept | Meaning |
 |---------|---------|
 | `User` | Login account (`ADMIN` or `USER`), with optional `MenuPermission` rows |
-| `FamilyMember` on transactions | Who the money belongs to / spent by: `CK` (chồng), `VK` (vợ), `CON` (con) — not the same as `User` |
+| `FamilyMember` on transactions | Who the money belongs to / spent by: `CK` (chồng), `VK` (vợ), `CON` (con), `GIA_DINH` (gia đình/shared household) — not the same as `User` |
 
 Transactions are **not** scoped per `User` id; they are household-wide and tagged with `FamilyMember`.
 
@@ -15,7 +15,7 @@ Transactions are **not** scoped per `User` id; they are household-wide and tagge
 
 **AssetType:** `GOLD` | `STOCK` | `SAVING` | `REAL_ESTATE` | `CRYPTO` | `DEBT` | `LOAN` | `OTHER`
 
-**FamilyMember:** `CK` | `VK` | `CON`
+**FamilyMember:** `CK` | `VK` | `CON` | `GIA_DINH`
 
 **Role:** `ADMIN` | `USER`
 

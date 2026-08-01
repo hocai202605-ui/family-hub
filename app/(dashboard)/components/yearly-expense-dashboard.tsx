@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon, IconName } from "./icons";
 
 type Category = string;
-type FamilyMember = "CK" | "VK" | "CON";
+type FamilyMember = "CK" | "VK" | "CON" | "GIA_DINH";
 type CategoryMeta = {
   id: Category;
   label: string;

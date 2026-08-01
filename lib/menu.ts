@@ -24,30 +24,30 @@ export type NavItem = {
 };
 
 export const navItems: NavItem[] = [
-  { href: "/overview", label: "Tong quan", description: "Buc tranh gia dinh", icon: "home", menuKey: "overview" },
+  { href: "/overview", label: "Tổng quan", description: "Bức tranh gia đình", icon: "home", menuKey: "overview" },
   {
     href: "/expenses",
-    label: "Chi tieu",
-    description: "Bao cao va giao dich",
+    label: "Chi tiêu",
+    description: "Báo cáo và giao dịch",
     icon: "wallet",
     menuKey: "expenses.monthly",
     children: [
-      { href: "/expenses/yearly", label: "Bao cao nam", description: "Bieu do theo nam", icon: "barChart", menuKey: "expenses.yearly" },
-      { href: "/expenses", label: "Chi tieu thang", description: "Giao dich tung thang", icon: "wallet", menuKey: "expenses.monthly" },
+      { href: "/expenses/yearly", label: "Báo cáo năm", description: "Biểu đồ theo năm", icon: "barChart", menuKey: "expenses.yearly" },
+      { href: "/expenses", label: "Chi tiêu tháng", description: "Giao dịch từng tháng", icon: "wallet", menuKey: "expenses.monthly" },
     ],
   },
   {
     href: "/income",
-    label: "Thu nhap",
-    description: "Bao cao va giao dich",
+    label: "Thu nhập",
+    description: "Báo cáo và giao dịch",
     icon: "banknote",
     menuKey: "income.monthly",
     children: [
-      { href: "/income/yearly", label: "Bao cao nam", description: "Bieu do theo nam", icon: "barChart", menuKey: "income.yearly" },
-      { href: "/income", label: "Thu nhap thang", description: "Dong tien tung thang", icon: "banknote", menuKey: "income.monthly" },
+      { href: "/income/yearly", label: "Báo cáo năm", description: "Biểu đồ theo năm", icon: "barChart", menuKey: "income.yearly" },
+      { href: "/income", label: "Thu nhập tháng", description: "Dòng tiền từng tháng", icon: "banknote", menuKey: "income.monthly" },
     ],
   },
-  { href: "/investments", label: "Dau tu", description: "Tai san va loi nhuan", icon: "barChart", menuKey: "investments" },
+  { href: "/investments", label: "Đầu tư", description: "Tài sản và lợi nhuận", icon: "barChart", menuKey: "investments" },
   {
     href: "/calendar",
     label: "Lịch hằng ngày",
@@ -55,10 +55,10 @@ export const navItems: NavItem[] = [
     icon: "calendar",
     menuKey: "calendar",
   },
-  { href: "/goals", label: "Muc tieu", description: "Ke hoach dai han", icon: "target", menuKey: "goals" },
-  { href: "/health", label: "Suc khoe", description: "Thoi quen cham soc", icon: "heart", menuKey: "health" },
-  { href: "/parenting", label: "Nuoi day con", description: "Hoc tap va ne nep", icon: "leaf", menuKey: "parenting" },
-  { href: "/admin/users", label: "Nguoi dung", description: "Tai khoan va phan quyen", icon: "users", menuKey: "admin.users", adminOnly: true },
+  { href: "/goals", label: "Mục tiêu", description: "Kế hoạch dài hạn", icon: "target", menuKey: "goals" },
+  { href: "/health", label: "Sức khỏe", description: "Thói quen chăm sóc", icon: "heart", menuKey: "health" },
+  { href: "/parenting", label: "Nuôi dạy con", description: "Học tập và nề nếp", icon: "leaf", menuKey: "parenting" },
+  { href: "/admin/users", label: "Người dùng", description: "Tài khoản và phân quyền", icon: "users", menuKey: "admin.users", adminOnly: true },
 ];
 
 export const allMenuKeys = Array.from(

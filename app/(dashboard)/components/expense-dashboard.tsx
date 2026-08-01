@@ -5,7 +5,7 @@ import { vietnamCurrentMonth, vietnamNowDateTime } from "@/lib/vietnam-date";
 import { Icon, IconName } from "./icons";
 
 type Category = string;
-type FamilyMember = "CK" | "VK" | "CON";
+type FamilyMember = "CK" | "VK" | "CON" | "GIA_DINH";
 type CategoryMeta = {
   id: Category;
   label: string;
@@ -36,7 +36,8 @@ type Notice = {
   message: string;
 };
 
-const monthlyBudget = 20000000; // Ngân sách ví dụ 20 triệu
+/** Default monthly spending limit (VND) when API has no row yet. */
+const DEFAULT_MONTHLY_BUDGET = 20_000_000;
 
 const fallbackCategoryMeta: Omit<CategoryMeta, "id" | "label"> = {
   icon: "banknote",
@@ -122,7 +123,7 @@ function toDateTimeLocalValue(value: string) {
   return vietnamNowDateTime();
 }
 
-function createEmptyForm(member: FamilyMember = "VK"): ExpenseForm {
+function createEmptyForm(member: FamilyMember = "GIA_DINH"): ExpenseForm {
   return {
     amount: "",
     category: "Food",
@@ -132,7 +133,7 @@ function createEmptyForm(member: FamilyMember = "VK"): ExpenseForm {
   };
 }
 
-const familyMembers: FamilyMember[] = ["CK", "VK", "CON"];
+const familyMembers: FamilyMember[] = ["GIA_DINH", "CK", "VK", "CON"];
 
 const memberMeta: Record<FamilyMember, { label: string; role: string; badge: string; dot: string }> = {
   CK: {
@@ -152,6 +153,12 @@ const memberMeta: Record<FamilyMember, { label: string; role: string; badge: str
     role: "Con",
     badge: "bg-lime-50 text-lime-700 ring-lime-100",
     dot: "bg-lime-500",
+  },
+  GIA_DINH: {
+    label: "Gia đình",
+    role: "Gia đình",
+    badge: "bg-orange-50 text-orange-700 ring-orange-100",
+    dot: "bg-orange-500",
   },
 };
 
@@ -556,16 +563,21 @@ function ExpenseDonut({
 
 export function ExpenseDashboard({
   canManageCategories = false,
-  defaultMember = "VK",
+  defaultMember = "GIA_DINH",
 }: {
   canManageCategories?: boolean;
   defaultMember?: FamilyMember;
 }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(vietnamCurrentMonth);
+  const [monthlyBudget, setMonthlyBudget] = useState(DEFAULT_MONTHLY_BUDGET);
+  const [isBudgetDialogOpen, setIsBudgetDialogOpen] = useState(false);
+  const [budgetDraft, setBudgetDraft] = useState("");
+  const [isBudgetSaving, setIsBudgetSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [memberFilter, setMemberFilter] = useState<FamilyMember | "all">("all");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [form, setForm] = useState<ExpenseForm>(() => createEmptyForm(defaultMember));
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -671,6 +683,25 @@ export function ExpenseDashboard({
     void loadExpenses();
   }, [loadExpenses]);
 
+  const loadBudget = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/budgets?month=${encodeURIComponent(selectedMonth)}`);
+
+      if (!response.ok) {
+        throw new Error("Không thể tải hạn mức chi tiêu.");
+      }
+
+      const data = (await response.json()) as { budget: { month: string; amount: number } };
+      setMonthlyBudget(data.budget.amount);
+    } catch {
+      setMonthlyBudget(DEFAULT_MONTHLY_BUDGET);
+    }
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    void loadBudget();
+  }, [loadBudget]);
+
   const monthlyExpenses = useMemo(
     () => expenses.filter((item) => isSelectedMonth(item.date, selectedMonth)),
     [selectedMonth, expenses],
@@ -678,7 +709,9 @@ export function ExpenseDashboard({
   
   const totalExpense = useMemo(() => monthlyExpenses.reduce((sum, item) => sum + item.amount, 0), [monthlyExpenses]);
   const remainingBudget = monthlyBudget - totalExpense;
-  const budgetUsedPercent = Math.round((totalExpense / monthlyBudget) * 100);
+  const budgetUsedPercent =
+    monthlyBudget > 0 ? Math.round((totalExpense / monthlyBudget) * 100) : totalExpense > 0 ? 100 : 0;
+  const budgetDraftInWords = useMemo(() => moneyInVietnamese(budgetDraft), [budgetDraft]);
 
   const expenseByMember = useMemo(
     () =>
@@ -727,6 +760,98 @@ export function ExpenseDashboard({
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [categoryFilter, memberFilter, monthlyExpenses, query, getCategoryMeta]);
+
+  const filteredExpenseIds = useMemo(() => filteredExpenses.map((item) => item.id), [filteredExpenses]);
+
+  const allVisibleSelected =
+    filteredExpenseIds.length > 0 && filteredExpenseIds.every((id) => selectedIds.includes(id));
+
+  const someVisibleSelected =
+    filteredExpenseIds.some((id) => selectedIds.includes(id)) && !allVisibleSelected;
+
+  const selectedExpenses = useMemo(
+    () => filteredExpenses.filter((item) => selectedIds.includes(item.id)),
+    [filteredExpenses, selectedIds],
+  );
+
+  const selectedTotal = useMemo(
+    () => selectedExpenses.reduce((sum, item) => sum + item.amount, 0),
+    [selectedExpenses],
+  );
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const next = current.filter((id) => filteredExpenseIds.includes(id));
+      if (next.length === current.length) {
+        return current;
+      }
+      return next;
+    });
+  }, [filteredExpenseIds]);
+
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedIds((current) => current.filter((id) => !filteredExpenseIds.includes(id)));
+      return;
+    }
+
+    setSelectedIds((current) => Array.from(new Set([...current, ...filteredExpenseIds])));
+  }
+
+  function toggleSelectExpense(id: number) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id],
+    );
+  }
+
+  function openBudgetDialog() {
+    setBudgetDraft(String(monthlyBudget));
+    setIsBudgetDialogOpen(true);
+  }
+
+  function closeBudgetDialog() {
+    if (isBudgetSaving) {
+      return;
+    }
+
+    setIsBudgetDialogOpen(false);
+    setBudgetDraft("");
+  }
+
+  async function handleBudgetSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const amount = Number(budgetDraft);
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      showNotice("error", "Hạn mức phải là số nguyên dương.");
+      return;
+    }
+
+    setIsBudgetSaving(true);
+
+    try {
+      const response = await fetch("/api/budgets", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: selectedMonth, amount }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Không thể lưu hạn mức chi tiêu.");
+      }
+
+      const data = (await response.json()) as { budget: { month: string; amount: number } };
+      setMonthlyBudget(data.budget.amount);
+      setIsBudgetDialogOpen(false);
+      setBudgetDraft("");
+      showNotice("success", "Đã cập nhật hạn mức chi tiêu tháng.");
+    } catch (budgetError) {
+      const message = budgetError instanceof Error ? budgetError.message : "Không thể lưu hạn mức chi tiêu.";
+      showNotice("error", message);
+    } finally {
+      setIsBudgetSaving(false);
+    }
+  }
 
   function openCreateDialog() {
     setEditingId(null);
@@ -939,13 +1064,48 @@ export function ExpenseDashboard({
         <Card className="p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-slate-500">Hạn mức còn lại</p>
-              <p className="mt-3 text-2xl font-bold text-amber-700">{currency(Math.max(remainingBudget, 0))}</p>
+              <p className="text-sm font-medium text-slate-500">
+                {remainingBudget < 0 ? "Đã vượt hạn mức" : "Hạn mức còn lại"}
+              </p>
+              <p
+                className={cn(
+                  "mt-3 text-2xl font-bold",
+                  remainingBudget < 0 ? "text-rose-600" : "text-amber-700",
+                )}
+              >
+                {currency(remainingBudget)}
+              </p>
             </div>
-            <Badge className="bg-amber-50 text-amber-700 ring-amber-100">{budgetUsedPercent}% đã dùng</Badge>
+            <div className="flex flex-col items-end gap-2">
+              <Badge
+                className={
+                  remainingBudget < 0
+                    ? "bg-rose-50 text-rose-700 ring-rose-100"
+                    : "bg-amber-50 text-amber-700 ring-amber-100"
+                }
+              >
+                {budgetUsedPercent}% đã dùng
+              </Badge>
+              <Button
+                className="h-9 px-3 text-xs"
+                onClick={openBudgetDialog}
+                type="button"
+                variant="secondary"
+              >
+                <Icon className="h-3.5 w-3.5" name="edit" />
+                Sửa hạn mức
+              </Button>
+            </div>
           </div>
           <Progress className="mt-5" value={budgetUsedPercent} />
-          <p className="mt-3 text-sm text-slate-500">Ngân sách tháng: {currency(monthlyBudget)}</p>
+          <p className="mt-3 text-sm text-slate-500">
+            Ngân sách tháng: {currency(monthlyBudget)}
+            {remainingBudget < 0 ? (
+              <span className="ml-1 font-medium text-rose-600">
+                · vượt {currency(Math.abs(remainingBudget))}
+              </span>
+            ) : null}
+          </p>
         </Card>
 
       </section>
@@ -961,7 +1121,7 @@ export function ExpenseDashboard({
               </Button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {expenseByMember.map((item) => {
                 const meta = memberMeta[item.member];
                 return (
@@ -996,7 +1156,7 @@ export function ExpenseDashboard({
                   </option>
                 ))}
               </select>
-              <select className={cn(inputClass(), "w-full sm:w-36")} onChange={(event) => setMemberFilter(event.target.value as FamilyMember | "all")} value={memberFilter}>
+              <select className={cn(inputClass(), "w-full sm:w-44")} onChange={(event) => setMemberFilter(event.target.value as FamilyMember | "all")} value={memberFilter}>
                 <option value="all">Tất cả người</option>
                 {familyMembers.map((member) => (
                   <option key={member} value={member}>
@@ -1005,12 +1165,38 @@ export function ExpenseDashboard({
                 ))}
               </select>
             </div>
+
+            {selectedExpenses.length > 0 ? (
+              <div className="flex flex-col gap-1 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-amber-950">
+                  Đã chọn <span className="font-bold">{selectedExpenses.length}</span> giao dịch
+                </p>
+                <p className="text-sm font-bold text-amber-900">
+                  Tổng: -{currency(selectedTotal)}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <div className="max-h-[28rem] overflow-auto">
-            <table className="w-full min-w-[940px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 shadow-sm">
                 <tr>
+                  <th className="w-12 px-4 py-4">
+                    <input
+                      aria-label="Chọn tất cả"
+                      checked={allVisibleSelected}
+                      className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                      disabled={isLoading || filteredExpenseIds.length === 0}
+                      onChange={toggleSelectAllVisible}
+                      ref={(input) => {
+                        if (input) {
+                          input.indeterminate = someVisibleSelected;
+                        }
+                      }}
+                      type="checkbox"
+                    />
+                  </th>
                   <th className="px-5 py-4 font-semibold">Ngày</th>
                   <th className="px-5 py-4 font-semibold">Danh mục</th>
                   <th className="px-5 py-4 font-semibold">Người</th>
@@ -1022,14 +1208,14 @@ export function ExpenseDashboard({
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={6}>
+                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={7}>
                       Đang tải chi tiêu...
                     </td>
                   </tr>
                 ) : null}
                 {!isLoading && error ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-rose-600" colSpan={6}>
+                    <td className="px-5 py-10 text-center text-sm text-rose-600" colSpan={7}>
                       {error}
                     </td>
                   </tr>
@@ -1038,9 +1224,25 @@ export function ExpenseDashboard({
                   ? filteredExpenses.map((expense) => {
                   const meta = getCategoryMeta(expense.category);
                   const member = memberMeta[expense.member];
+                  const isSelected = selectedIds.includes(expense.id);
 
                   return (
-                    <tr className="bg-white transition hover:bg-amber-50/40" key={expense.id}>
+                    <tr
+                      className={cn(
+                        "bg-white transition hover:bg-amber-50/40",
+                        isSelected && "bg-amber-50/60",
+                      )}
+                      key={expense.id}
+                    >
+                      <td className="px-4 py-4">
+                        <input
+                          aria-label={`Chọn chi tiêu ${expense.id}`}
+                          checked={isSelected}
+                          className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                          onChange={() => toggleSelectExpense(expense.id)}
+                          type="checkbox"
+                        />
+                      </td>
                       <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-700">{dateLabel(expense.date)}</td>
                       <td className="px-5 py-4">
                         <Badge className={meta.badge}>
@@ -1079,7 +1281,7 @@ export function ExpenseDashboard({
                   : null}
                 {!isLoading && !error && filteredExpenses.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={6}>
+                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={7}>
                       Không tìm thấy chi tiêu phù hợp.
                     </td>
                   </tr>
@@ -1100,6 +1302,43 @@ export function ExpenseDashboard({
           <ExpenseDonut categoryMeta={categoryMeta} data={expenseByCategory} total={totalExpense} />
         </Card>
       </div>
+
+      <Dialog
+        description={`Đặt hạn mức chi tiêu cho tháng ${monthLabel(selectedMonth)}.`}
+        icon="edit"
+        onClose={closeBudgetDialog}
+        open={isBudgetDialogOpen}
+        title="Sửa hạn mức chi tiêu tháng"
+        tone="edit"
+      >
+        <form className="grid gap-4" onSubmit={handleBudgetSubmit}>
+          <fieldset className="grid gap-4 disabled:opacity-70" disabled={isBudgetSaving}>
+            <Field id="monthly-budget" label="Hạn mức (VND)">
+              <input
+                className={cn(inputClass(), "tabular-nums")}
+                id="monthly-budget"
+                inputMode="numeric"
+                onChange={(event) => setBudgetDraft(parseAmountInput(event.target.value))}
+                placeholder="Ví dụ: 20.000.000"
+                required
+                type="text"
+                value={formatAmountInput(budgetDraft)}
+              />
+            </Field>
+            {budgetDraftInWords ? (
+              <p className="text-xs font-semibold capitalize text-amber-700">{budgetDraftInWords}</p>
+            ) : null}
+          </fieldset>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button className="w-full sm:w-fit" disabled={isBudgetSaving} onClick={closeBudgetDialog} variant="secondary">
+              Hủy
+            </Button>
+            <Button className="w-full sm:w-fit" disabled={isBudgetSaving} type="submit">
+              {isBudgetSaving ? "Đang lưu..." : "Lưu hạn mức"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       <Dialog
         description="Nhập số tiền, danh mục, người chi và ngày phát sinh."
@@ -1144,11 +1383,11 @@ export function ExpenseDashboard({
 
             <div className="grid gap-2">
               <span className="text-sm font-medium text-slate-700">Người chi</span>
-              <div aria-label="Người chi" className="grid grid-cols-3 gap-2" role="radiogroup">
+              <div aria-label="Người chi" className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup">
                 {familyMembers.map((member) => {
                   const meta = memberMeta[member];
                   const selected = form.member === member;
-                  const shortLabel = member === "CON" ? "Con" : meta.label;
+                  const shortLabel = member === "CON" || member === "GIA_DINH" ? meta.role : meta.label;
 
                   return (
                     <button

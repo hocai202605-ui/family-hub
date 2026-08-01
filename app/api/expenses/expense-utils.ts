@@ -6,7 +6,7 @@ export const expenseDateTimeRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$
 export const expenseSchema = z.object({
   amount: z.number().int().positive(),
   category: z.string().trim().min(1),
-  member: z.enum(["CK", "VK", "CON"]),
+  member: z.enum(["CK", "VK", "CON", "GIA_DINH"]),
   note: z.string().trim().min(1),
   date: z.string().regex(expenseDateTimeRegex),
 });
@@ -44,7 +44,7 @@ export function toExpenseResponse(expense: {
   id: number;
   amount: number;
   category: string;
-  member: "CK" | "VK" | "CON";
+  member: "CK" | "VK" | "CON" | "GIA_DINH";
   note: string;
   date: Date;
 }) {

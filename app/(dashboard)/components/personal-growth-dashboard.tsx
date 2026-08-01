@@ -1401,14 +1401,19 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
 
       {/* Habits 2/3 + month calendar 1/3 */}
       <section className="grid gap-3 lg:grid-cols-3 lg:items-stretch">
-        <div className="flex flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+        <div className="flex flex-col rounded-lg border border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-white to-white p-5 shadow-sm ring-1 ring-inset ring-emerald-100 lg:col-span-2">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <h2 className="text-xl font-bold text-slate-950">Theo dõi thói quen</h2>
-              <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <div className="flex items-center gap-2">
+                <span className="grid h-8 w-8 place-items-center rounded-md bg-emerald-100 text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                  <Icon className="h-4 w-4" name="check" />
+                </span>
+                <h2 className="text-xl font-bold text-emerald-950">Theo dõi thói quen</h2>
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-800/70">
                 <span className="sr-only">Tuần trong tháng</span>
                 <select
-                  className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-800 outline-none ring-amber-200 focus:ring-2"
+                  className="rounded-md border border-emerald-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-800 outline-none ring-emerald-200 focus:ring-2"
                   onChange={(event) => selectWeek(event.target.value)}
                   value={activeWeekStart}
                 >
@@ -1428,8 +1433,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                 className={cn(
                   "inline-flex items-center gap-1 rounded-md px-3 py-2 text-xs font-semibold transition",
                   habitChecksDirtyForWeek(activeWeekStart)
-                    ? "bg-amber-500 text-white hover:bg-amber-600"
-                    : "border border-slate-200 bg-white text-slate-400",
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "border border-emerald-200 bg-white text-emerald-400",
                 )}
                 disabled={!habitChecksDirtyForWeek(activeWeekStart) || isBusy}
                 onClick={saveHabitChecks}
@@ -1441,7 +1446,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                 ) : null}
               </button>
               <button
-                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
                 onClick={() => {
                   setEditingHabits((open) => !open);
                   setDraftHabitName("");
@@ -1452,7 +1457,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                 {editingHabits ? "Xong" : "Sửa"}
               </button>
               <button
-                className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                className="inline-flex items-center gap-1 rounded-md bg-emerald-800 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-900"
                 onClick={() => {
                   setEditingHabits(true);
                   addHabit();
@@ -1466,15 +1471,15 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
           </div>
 
           {/* Progress under title: e.g. Tuần 2 · 15/28 ô */}
-          <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-            <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-600">
+          <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2 text-xs font-semibold text-emerald-800">
               <span>
                 Tuần {weekNumber}: {habitProgress.done}/{habitProgress.total} ô · {habitProgress.percent}%
               </span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
               <div
-                className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                className="h-full rounded-full bg-emerald-500 transition-all duration-300"
                 style={{ width: `${habitProgress.percent}%` }}
               />
             </div>
@@ -1634,27 +1639,31 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
         </div>
 
         {/* Month calendar — 1/3 */}
-        <aside className="flex flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:col-span-1">
+        <aside className="flex flex-col rounded-lg border border-sky-200 bg-gradient-to-br from-sky-50/90 via-white to-white p-4 shadow-sm ring-1 ring-inset ring-sky-100 lg:col-span-1">
           <div className="mb-2">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-bold text-slate-950">Lịch tháng</h2>
-              <Icon className="h-4 w-4 text-amber-600" name="calendar" />
+              <div className="flex items-center gap-2">
+                <span className="grid h-8 w-8 place-items-center rounded-md bg-sky-100 text-sky-700 ring-1 ring-inset ring-sky-200">
+                  <Icon className="h-4 w-4" name="calendar" />
+                </span>
+                <h2 className="text-base font-bold text-sky-950">Lịch tháng</h2>
+              </div>
             </div>
-            <p className="mt-0.5 text-[11px] text-slate-500">Click ngày để ghi chú</p>
+            <p className="mt-0.5 text-[11px] text-sky-800/70">Click ngày để ghi chú</p>
 
-            <div className="mt-2 inline-flex w-full items-center justify-between gap-1 rounded-md border border-slate-200 bg-slate-50 p-0.5">
+            <div className="mt-2 inline-flex w-full items-center justify-between gap-1 rounded-md border border-sky-200 bg-sky-50/80 p-0.5">
               <button
                 aria-label="Tháng trước"
-                className="grid h-8 w-8 place-items-center rounded-md text-slate-600 hover:bg-white hover:text-slate-950"
+                className="grid h-8 w-8 place-items-center rounded-md text-sky-700 hover:bg-white hover:text-sky-950"
                 onClick={() => goMonth(-1)}
                 type="button"
               >
                 <Icon className="h-3.5 w-3.5 rotate-180" name="chevronRight" />
               </button>
-              <span className="text-xs font-bold text-slate-900">{formatMonthLabel(selectedMonth)}</span>
+              <span className="text-xs font-bold text-sky-950">{formatMonthLabel(selectedMonth)}</span>
               <button
                 aria-label="Tháng sau"
-                className="grid h-8 w-8 place-items-center rounded-md text-slate-600 hover:bg-white hover:text-slate-950"
+                className="grid h-8 w-8 place-items-center rounded-md text-sky-700 hover:bg-white hover:text-sky-950"
                 onClick={() => goMonth(1)}
                 type="button"
               >
@@ -1749,8 +1758,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
             <span className="rounded bg-orange-100 px-1 font-semibold text-orange-800">cam</span> = còn trong tháng
           </p>
 
-          <div className="mt-3 border-t border-slate-100 pt-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Sự kiện tháng</p>
+          <div className="mt-3 border-t border-sky-100 pt-3">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-sky-700/80">Sự kiện tháng</p>
             {monthEventList.length === 0 ? (
               <p className="mt-2 text-xs text-slate-400">Chưa có sự kiện tháng này.</p>
             ) : (
@@ -1795,10 +1804,15 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
 
       {/* Daily log (2/3) + plan panel (1/3) */}
       <section className="grid gap-4 lg:grid-cols-3 lg:items-start">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+        <div className="rounded-lg border border-violet-200 bg-gradient-to-br from-violet-50/80 via-white to-white p-5 shadow-sm ring-1 ring-inset ring-violet-100 lg:col-span-2">
           <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-950">Nhật ký & đánh giá hằng ngày</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <div className="flex items-center gap-2">
+              <span className="grid h-8 w-8 place-items-center rounded-md bg-violet-100 text-violet-700 ring-1 ring-inset ring-violet-200">
+                <Icon className="h-4 w-4" name="sparkles" />
+              </span>
+              <h2 className="text-lg font-bold text-violet-950">Nhật ký & đánh giá hằng ngày</h2>
+            </div>
+            <p className="mt-1 text-sm text-violet-900/70">
               Tuần {weekNumber} · {formatMonthLabel(selectedMonth)} · chỉnh xong bấm Lưu ngày.
             </p>
           </div>
@@ -1816,8 +1830,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                 <div
                   className={cn(
                     "overflow-hidden rounded-lg border transition",
-                    open ? "border-amber-200 bg-amber-50/30 shadow-sm" : "border-slate-200 bg-white",
-                    isToday(day.date) && !open && "ring-1 ring-amber-100",
+                    open ? "border-violet-300 bg-violet-50/40 shadow-sm" : "border-violet-100 bg-white",
+                    isToday(day.date) && !open && "ring-1 ring-violet-200",
                   )}
                   key={day.date}
                 >
@@ -1837,7 +1851,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                       <span
                         className={cn(
                           "grid h-8 w-8 shrink-0 place-items-center rounded-md text-xs font-bold",
-                          open ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600",
+                          open ? "bg-violet-100 text-violet-800" : "bg-slate-100 text-slate-600",
                         )}
                       >
                         {day.dayLabel.replace("Thứ ", "T").replace("Chủ nhật", "CN")}
@@ -1846,7 +1860,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                         <p className="font-semibold text-slate-900">
                           {day.dayLabel}
                           {isToday(day.date) ? (
-                            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                            <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-xs font-semibold text-violet-800">
                               Hôm nay
                             </span>
                           ) : null}
@@ -1860,20 +1874,22 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                       </div>
                     </div>
                     <Icon
-                      className={cn("h-4 w-4 shrink-0 text-slate-400 transition", open && "rotate-90 text-amber-700")}
+                      className={cn("h-4 w-4 shrink-0 text-slate-400 transition", open && "rotate-90 text-violet-700")}
                       name="chevronRight"
                     />
                   </button>
 
                   {open ? (
-                    <div className="border-t border-amber-100/80 bg-white px-4 py-4">
+                    <div className="border-t border-violet-100 bg-white px-4 py-4">
                       {/* Left: Top 5 + tick-notes · Right: Daily reflection */}
                       <div className="grid gap-4 md:grid-cols-2 md:items-start">
-                        <div className="min-w-0 space-y-5">
-                          <div>
+                        <div className="min-w-0 space-y-4">
+                          <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 ring-1 ring-inset ring-amber-100">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                              <h3 className="text-sm font-bold text-slate-900">Top 5 việc quan trọng</h3>
-                              <span className="text-xs text-slate-500">Tối đa 5</span>
+                              <h3 className="text-sm font-bold text-amber-950">Top 5 việc quan trọng</h3>
+                              <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                                Tối đa 5
+                              </span>
                             </div>
                             <ul className="space-y-2">
                               {view.top5Tasks.map((task, index) => (
@@ -1884,8 +1900,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                       className={cn(
                                         "grid h-9 w-9 shrink-0 place-items-center rounded-md border transition",
                                         task.isCompleted
-                                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                                          : "border-slate-200 bg-white text-slate-300 hover:bg-slate-50",
+                                          ? "border-amber-400 bg-amber-100 text-amber-800"
+                                          : "border-amber-200 bg-white text-amber-300 hover:bg-amber-50",
                                       )}
                                       disabled={isBusy}
                                       onClick={() => toggleTop5Local(day.date, task.id)}
@@ -1893,12 +1909,12 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                     >
                                       <Icon className="h-4 w-4" name="check" />
                                     </button>
-                                    <span className="w-5 shrink-0 text-center text-xs font-semibold text-slate-400">
+                                    <span className="w-5 shrink-0 text-center text-xs font-semibold text-amber-600">
                                       {index + 1}
                                     </span>
                                     <input
                                       className={cn(
-                                        "w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-amber-200 placeholder:text-slate-400 focus:ring-2",
+                                        "w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-amber-200 placeholder:text-slate-400 focus:ring-2",
                                         task.isCompleted && task.text.trim() && "text-slate-500 line-through",
                                       )}
                                       onChange={(event) => setTop5Text(day.date, task.id, event.target.value)}
@@ -1911,11 +1927,11 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                             </ul>
                           </div>
 
-                          <div>
-                            <h3 className="mb-2 text-sm font-bold text-slate-900">Tick-notes · Việc vặt</h3>
+                          <div className="rounded-lg border border-teal-200 bg-teal-50/60 p-3 ring-1 ring-inset ring-teal-100">
+                            <h3 className="mb-2 text-sm font-bold text-teal-950">Tick-notes · Việc vặt</h3>
                             <ul className="space-y-2">
                               {view.tickNotes.length === 0 ? (
-                                <li className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500">
+                                <li className="rounded-md border border-dashed border-teal-200 bg-white/70 px-3 py-3 text-xs text-teal-800/70">
                                   Chưa có việc vặt. Thêm nhanh bên dưới.
                                 </li>
                               ) : (
@@ -1927,8 +1943,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                       className={cn(
                                         "grid h-8 w-8 shrink-0 place-items-center rounded-md border transition",
                                         note.isCompleted
-                                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                                          : "border-slate-200 bg-white text-slate-300 hover:bg-slate-50",
+                                          ? "border-teal-400 bg-teal-100 text-teal-800"
+                                          : "border-teal-200 bg-white text-teal-300 hover:bg-teal-50",
                                       )}
                                       disabled={isBusy}
                                       onClick={() => toggleTickNoteLocal(day.date, note.id)}
@@ -1959,7 +1975,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                             </ul>
                             <div className="mt-2 flex gap-2">
                               <input
-                                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-amber-200 placeholder:text-slate-400 focus:ring-2"
+                                className="w-full rounded-md border border-teal-200 bg-white px-3 py-2 text-sm outline-none ring-teal-200 placeholder:text-slate-400 focus:ring-2"
                                 onChange={(event) =>
                                   setDraftNote((current) => ({ ...current, [day.date]: event.target.value }))
                                 }
@@ -1974,7 +1990,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                 value={draftNote[day.date] ?? ""}
                               />
                               <button
-                                className="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                                className="inline-flex shrink-0 items-center gap-1 rounded-md bg-teal-700 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800"
                                 disabled={isBusy}
                                 onClick={() => addTickNoteLocal(day.date)}
                                 type="button"
@@ -1986,10 +2002,10 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                           </div>
                         </div>
 
-                        <div className="min-w-0 md:sticky md:top-2">
-                          <h3 className="mb-2 text-sm font-bold text-slate-900">Daily reflection</h3>
+                        <div className="min-w-0 rounded-lg border border-rose-200 bg-rose-50/50 p-3 ring-1 ring-inset ring-rose-100 md:sticky md:top-2">
+                          <h3 className="mb-2 text-sm font-bold text-rose-950">Daily reflection</h3>
                           <textarea
-                            className="min-h-[16rem] w-full resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-amber-200 placeholder:text-slate-400 focus:ring-2 md:min-h-[22rem]"
+                            className="min-h-[16rem] w-full resize-y rounded-md border border-rose-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-rose-200 placeholder:text-slate-400 focus:ring-2 md:min-h-[22rem]"
                             onChange={(event) => setReflectionLocal(day.date, event.target.value)}
                             placeholder="1–2 câu: cảm xúc, bài học, hoặc điều biết ơn hôm nay…"
                             value={view.reflection}
@@ -1999,8 +2015,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                               className={cn(
                                 "inline-flex items-center gap-1 rounded-md px-3 py-2 text-xs font-semibold transition",
                                 dirty
-                                  ? "bg-amber-500 text-white hover:bg-amber-600"
-                                  : "border border-slate-200 bg-white text-slate-400",
+                                  ? "bg-violet-600 text-white hover:bg-violet-700"
+                                  : "border border-violet-200 bg-white text-violet-300",
                               )}
                               disabled={!dirty || isBusy}
                               onClick={() => saveDayLog(day.date)}
@@ -2011,7 +2027,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                 <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px]">Chưa lưu</span>
                               ) : null}
                             </button>
-                            <span className="text-[11px] text-slate-500">
+                            <span className="text-[11px] text-rose-800/70">
                               Nhập / tích xong rồi bấm Lưu một lần
                             </span>
                           </div>
@@ -2026,12 +2042,18 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
         </div>
 
         {/* Plan panel with week / month tabs */}
-        <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-4 lg:col-span-1 lg:self-start">
-          <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+        <aside className="rounded-lg border border-orange-200 bg-gradient-to-br from-orange-50/90 via-white to-white p-5 shadow-sm ring-1 ring-inset ring-orange-100 lg:sticky lg:top-4 lg:col-span-1 lg:self-start">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="grid h-8 w-8 place-items-center rounded-md bg-orange-100 text-orange-700 ring-1 ring-inset ring-orange-200">
+              <Icon className="h-4 w-4" name="target" />
+            </span>
+            <h2 className="text-base font-bold text-orange-950">Kế hoạch</h2>
+          </div>
+          <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg border border-orange-100 bg-orange-50/80 p-1">
             <button
               className={cn(
                 "rounded-md px-2 py-2 text-xs font-semibold transition",
-                planTab === "week" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-800",
+                planTab === "week" ? "bg-white text-orange-950 shadow-sm ring-1 ring-orange-200" : "text-orange-800/70 hover:text-orange-950",
               )}
               onClick={() => {
                 setPlanTab("week");
@@ -2039,12 +2061,12 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
               }}
               type="button"
             >
-              Kế hoạch tuần {weekNumber}
+              Tuần {weekNumber}
             </button>
             <button
               className={cn(
                 "rounded-md px-2 py-2 text-xs font-semibold transition",
-                planTab === "month" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-800",
+                planTab === "month" ? "bg-white text-orange-950 shadow-sm ring-1 ring-orange-200" : "text-orange-800/70 hover:text-orange-950",
               )}
               onClick={() => {
                 setPlanTab("month");
@@ -2052,15 +2074,15 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
               }}
               type="button"
             >
-              Kế hoạch tháng
+              Tháng
             </button>
           </div>
 
           <div className="mb-3">
-            <h2 className="text-base font-bold text-slate-950">
+            <h3 className="text-sm font-bold text-orange-950">
               {planTab === "week" ? `Kế hoạch tuần ${weekNumber}` : `Kế hoạch ${formatMonthLabel(selectedMonth)}`}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
+            </h3>
+            <p className="mt-1 text-xs text-orange-900/70">
               {planTab === "week"
                 ? `${formatWeekRange(activeWeekStart)} · tick / sửa nháp, bấm Lưu kế hoạch`
                 : `Cả ${formatMonthLabel(selectedMonth).toLowerCase()} · tick / sửa nháp, bấm Lưu kế hoạch`}
@@ -2068,17 +2090,17 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
           </div>
 
           <div className="mb-4">
-            <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-600">
+            <div className="flex items-center justify-between gap-2 text-xs font-semibold text-orange-900/80">
               <span>
                 {planProgress.done}/{planProgress.total} hoàn thành
               </span>
               <span>{planProgress.percent}%</span>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-orange-100">
               <div
                 className={cn(
                   "h-full rounded-full transition-all duration-300",
-                  planTab === "week" ? "bg-emerald-500" : "bg-sky-500",
+                  planTab === "week" ? "bg-orange-500" : "bg-amber-500",
                 )}
                 style={{ width: `${planProgress.percent}%` }}
               />
@@ -2095,7 +2117,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
             ) : (
               activePlan.map((item) => (
                 <li
-                  className="flex items-start gap-2 rounded-md border border-slate-100 bg-slate-50/80 p-2"
+                  className="flex items-start gap-2 rounded-md border border-orange-100 bg-orange-50/70 p-2"
                   key={item.id}
                 >
                   <button
@@ -2104,8 +2126,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                     className={cn(
                       "mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md border transition",
                       item.isCompleted
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                        : "border-slate-200 bg-white text-slate-300 hover:bg-white",
+                        ? "border-orange-400 bg-orange-100 text-orange-800"
+                        : "border-orange-200 bg-white text-orange-300 hover:bg-white",
                     )}
                     disabled={isBusy}
                     onClick={() => togglePlanItemLocal(item.id)}
@@ -2115,7 +2137,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                   </button>
                   <input
                     className={cn(
-                      "min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1.5 text-sm text-slate-900 outline-none ring-amber-200 focus:border-slate-200 focus:bg-white focus:ring-2",
+                      "min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1.5 text-sm text-slate-900 outline-none ring-orange-200 focus:border-orange-200 focus:bg-white focus:ring-2",
                       item.isCompleted && "text-slate-500 line-through",
                     )}
                     onChange={(event) => setPlanItemTextLocal(item.id, event.target.value)}
@@ -2138,7 +2160,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
 
           <div className="mt-3 flex flex-col gap-2">
             <input
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-amber-200 placeholder:text-slate-400 focus:ring-2"
+              className="w-full rounded-md border border-orange-200 bg-white px-3 py-2 text-sm outline-none ring-orange-200 placeholder:text-slate-400 focus:ring-2"
               onChange={(event) => setDraftPlan(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
@@ -2151,7 +2173,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
               value={draftPlan}
             />
             <button
-              className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-orange-700 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-800"
               disabled={isBusy}
               onClick={addPlanItemLocal}
               type="button"
@@ -2163,8 +2185,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
               className={cn(
                 "inline-flex w-full items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition",
                 planDirty
-                  ? "bg-amber-500 text-white hover:bg-amber-600"
-                  : "border border-slate-200 bg-white text-slate-400",
+                  ? "bg-orange-500 text-white hover:bg-orange-600"
+                  : "border border-orange-200 bg-white text-orange-300",
               )}
               disabled={!planDirty || isBusy}
               onClick={savePlan}

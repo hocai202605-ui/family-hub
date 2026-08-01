@@ -20,7 +20,7 @@ export function toIncomeResponse(income: {
   id: number;
   amount: number;
   category: string;
-  member: "CK" | "VK" | "CON";
+  member: "CK" | "VK" | "CON" | "GIA_DINH";
   note: string;
   date: Date;
 }) {

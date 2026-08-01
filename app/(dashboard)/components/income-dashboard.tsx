@@ -499,6 +499,7 @@ export function IncomeDashboard({
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [memberFilter, setMemberFilter] = useState<FamilyMember | "all">("all");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [form, setForm] = useState<IncomeForm>(() => createEmptyForm(defaultMember));
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -662,6 +663,49 @@ export function IncomeDashboard({
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [categoryFilter, memberFilter, monthlyIncomes, query, getCategoryMeta]);
+
+  const filteredIncomeIds = useMemo(() => filteredIncomes.map((item) => item.id), [filteredIncomes]);
+
+  const allVisibleSelected =
+    filteredIncomeIds.length > 0 && filteredIncomeIds.every((id) => selectedIds.includes(id));
+
+  const someVisibleSelected =
+    filteredIncomeIds.some((id) => selectedIds.includes(id)) && !allVisibleSelected;
+
+  const selectedIncomes = useMemo(
+    () => filteredIncomes.filter((item) => selectedIds.includes(item.id)),
+    [filteredIncomes, selectedIds],
+  );
+
+  const selectedTotal = useMemo(
+    () => selectedIncomes.reduce((sum, item) => sum + item.amount, 0),
+    [selectedIncomes],
+  );
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const next = current.filter((id) => filteredIncomeIds.includes(id));
+      if (next.length === current.length) {
+        return current;
+      }
+      return next;
+    });
+  }, [filteredIncomeIds]);
+
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedIds((current) => current.filter((id) => !filteredIncomeIds.includes(id)));
+      return;
+    }
+
+    setSelectedIds((current) => Array.from(new Set([...current, ...filteredIncomeIds])));
+  }
+
+  function toggleSelectIncome(id: number) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id],
+    );
+  }
 
   function openCreateDialog() {
     setEditingId(null);
@@ -961,12 +1005,38 @@ export function IncomeDashboard({
                 ))}
               </select>
             </div>
+
+            {selectedIncomes.length > 0 ? (
+              <div className="flex flex-col gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-emerald-900">
+                  Đã chọn <span className="font-bold">{selectedIncomes.length}</span> khoản thu
+                </p>
+                <p className="text-sm font-bold text-emerald-800">
+                  Tổng: +{currency(selectedTotal)}
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[940px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
+                  <th className="w-12 px-4 py-4">
+                    <input
+                      aria-label="Chọn tất cả"
+                      checked={allVisibleSelected}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      disabled={isLoading || filteredIncomeIds.length === 0}
+                      onChange={toggleSelectAllVisible}
+                      ref={(input) => {
+                        if (input) {
+                          input.indeterminate = someVisibleSelected;
+                        }
+                      }}
+                      type="checkbox"
+                    />
+                  </th>
                   <th className="px-5 py-4 font-semibold">Date</th>
                   <th className="px-5 py-4 font-semibold">Category</th>
                   <th className="px-5 py-4 font-semibold">Người</th>
@@ -978,14 +1048,14 @@ export function IncomeDashboard({
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={6}>
+                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={7}>
                       Đang tải thu nhập...
                     </td>
                   </tr>
                 ) : null}
                 {!isLoading && error ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-rose-600" colSpan={6}>
+                    <td className="px-5 py-10 text-center text-sm text-rose-600" colSpan={7}>
                       {error}
                     </td>
                   </tr>
@@ -994,9 +1064,25 @@ export function IncomeDashboard({
                   ? filteredIncomes.map((income) => {
                   const meta = getCategoryMeta(income.category);
                   const member = memberMeta[income.member];
+                  const isSelected = selectedIds.includes(income.id);
 
                   return (
-                    <tr className="bg-white transition hover:bg-emerald-50/40" key={income.id}>
+                    <tr
+                      className={cn(
+                        "bg-white transition hover:bg-emerald-50/40",
+                        isSelected && "bg-emerald-50/60",
+                      )}
+                      key={income.id}
+                    >
+                      <td className="px-4 py-4">
+                        <input
+                          aria-label={`Chọn thu nhập ${income.id}`}
+                          checked={isSelected}
+                          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          onChange={() => toggleSelectIncome(income.id)}
+                          type="checkbox"
+                        />
+                      </td>
                       <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-700">{dateLabel(income.date)}</td>
                       <td className="px-5 py-4">
                         <Badge className={meta.badge}>
@@ -1035,7 +1121,7 @@ export function IncomeDashboard({
                   : null}
                 {!isLoading && !error && filteredIncomes.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={6}>
+                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={7}>
                       Không tìm thấy khoản thu phù hợp.
                     </td>
                   </tr>

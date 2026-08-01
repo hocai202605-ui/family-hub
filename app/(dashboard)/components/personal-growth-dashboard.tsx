@@ -762,8 +762,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
     try {
       await action();
       showFlash("success", successMessage);
-    } catch {
-      showFlash("error", "Có lỗi xảy ra. Vui lòng thử lại.");
+    } catch (error) {
+      showFlash("error", error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
     } finally {
       setIsBusy(false);
     }
@@ -789,8 +789,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
         try {
           await options.action();
           showFlash("success", options.successMessage);
-        } catch {
-          showFlash("error", "Có lỗi xảy ra. Vui lòng thử lại.");
+        } catch (error) {
+          showFlash("error", error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
         } finally {
           setIsBusy(false);
         }

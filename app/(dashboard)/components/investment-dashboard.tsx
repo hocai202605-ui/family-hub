@@ -106,6 +106,27 @@ function effectiveUnitPrice(item: { type: AssetType; purchasePrice: number; curr
   return item.currentPrice > 0 ? item.currentPrice : item.purchasePrice;
 }
 
+function assetPresentValue(item: Investment) {
+  if (item.type === "DEBT") {
+    return -(item.currentPrice * item.quantity);
+  }
+  if (item.type === "DEBT_INTEREST") {
+    return 0;
+  }
+  if (item.type === "SAVING" && item.interestRate && item.term) {
+    const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
+    return item.purchasePrice * item.quantity + pnl;
+  }
+  return effectiveUnitPrice(item) * item.quantity;
+}
+
+function assetCostValue(item: Investment) {
+  if (item.type === "DEBT" || item.type === "LOAN" || item.type === "DEBT_INTEREST") {
+    return 0;
+  }
+  return item.purchasePrice * item.quantity;
+}
+
 function formatQuantity(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 6, useGrouping: false });
 }
@@ -471,6 +492,7 @@ export function InvestmentDashboard() {
   const [priceError, setPriceError] = useState<string | null>(null);
   const [goldPriceStr, setGoldPriceStr] = useState<string>("");
   const [ccqPriceStr, setCcqPriceStr] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   useEffect(() => {
     let isActive = true;
@@ -559,6 +581,50 @@ export function InvestmentDashboard() {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [typeFilter, investments, query]);
+
+  const filteredInvestmentIds = useMemo(() => filteredInvestments.map((item) => item.id), [filteredInvestments]);
+
+  const allVisibleSelected =
+    filteredInvestmentIds.length > 0 && filteredInvestmentIds.every((id) => selectedIds.includes(id));
+
+  const someVisibleSelected =
+    filteredInvestmentIds.some((id) => selectedIds.includes(id)) && !allVisibleSelected;
+
+  const selectedInvestments = useMemo(
+    () => filteredInvestments.filter((item) => selectedIds.includes(item.id)),
+    [filteredInvestments, selectedIds],
+  );
+
+  const selectedPresentValue = useMemo(
+    () => selectedInvestments.reduce((sum, item) => sum + assetPresentValue(item), 0),
+    [selectedInvestments],
+  );
+
+  const selectedCostValue = useMemo(
+    () => selectedInvestments.reduce((sum, item) => sum + assetCostValue(item), 0),
+    [selectedInvestments],
+  );
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const next = current.filter((id) => filteredInvestmentIds.includes(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [filteredInvestmentIds]);
+
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedIds((current) => current.filter((id) => !filteredInvestmentIds.includes(id)));
+      return;
+    }
+    setSelectedIds((current) => Array.from(new Set([...current, ...filteredInvestmentIds])));
+  }
+
+  function toggleSelectInvestment(id: number) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id],
+    );
+  }
 
   const stats = useMemo(() => {
     return {
@@ -894,10 +960,39 @@ export function InvestmentDashboard() {
             )}
           </div>
 
+          {selectedInvestments.length > 0 ? (
+            <div className="flex flex-col gap-1 border-b border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-medium text-emerald-950">
+                Đã chọn <span className="font-bold">{selectedInvestments.length}</span> tài sản
+              </p>
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+                <p className="text-slate-600">
+                  Vốn: <span className="font-semibold text-slate-800">{currency(selectedCostValue)}</span>
+                </p>
+                <p className="font-bold text-emerald-900">
+                  Tổng hiện tại: {currency(selectedPresentValue)}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="overflow-x-auto">
             <table className="w-full min-w-[940px] border-collapse text-left text-xs">
               <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
                 <tr>
+                  <th className="w-10 px-3 py-3">
+                    <input
+                      aria-label="Chọn tất cả"
+                      checked={allVisibleSelected}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      disabled={isLoading || filteredInvestmentIds.length === 0}
+                      onChange={toggleSelectAllVisible}
+                      ref={(input) => {
+                        if (input) input.indeterminate = someVisibleSelected;
+                      }}
+                      type="checkbox"
+                    />
+                  </th>
                   <th className="px-3 py-3 font-semibold">Tên tài sản</th>
                   <th className="px-3 py-3 font-semibold">Ngày mua</th>
                   <th className="px-3 py-3 text-right font-semibold">SL</th>
@@ -911,14 +1006,15 @@ export function InvestmentDashboard() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
-                  <tr><td className="px-3 py-8 text-center text-slate-500" colSpan={9}>Đang tải...</td></tr>
+                  <tr><td className="px-3 py-8 text-center text-slate-500" colSpan={10}>Đang tải...</td></tr>
                 ) : null}
                 {!isLoading && error ? (
-                  <tr><td className="px-3 py-8 text-center text-rose-600" colSpan={9}>{error}</td></tr>
+                  <tr><td className="px-3 py-8 text-center text-rose-600" colSpan={10}>{error}</td></tr>
                 ) : null}
                 {!isLoading && !error ? filteredInvestments.map((inv) => {
                   const meta = assetMeta[inv.type];
                   const hidePnl = isZeroPnlType(inv.type);
+                  const isSelected = selectedIds.includes(inv.id);
                   let pnl = 0;
                   if (hidePnl) {
                     pnl = 0;
@@ -930,7 +1026,16 @@ export function InvestmentDashboard() {
                   const pnlPercentItem = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
                   
                   return (
-                    <tr className="bg-white transition hover:bg-purple-50/40" key={inv.id}>
+                    <tr className={cn("bg-white transition hover:bg-purple-50/40", isSelected && "bg-emerald-50/70")} key={inv.id}>
+                      <td className="px-3 py-3">
+                        <input
+                          aria-label={`Chọn ${inv.name}`}
+                          checked={isSelected}
+                          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          onChange={() => toggleSelectInvestment(inv.id)}
+                          type="checkbox"
+                        />
+                      </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-2">
                            <div className="grid h-7 w-7 place-items-center rounded-lg" style={{ backgroundColor: meta.chart + '20', color: meta.chart }}>

@@ -23,6 +23,14 @@ export const investmentSchema = z.object({
   member: z.enum(["CK", "VK", "CON"]),
   note: z.string().trim().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+}).superRefine((data, ctx) => {
+  if (data.type !== "GOLD") return;
+  if (data.quantity === 0.5 || Number.isInteger(data.quantity)) return;
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: ["quantity"],
+    message: "Gold quantity must be 0.5 or a positive integer.",
+  });
 });
 
 export function dateFromInput(date: string) {

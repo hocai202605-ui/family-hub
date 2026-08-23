@@ -43,6 +43,29 @@ function isFundType(type: AssetType) {
   return type === "FUND_DCDS" || type === "FUND_ETF_VN30";
 }
 
+function usesQuantityPresets(type: AssetType) {
+  return type === "GOLD" || isFundType(type);
+}
+
+const QUANTITY_PRESETS = ["0.5", "1", "2", "3", "4", "5"] as const;
+const QUANTITY_CUSTOM = "__custom__";
+
+function matchingQuantityPreset(value: string) {
+  const parsed = Number(String(value).replace(",", "."));
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return QUANTITY_PRESETS.find((preset) => Number(preset) === parsed) ?? null;
+}
+
+function parseQuantityInput(value: string) {
+  return Number(String(value).trim().replace(",", "."));
+}
+
+function isAllowedUnitQuantity(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return false;
+  if (value === 0.5) return true;
+  return Number.isInteger(value);
+}
+
 function isZeroPnlType(type: AssetType) {
   return ZERO_PNL_TYPES.includes(type);
 }
@@ -475,11 +498,20 @@ export function InvestmentDashboard() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const quantity = Number(form.quantity);
+    const quantity = parseQuantityInput(form.quantity);
     const purchasePrice = Number(form.purchasePrice);
     const currentPrice = form.currentPrice.trim() === "" ? 0 : Number(form.currentPrice);
+    const goldQuantityInvalid = form.type === "GOLD" && !isAllowedUnitQuantity(quantity);
 
-    if (!quantity || quantity <= 0 || purchasePrice < 0 || Number.isNaN(currentPrice) || currentPrice < 0 || !form.name) {
+    if (
+      !quantity ||
+      quantity <= 0 ||
+      goldQuantityInvalid ||
+      purchasePrice < 0 ||
+      Number.isNaN(currentPrice) ||
+      currentPrice < 0 ||
+      !form.name
+    ) {
       return;
     }
 
@@ -884,7 +916,51 @@ export function InvestmentDashboard() {
               </select>
             </Field>
             <Field id="quantity" label={form.type === "GOLD" ? "Số chỉ" : isFundType(form.type) ? "Số CCQ" : "Số lượng (Lượng, Cổ phiếu...)"}>
-              <input className={inputClass()} id="quantity" min="0.000001" step="0.01" onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} required type="number" value={form.quantity} />
+              {usesQuantityPresets(form.type) ? (
+                <div className="grid gap-2">
+                  <select
+                    className={inputClass()}
+                    id="quantity-preset"
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setForm((current) => ({
+                        ...current,
+                        quantity: next === QUANTITY_CUSTOM ? (matchingQuantityPreset(current.quantity) ? "" : current.quantity) : next,
+                      }));
+                    }}
+                    value={matchingQuantityPreset(form.quantity) ?? QUANTITY_CUSTOM}
+                  >
+                    {QUANTITY_PRESETS.map((preset) => (
+                      <option key={preset} value={preset}>
+                        {preset}
+                      </option>
+                    ))}
+                    <option value={QUANTITY_CUSTOM}>Nhập tay...</option>
+                  </select>
+                  <input
+                    className={inputClass()}
+                    id="quantity"
+                    inputMode="decimal"
+                    min={form.type === "GOLD" ? "0.5" : "0.000001"}
+                    onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))}
+                    placeholder={form.type === "GOLD" ? "0.5 hoặc 1, 2, 3…" : "Ví dụ 10.56"}
+                    required
+                    step="any"
+                    type="number"
+                    value={form.quantity}
+                  />
+                  <p className="text-xs font-normal text-slate-500">
+                    {form.type === "GOLD"
+                      ? "Chọn nhanh hoặc nhập tay: chỉ 0.5 hoặc số nguyên dương."
+                      : "Chọn nhanh 0.5–5 hoặc nhập tay số lẻ (ví dụ 10.56)."}
+                  </p>
+                  {form.type === "GOLD" && form.quantity.trim() && !isAllowedUnitQuantity(parseQuantityInput(form.quantity)) ? (
+                    <p className="text-xs font-medium text-rose-600">Số lượng không hợp lệ. Dùng 0.5 hoặc 1, 2, 3…</p>
+                  ) : null}
+                </div>
+              ) : (
+                <input className={inputClass()} id="quantity" min="0" step="any" onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} required type="number" value={form.quantity} />
+              )}
             </Field>
           </div>
 

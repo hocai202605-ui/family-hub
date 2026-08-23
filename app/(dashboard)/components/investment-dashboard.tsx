@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { readMoney } from "@/app/utils/read-money";
 import { vietnamToday } from "@/lib/vietnam-date";
 import { Icon, IconName } from "./icons";
@@ -48,16 +48,56 @@ function usesQuantityPresets(type: AssetType) {
 }
 
 const QUANTITY_PRESETS = ["0.5", "1", "2", "3", "4", "5"] as const;
-const QUANTITY_CUSTOM = "__custom__";
-
-function matchingQuantityPreset(value: string) {
-  const parsed = Number(String(value).replace(",", "."));
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return QUANTITY_PRESETS.find((preset) => Number(preset) === parsed) ?? null;
-}
 
 function parseQuantityInput(value: string) {
-  return Number(String(value).trim().replace(",", "."));
+  const canonical = canonicalizeNumberInput(value);
+  return Number(canonical);
+}
+
+/** Keep a canonical "10000" / "10.56" string; display uses vi-VN grouping (10.000 / 10,56). */
+function canonicalizeNumberInput(value: string) {
+  const cleaned = String(value).replace(/[^\d.,]/g, "");
+  if (!cleaned) return "";
+
+  if (cleaned.endsWith(",") || cleaned.endsWith(".")) {
+    const intPart = cleaned.slice(0, -1).replace(/[.,]/g, "");
+    return intPart ? `${intPart}.` : "";
+  }
+
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+
+  if (lastComma > lastDot) {
+    const intPart = cleaned.slice(0, lastComma).replace(/[.,]/g, "");
+    const frac = cleaned.slice(lastComma + 1).replace(/\D/g, "");
+    return frac ? `${intPart}.${frac}` : intPart;
+  }
+
+  const parts = cleaned.split(".");
+  if (parts.length === 1) return parts[0];
+
+  const last = parts[parts.length - 1];
+  const head = parts.slice(0, -1);
+  const looksLikeThousands =
+    head.length > 0 &&
+    head.every((part, index) => (index === 0 ? part.length > 0 && part.length <= 3 : part.length === 3)) &&
+    last.length === 3;
+
+  if (looksLikeThousands) {
+    return parts.join("");
+  }
+
+  return `${head.join("").replace(/\D/g, "")}.${last.replace(/\D/g, "")}`;
+}
+
+function formatNumberInput(canonical: string) {
+  if (!canonical) return "";
+  const hasTrailingDecimal = canonical.endsWith(".");
+  const [intPart, frac] = canonical.split(".");
+  const formattedInt = new Intl.NumberFormat("vi-VN").format(Number(intPart || "0"));
+  if (hasTrailingDecimal) return `${formattedInt},`;
+  if (frac != null && canonical.includes(".")) return `${formattedInt},${frac}`;
+  return formattedInt;
 }
 
 function isAllowedUnitQuantity(value: number) {
@@ -77,6 +117,16 @@ function effectiveUnitPrice(item: { type: AssetType; purchasePrice: number; curr
 
 function formatQuantity(value: number) {
   return value.toLocaleString("vi-VN", { maximumFractionDigits: 6 });
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 type Investment = {
@@ -247,6 +297,73 @@ function Field({ id, label, children }: { id: string; label: string; children: R
 
 function inputClass() {
   return "h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
+}
+
+function QuantityCombobox({
+  id,
+  value,
+  placeholder,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <input
+        className={cn(inputClass(), "w-full pr-10")}
+        id={id}
+        inputMode="decimal"
+        onChange={(event) => onChange(canonicalizeNumberInput(event.target.value))}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        required
+        value={formatNumberInput(value)}
+      />
+      <button
+        aria-label="Chọn số lượng"
+        className="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-500 hover:text-slate-950"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <Icon className={cn("h-4 w-4 transition", open && "rotate-90")} name="chevronRight" />
+      </button>
+      {open ? (
+        <ul className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+          {QUANTITY_PRESETS.map((preset) => (
+            <li key={preset}>
+              <button
+                className={cn(
+                  "flex w-full px-3 py-2 text-left text-sm hover:bg-emerald-50",
+                  value === preset ? "font-semibold text-emerald-700" : "text-slate-800",
+                )}
+                onClick={() => {
+                  onChange(preset);
+                  setOpen(false);
+                }}
+                type="button"
+              >
+                {preset}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 function Dialog({ open, title, description, children, onClose }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void }) {
@@ -499,8 +616,8 @@ export function InvestmentDashboard() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const quantity = parseQuantityInput(form.quantity);
-    const purchasePrice = Number(form.purchasePrice);
-    const currentPrice = form.currentPrice.trim() === "" ? 0 : Number(form.currentPrice);
+    const purchasePrice = parseQuantityInput(form.purchasePrice);
+    const currentPrice = form.currentPrice.trim() === "" ? 0 : parseQuantityInput(form.currentPrice);
     const goldQuantityInvalid = form.type === "GOLD" && !isAllowedUnitQuantity(quantity);
 
     if (
@@ -574,43 +691,43 @@ export function InvestmentDashboard() {
 
   async function fetchGoldPrice() {
     setIsFetchingGold(true);
+    setPriceError(null);
+
     try {
       const response = await fetch("/api/market/gold");
-      if (!response.ok) throw new Error("Không thể tải giá vàng");
-      const data = await response.json();
-      
-      if (data.success && data.data && data.data.ring) {
-        // Chia 10 để ra giá 1 chỉ
-        const ringBuyPerChi = data.data.ring.buy / 10;
-        const ringSellPerChi = data.data.ring.sell / 10;
-        
-        setGoldPriceStr(`Vàng nhẫn SJC/chỉ - Mua: ${currency(ringBuyPerChi)} | Bán: ${currency(ringSellPerChi)}`);
-        
-        const goldAssets = investments.filter(i => i.type === "GOLD");
-        if (goldAssets.length > 0) {
-          const promises = goldAssets.map(async (asset) => {
-            const res = await fetch(`/api/investments/${asset.id}`, {
+      const data = await readJsonResponse(response);
+      const payload = data as {
+        success?: boolean;
+        error?: string;
+        data?: { ring?: { buy: number; sell: number } };
+      } | null;
+
+      if (!response.ok || !payload?.success || !payload.data?.ring) {
+        throw new Error(payload?.error || "Không thể tải giá vàng SJC.");
+      }
+
+      const ringBuyPerChi = payload.data.ring.buy / 10;
+      const ringSellPerChi = payload.data.ring.sell / 10;
+      setGoldPriceStr(`Vàng nhẫn SJC/chỉ - Mua: ${currency(ringBuyPerChi)} | Bán: ${currency(ringSellPerChi)}`);
+
+      const goldAssets = investments.filter((item) => item.type === "GOLD");
+      if (goldAssets.length > 0) {
+        await Promise.all(
+          goldAssets.map((asset) =>
+            fetch(`/api/investments/${asset.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ currentPrice: ringBuyPerChi }) // Giá thị trường (Giá tiệm mua vào)
-            });
-            return res.json();
-          });
-          
-          const results = await Promise.all(promises);
-          
-          setInvestments(current => current.map(item => {
-            if (item.type === "GOLD") {
-              return { ...item, currentPrice: ringBuyPerChi };
-            }
-            return item;
-          }));
-        }
-      } else {
-        throw new Error(data.error || "Không có dữ liệu giá vàng");
+              body: JSON.stringify({ currentPrice: ringBuyPerChi }),
+            }),
+          ),
+        );
+
+        setInvestments((current) =>
+          current.map((item) => (item.type === "GOLD" ? { ...item, currentPrice: ringBuyPerChi } : item)),
+        );
       }
     } catch (err) {
-      alert("Lỗi khi tải giá vàng SJC: " + (err instanceof Error ? err.message : "Lỗi không xác định"));
+      setPriceError(err instanceof Error ? err.message : "Không thể tải giá vàng SJC.");
     } finally {
       setIsFetchingGold(false);
     }
@@ -629,9 +746,16 @@ export function InvestmentDashboard() {
 
     try {
       const response = await fetch("/api/market/ccq");
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Không thể tải giá chứng chỉ quỹ.");
+      const data = (await readJsonResponse(response)) as {
+        success?: boolean;
+        error?: string;
+        data?: {
+          dcds?: { price: number; asOf?: string | null; kind: string };
+          etfVn30?: { price: number; asOf?: string | null; kind: string };
+        };
+      } | null;
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Không thể tải giá chứng chỉ quỹ.");
       }
 
       const dcdsQuote = data.data?.dcds ?? null;
@@ -918,59 +1042,49 @@ export function InvestmentDashboard() {
             <Field id="quantity" label={form.type === "GOLD" ? "Số chỉ" : isFundType(form.type) ? "Số CCQ" : "Số lượng (Lượng, Cổ phiếu...)"}>
               {usesQuantityPresets(form.type) ? (
                 <div className="grid gap-2">
-                  <select
-                    className={inputClass()}
-                    id="quantity-preset"
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      setForm((current) => ({
-                        ...current,
-                        quantity: next === QUANTITY_CUSTOM ? (matchingQuantityPreset(current.quantity) ? "" : current.quantity) : next,
-                      }));
-                    }}
-                    value={matchingQuantityPreset(form.quantity) ?? QUANTITY_CUSTOM}
-                  >
-                    {QUANTITY_PRESETS.map((preset) => (
-                      <option key={preset} value={preset}>
-                        {preset}
-                      </option>
-                    ))}
-                    <option value={QUANTITY_CUSTOM}>Nhập tay...</option>
-                  </select>
-                  <input
-                    className={inputClass()}
+                  <QuantityCombobox
                     id="quantity"
-                    inputMode="decimal"
-                    min={form.type === "GOLD" ? "0.5" : "0.000001"}
-                    onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))}
-                    placeholder={form.type === "GOLD" ? "0.5 hoặc 1, 2, 3…" : "Ví dụ 10.56"}
-                    required
-                    step="any"
-                    type="number"
+                    onChange={(quantity) => setForm((current) => ({ ...current, quantity }))}
+                    placeholder={form.type === "GOLD" ? "Chọn 0.5–5 hoặc nhập tay" : "Chọn 0.5–5 hoặc nhập tay (vd: 10.56)"}
                     value={form.quantity}
                   />
-                  <p className="text-xs font-normal text-slate-500">
-                    {form.type === "GOLD"
-                      ? "Chọn nhanh hoặc nhập tay: chỉ 0.5 hoặc số nguyên dương."
-                      : "Chọn nhanh 0.5–5 hoặc nhập tay số lẻ (ví dụ 10.56)."}
-                  </p>
                   {form.type === "GOLD" && form.quantity.trim() && !isAllowedUnitQuantity(parseQuantityInput(form.quantity)) ? (
                     <p className="text-xs font-medium text-rose-600">Số lượng không hợp lệ. Dùng 0.5 hoặc 1, 2, 3…</p>
                   ) : null}
                 </div>
               ) : (
-                <input className={inputClass()} id="quantity" min="0" step="any" onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} required type="number" value={form.quantity} />
+                <input
+                  className={inputClass()}
+                  id="quantity"
+                  inputMode="decimal"
+                  onChange={(event) => setForm((current) => ({ ...current, quantity: canonicalizeNumberInput(event.target.value) }))}
+                  required
+                  value={formatNumberInput(form.quantity)}
+                />
               )}
             </Field>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id="purchasePrice" label={isFundType(form.type) ? "Giá mua / CCQ" : "Giá vốn (trên 1 đơn vị)"}>
-              <input className={inputClass()} id="purchasePrice" min="0" step="any" onChange={(event) => setForm((current) => ({ ...current, purchasePrice: event.target.value }))} required type="number" value={form.purchasePrice} />
+              <input
+                className={inputClass()}
+                id="purchasePrice"
+                inputMode="decimal"
+                onChange={(event) => setForm((current) => ({ ...current, purchasePrice: canonicalizeNumberInput(event.target.value) }))}
+                required
+                value={formatNumberInput(form.purchasePrice)}
+              />
               {form.purchasePrice && <p className="text-xs italic text-rose-600">{readMoney(form.purchasePrice)}</p>}
             </Field>
             <Field id="currentPrice" label={isFundType(form.type) ? "Giá hiện tại / CCQ (không bắt buộc)" : "Giá hiện tại (không bắt buộc)"}>
-              <input className={inputClass()} id="currentPrice" min="0" step="any" onChange={(event) => setForm((current) => ({ ...current, currentPrice: event.target.value }))} type="number" value={form.currentPrice} />
+              <input
+                className={inputClass()}
+                id="currentPrice"
+                inputMode="decimal"
+                onChange={(event) => setForm((current) => ({ ...current, currentPrice: canonicalizeNumberInput(event.target.value) }))}
+                value={formatNumberInput(form.currentPrice)}
+              />
               {form.currentPrice && <p className="text-xs italic text-rose-600">{readMoney(form.currentPrice)}</p>}
             </Field>
           </div>

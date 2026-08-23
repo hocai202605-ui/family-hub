@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { dateFromInput, toInvestmentResponse, investmentSchema } from "../investment-utils";
+import { dateFromInput, toInvestmentResponse, investmentFields } from "../investment-utils";
 import { requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ error: "Invalid investment id." }, { status: 400 });
   }
 
-  const parsed = investmentSchema.partial().safeParse(await request.json());
+  const parsed = investmentFields.partial().safeParse(await request.json());
 
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid investment payload." }, { status: 400 });

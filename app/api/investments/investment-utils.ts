@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const investmentSchema = z.object({
+export const investmentFields = z.object({
   name: z.string().trim().min(1),
   type: z.enum([
     "GOLD",
@@ -23,7 +23,9 @@ export const investmentSchema = z.object({
   member: z.enum(["CK", "VK", "CON"]),
   note: z.string().trim().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-}).superRefine((data, ctx) => {
+});
+
+export const investmentSchema = investmentFields.superRefine((data, ctx) => {
   if (data.type !== "GOLD") return;
   if (data.quantity === 0.5 || Number.isInteger(data.quantity)) return;
   ctx.addIssue({

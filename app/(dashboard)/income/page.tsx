@@ -7,7 +7,7 @@ export default async function IncomePage() {
   return (
     <IncomeDashboard
       canManageCategories={user.role === "ADMIN"}
-      defaultMember={defaultMemberForAccount({ email: user.email, role: user.role }, "CK")}
+      defaultMember={defaultMemberForAccount({ email: user.email, name: user.name, role: user.role }, "CK")}
     />
   );
 }

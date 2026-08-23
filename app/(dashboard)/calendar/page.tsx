@@ -5,7 +5,7 @@ import { defaultMemberForAccount } from "@/lib/default-member";
 export default async function CalendarPage() {
   const user = await requirePageAccess("calendar");
   const defaultMember = defaultMemberForAccount(
-    { email: user.email, role: user.role },
+    { email: user.email, name: user.name, role: user.role },
     "CK",
   );
 

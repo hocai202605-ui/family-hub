@@ -49,45 +49,36 @@ function usesQuantityPresets(type: AssetType) {
 
 const QUANTITY_PRESETS = ["0.5", "1", "2", "3", "4", "5"] as const;
 
-function parseQuantityInput(value: string) {
-  const canonical = canonicalizeNumberInput(value);
-  return Number(canonical);
+/** Canonical stored value uses JS decimal (14000000, 0.5). Display is vi-VN: 14.000.000 / 0,5. */
+function parseStoredNumber(canonical: string) {
+  const trimmed = canonical.trim();
+  if (!trimmed) return NaN;
+  return Number(trimmed);
 }
 
-/** Keep a canonical "10000" / "10.56" string; display uses vi-VN grouping (10.000 / 10,56). */
 function canonicalizeNumberInput(value: string) {
   const cleaned = String(value).replace(/[^\d.,]/g, "");
   if (!cleaned) return "";
 
-  if (cleaned.endsWith(",") || cleaned.endsWith(".")) {
-    const intPart = cleaned.slice(0, -1).replace(/[.,]/g, "");
-    return intPart ? `${intPart}.` : "";
-  }
-
   const lastComma = cleaned.lastIndexOf(",");
-  const lastDot = cleaned.lastIndexOf(".");
-
-  if (lastComma > lastDot) {
+  if (lastComma >= 0) {
     const intPart = cleaned.slice(0, lastComma).replace(/[.,]/g, "");
     const frac = cleaned.slice(lastComma + 1).replace(/\D/g, "");
+    if (cleaned.endsWith(",")) return intPart ? `${intPart}.` : "";
     return frac ? `${intPart}.${frac}` : intPart;
   }
 
-  const parts = cleaned.split(".");
-  if (parts.length === 1) return parts[0];
+  // In vi-VN the dot is a thousand separator, never a decimal.
+  return cleaned.replace(/\./g, "");
+}
 
-  const last = parts[parts.length - 1];
-  const head = parts.slice(0, -1);
-  const looksLikeThousands =
-    head.length > 0 &&
-    head.every((part, index) => (index === 0 ? part.length > 0 && part.length <= 3 : part.length === 3)) &&
-    last.length === 3;
-
-  if (looksLikeThousands) {
-    return parts.join("");
-  }
-
-  return `${head.join("").replace(/\D/g, "")}.${last.replace(/\D/g, "")}`;
+/** Quantity uses `.` as the decimal point (10.56), not vi-VN comma. */
+function canonicalizeQuantityInput(value: string) {
+  const cleaned = String(value).replace(/,/g, ".").replace(/[^\d.]/g, "");
+  if (!cleaned) return "";
+  const dot = cleaned.indexOf(".");
+  if (dot < 0) return cleaned;
+  return `${cleaned.slice(0, dot + 1)}${cleaned.slice(dot + 1).replace(/\./g, "")}`;
 }
 
 function formatNumberInput(canonical: string) {
@@ -116,7 +107,7 @@ function effectiveUnitPrice(item: { type: AssetType; purchasePrice: number; curr
 }
 
 function formatQuantity(value: number) {
-  return value.toLocaleString("vi-VN", { maximumFractionDigits: 6 });
+  return value.toLocaleString("en-US", { maximumFractionDigits: 6, useGrouping: false });
 }
 
 async function readJsonResponse(response: Response) {
@@ -327,11 +318,11 @@ function QuantityCombobox({
         className={cn(inputClass(), "w-full pr-10")}
         id={id}
         inputMode="decimal"
-        onChange={(event) => onChange(canonicalizeNumberInput(event.target.value))}
+        onChange={(event) => onChange(canonicalizeQuantityInput(event.target.value))}
         onFocus={() => setOpen(true)}
         placeholder={placeholder}
         required
-        value={formatNumberInput(value)}
+        value={value}
       />
       <button
         aria-label="Chọn số lượng"
@@ -615,9 +606,9 @@ export function InvestmentDashboard() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const quantity = parseQuantityInput(form.quantity);
-    const purchasePrice = parseQuantityInput(form.purchasePrice);
-    const currentPrice = form.currentPrice.trim() === "" ? 0 : parseQuantityInput(form.currentPrice);
+    const quantity = parseStoredNumber(form.quantity);
+    const purchasePrice = parseStoredNumber(form.purchasePrice);
+    const currentPrice = form.currentPrice.trim() === "" ? 0 : parseStoredNumber(form.currentPrice);
     const goldQuantityInvalid = form.type === "GOLD" && !isAllowedUnitQuantity(quantity);
 
     if (
@@ -1048,7 +1039,7 @@ export function InvestmentDashboard() {
                     placeholder={form.type === "GOLD" ? "Chọn 0.5–5 hoặc nhập tay" : "Chọn 0.5–5 hoặc nhập tay (vd: 10.56)"}
                     value={form.quantity}
                   />
-                  {form.type === "GOLD" && form.quantity.trim() && !isAllowedUnitQuantity(parseQuantityInput(form.quantity)) ? (
+                  {form.type === "GOLD" && form.quantity.trim() && !isAllowedUnitQuantity(parseStoredNumber(form.quantity)) ? (
                     <p className="text-xs font-medium text-rose-600">Số lượng không hợp lệ. Dùng 0.5 hoặc 1, 2, 3…</p>
                   ) : null}
                 </div>
@@ -1057,9 +1048,9 @@ export function InvestmentDashboard() {
                   className={inputClass()}
                   id="quantity"
                   inputMode="decimal"
-                  onChange={(event) => setForm((current) => ({ ...current, quantity: canonicalizeNumberInput(event.target.value) }))}
+                  onChange={(event) => setForm((current) => ({ ...current, quantity: canonicalizeQuantityInput(event.target.value) }))}
                   required
-                  value={formatNumberInput(form.quantity)}
+                  value={form.quantity}
                 />
               )}
             </Field>

@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
   const investment = await prisma.investment.create({
     data: {
       ...parsed.data,
+      currentPrice: parsed.data.currentPrice ?? 0,
       date: dateFromInput(parsed.data.date),
       createdBy: username,
       updatedBy: username,

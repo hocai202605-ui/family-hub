@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { requireApiAccess } from "@/lib/auth";
 import {
@@ -12,6 +13,13 @@ import {
 } from "./growth-utils";
 
 export const dynamic = "force-dynamic";
+
+const DEFAULT_GROWTH_HABITS = [
+  { name: "Đọc sách", color: "amber" },
+  { name: "Tập thể dục", color: "emerald" },
+  { name: "Dậy sớm", color: "sky" },
+  { name: "Uống đủ nước", color: "violet" },
+] as const;
 
 /**
  * GET /api/growth?month=YYYY-MM&member=CK
@@ -43,12 +51,34 @@ export async function GET(request: NextRequest) {
 
   const weekStarts = mondaysInMonthKeys(month);
 
-  const [habits, planItems, dailyLogs, events] = await Promise.all([
-    prisma.growthHabit.findMany({
+  let habits = await prisma.growthHabit.findMany({
+    where: { member, month },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    include: { checks: true },
+  });
+
+  if (habits.length === 0) {
+    const username = auditUsername(auth.user);
+    await prisma.growthHabit.createMany({
+      data: DEFAULT_GROWTH_HABITS.map((habit, index) => ({
+        member,
+        month,
+        name: habit.name,
+        color: habit.color,
+        sortOrder: index,
+        createdBy: username,
+        updatedBy: username,
+      })),
+    });
+
+    habits = await prisma.growthHabit.findMany({
       where: { member, month },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       include: { checks: true },
-    }),
+    });
+  }
+
+  const [planItems, dailyLogs, events] = await Promise.all([
     prisma.growthPlanItem.findMany({
       where: { member, month },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],

@@ -13,7 +13,7 @@ Transactions are **not** scoped per `User` id; they are household-wide and tagge
 
 **CategoryType:** `INCOME` | `EXPENSE`
 
-**AssetType:** `GOLD` | `STOCK` | `SAVING` | `REAL_ESTATE` | `CRYPTO` | `DEBT` | `LOAN` | `OTHER`
+**AssetType:** `GOLD` | `STOCK` | `SAVING` | `REAL_ESTATE` | `CRYPTO` | `DEBT` | `LOAN` | `OTHER` | `FUND_DCDS` | `FUND_ETF_VN30` | `DEBT_INTEREST`
 
 **FamilyMember:** `CK` | `VK` | `CON` | `GIA_DINH`
 
@@ -39,9 +39,11 @@ Transactions are **not** scoped per `User` id; they are household-wide and tagge
 ### Investment
 
 - `name`, `type` (`AssetType`)
-- `quantity`, `purchasePrice`, `currentPrice` (floats)
+- `quantity`, `purchasePrice`, `currentPrice` (floats; `currentPrice` may be `0` when unknown)
 - Optional `interestRate`, `term`, `note`
 - `member`, `date`
+- Fund types: `FUND_DCDS` (CCQ CP DCDS, daily NAV), `FUND_ETF_VN30` (E1VFVN30 last price)
+- `DEBT_INTEREST` (Trả nợ lãi vay) is not included in net assets or PnL
 
 ### MenuPermission
 

@@ -37,6 +37,7 @@ Browser
 | `app/api/expenses|incomes|investments|categories/` | CRUD + list filters |
 | `app/api/admin/users/` | Admin user CRUD, password, menu permissions |
 | `app/api/market/gold/` | Proxy gold prices (requires investments access) |
+| `app/api/market/ccq/` | Proxy DCDS NAV + E1VFVN30 last price (requires investments access) |
 | `lib/auth.ts` | PBKDF2 passwords, HMAC session cookie, require* helpers |
 | `lib/menu.ts` | Nav tree, `MenuKey`, permission filter |
 | `lib/prisma.ts` | Prisma singleton |
@@ -69,7 +70,7 @@ Browser
 | Categories | Done |
 | Expenses monthly/yearly UI + API | Done |
 | Income monthly/yearly UI + API | Done |
-| Investments + gold price proxy | Done |
+| Investments + gold/CCQ price proxy | Done |
 | Overview as true family summary | Partial (reuses expenses UI) |
 | Calendar (habits + daily log) | UI mock on `/calendar` (`data/mockGrowth.json`), no API yet |
 | Goals / health / parenting | Scaffold only (`ComingSoonModule`) |

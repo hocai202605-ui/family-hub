@@ -270,14 +270,14 @@ function emptyWeek(weekStart: string, habitIds: string[] = []): WeekData {
 function emptyMonth(): MonthData {
   return {
     monthlyPlan: [],
-    habits: DEFAULT_HABITS.map((habit) => ({ ...habit })),
+    habits: [],
     weeks: {},
   };
 }
 
 function monthHabitDefs(month: MonthData): HabitDef[] {
   if (month.habits?.length) return month.habits;
-  return DEFAULT_HABITS.map((habit) => ({ ...habit }));
+  return [];
 }
 
 function weekChecksForHabits(week: WeekData, habits: HabitDef[]): Record<string, boolean[]> {
@@ -450,6 +450,10 @@ function isDayDraftDirty(draft: DayDraft, server: DailyLog | undefined): boolean
 
 function isTempId(id: string) {
   return id.startsWith("temp-");
+}
+
+function isLegacyDefaultHabitId(id: string) {
+  return DEFAULT_HABITS.some((habit) => habit.id === id);
 }
 
 function planItemsFingerprint(items: PlanItem[]): string {
@@ -848,6 +852,11 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
         const weekStartKey = parts[0];
         const dayIndex = Number(parts[parts.length - 1]);
         const habitIdKey = parts.slice(1, -1).join(":");
+        if (isLegacyDefaultHabitId(habitIdKey)) {
+          clearHabitDraftsForWeek(activeWeekStart);
+          await reloadMonth(selectedMonth);
+          throw new Error("Đã đồng bộ thói quen thật. Vui lòng tick lại rồi lưu.");
+        }
         ops.push(
           apiPutHabitCheck({
             habitId: habitIdKey,
@@ -902,6 +911,10 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
       confirmLabel: "Lưu",
       successMessage: "Đã cập nhật tên thói quen.",
       action: async () => {
+        if (isLegacyDefaultHabitId(habitId)) {
+          await reloadMonth(selectedMonth);
+          throw new Error("Đã đồng bộ thói quen thật. Vui lòng sửa lại.");
+        }
         await apiUpdateHabit(habitId, { name: nextName });
         setHabitNameDrafts((current) => {
           const copy = { ...current };
@@ -921,6 +934,10 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
       tone: "danger",
       successMessage: "Đã xóa thói quen.",
       action: async () => {
+        if (isLegacyDefaultHabitId(habitId)) {
+          await reloadMonth(selectedMonth);
+          throw new Error("Đã đồng bộ thói quen thật. Vui lòng xóa lại.");
+        }
         await apiDeleteHabit(habitId);
         await reloadMonth(selectedMonth);
       },
@@ -934,6 +951,10 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
       confirmLabel: "Đổi màu",
       successMessage: "Đã cập nhật màu thói quen.",
       action: async () => {
+        if (isLegacyDefaultHabitId(habitId)) {
+          await reloadMonth(selectedMonth);
+          throw new Error("Đã đồng bộ thói quen thật. Vui lòng đổi màu lại.");
+        }
         await apiUpdateHabit(habitId, { color });
         await reloadMonth(selectedMonth);
       },

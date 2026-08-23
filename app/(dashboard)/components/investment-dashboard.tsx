@@ -5,8 +5,56 @@ import { readMoney } from "@/app/utils/read-money";
 import { vietnamToday } from "@/lib/vietnam-date";
 import { Icon, IconName } from "./icons";
 
-type AssetType = "GOLD" | "STOCK" | "SAVING" | "REAL_ESTATE" | "CRYPTO" | "DEBT" | "LOAN" | "OTHER";
+type AssetType =
+  | "GOLD"
+  | "STOCK"
+  | "SAVING"
+  | "REAL_ESTATE"
+  | "CRYPTO"
+  | "DEBT"
+  | "LOAN"
+  | "OTHER"
+  | "FUND_DCDS"
+  | "FUND_ETF_VN30"
+  | "DEBT_INTEREST";
 type FamilyMember = "CK" | "VK" | "CON";
+
+const ASSET_TYPES: AssetType[] = [
+  "GOLD",
+  "STOCK",
+  "SAVING",
+  "FUND_DCDS",
+  "FUND_ETF_VN30",
+  "REAL_ESTATE",
+  "CRYPTO",
+  "DEBT",
+  "DEBT_INTEREST",
+  "LOAN",
+  "OTHER",
+];
+
+const ZERO_PNL_TYPES: AssetType[] = ["DEBT", "LOAN", "DEBT_INTEREST"];
+const FUND_DEFAULT_NAMES: Partial<Record<AssetType, string>> = {
+  FUND_DCDS: "CCQ CP DCDS",
+  FUND_ETF_VN30: "CCQ ETF VN30",
+};
+
+function isFundType(type: AssetType) {
+  return type === "FUND_DCDS" || type === "FUND_ETF_VN30";
+}
+
+function isZeroPnlType(type: AssetType) {
+  return ZERO_PNL_TYPES.includes(type);
+}
+
+function effectiveUnitPrice(item: { type: AssetType; purchasePrice: number; currentPrice: number }) {
+  if (isZeroPnlType(item.type)) return item.currentPrice;
+  return item.currentPrice > 0 ? item.currentPrice : item.purchasePrice;
+}
+
+function formatQuantity(value: number) {
+  return value.toLocaleString("vi-VN", { maximumFractionDigits: 6 });
+}
 
 type Investment = {
   id: number;
@@ -54,9 +102,12 @@ const assetMeta: Record<AssetType, { label: string; icon: IconName; chart: strin
   GOLD: { label: "Vàng", icon: "sparkles", chart: "#eab308", badge: "bg-yellow-50 text-yellow-700 ring-yellow-100" },
   STOCK: { label: "Chứng khoán", icon: "trendingUp", chart: "#3b82f6", badge: "bg-blue-50 text-blue-700 ring-blue-100" },
   SAVING: { label: "Sổ tiết kiệm", icon: "wallet", chart: "#10b981", badge: "bg-emerald-50 text-emerald-700 ring-emerald-100" },
+  FUND_DCDS: { label: "CCQ CP DCDS", icon: "briefcase", chart: "#6366f1", badge: "bg-indigo-50 text-indigo-700 ring-indigo-100" },
+  FUND_ETF_VN30: { label: "CCQ ETF VN30", icon: "barChart", chart: "#14b8a6", badge: "bg-teal-50 text-teal-700 ring-teal-100" },
   REAL_ESTATE: { label: "Bất động sản", icon: "home", chart: "#f97316", badge: "bg-orange-50 text-orange-700 ring-orange-100" },
   CRYPTO: { label: "Crypto", icon: "banknote", chart: "#a855f7", badge: "bg-purple-50 text-purple-700 ring-purple-100" },
   DEBT: { label: "Nợ", icon: "trendingDown", chart: "#f43f5e", badge: "bg-rose-50 text-rose-700 ring-rose-100" },
+  DEBT_INTEREST: { label: "Trả nợ lãi vay", icon: "trendingDown", chart: "#be123c", badge: "bg-rose-50 text-rose-800 ring-rose-100" },
   LOAN: { label: "Cho vay", icon: "trendingUp", chart: "#0ea5e9", badge: "bg-sky-50 text-sky-700 ring-sky-100" },
   OTHER: { label: "Khác", icon: "target", chart: "#64748b", badge: "bg-slate-50 text-slate-700 ring-slate-100" },
 };
@@ -284,8 +335,11 @@ export function InvestmentDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingGold, setIsFetchingGold] = useState(false);
+  const [isFetchingCcq, setIsFetchingCcq] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [goldPriceStr, setGoldPriceStr] = useState<string>("");
+  const [ccqPriceStr, setCcqPriceStr] = useState<string>("");
 
   useEffect(() => {
     let isActive = true;
@@ -317,44 +371,47 @@ export function InvestmentDashboard() {
     if (item.type === "DEBT") {
       return sum - (item.currentPrice * item.quantity);
     }
+    if (item.type === "DEBT_INTEREST") {
+      return sum;
+    }
     if (item.type === "SAVING" && item.interestRate && item.term) {
       const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
       return sum + (item.purchasePrice * item.quantity) + pnl;
     }
-    return sum + (item.currentPrice * item.quantity);
+    return sum + (effectiveUnitPrice(item) * item.quantity);
   }, 0), [investments]);
 
   const totalCost = useMemo(() => investments.reduce((sum, item) => {
-    if (item.type === "DEBT" || item.type === "LOAN") {
+    if (item.type === "DEBT" || item.type === "LOAN" || item.type === "DEBT_INTEREST") {
       return sum;
     }
     return sum + (item.purchasePrice * item.quantity);
   }, 0), [investments]);
   
   const totalPnL = useMemo(() => investments.reduce((sum, item) => {
-    if (item.type === "DEBT" || item.type === "LOAN") {
+    if (isZeroPnlType(item.type)) {
       return sum;
     }
     if (item.type === "SAVING" && item.interestRate && item.term) {
       return sum + ((item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term));
     }
-    return sum + (item.currentPrice - item.purchasePrice) * item.quantity;
+    return sum + (effectiveUnitPrice(item) - item.purchasePrice) * item.quantity;
   }, 0), [investments]);
 
   const pnlPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
 
   const assetsByType = useMemo(() => {
-    const types: AssetType[] = ["GOLD", "STOCK", "SAVING", "REAL_ESTATE", "CRYPTO", "DEBT", "LOAN", "OTHER"];
-    return types.map(type => {
-      const amount = investments.filter(i => i.type === type).reduce((sum, item) => {
+    return ASSET_TYPES.map((type) => {
+      const amount = investments.filter((i) => i.type === type).reduce((sum, item) => {
+        if (item.type === "DEBT_INTEREST") return sum;
         if (item.type === "SAVING" && item.interestRate && item.term) {
           const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
           return sum + (item.purchasePrice * item.quantity) + pnl;
         }
-        return sum + (item.currentPrice * item.quantity);
+        return sum + (effectiveUnitPrice(item) * item.quantity);
       }, 0);
       return { type, amount };
-    }).filter(i => i.amount > 0).sort((a, b) => b.amount - a.amount);
+    }).filter((i) => i.amount > 0).sort((a, b) => b.amount - a.amount);
   }, [investments]);
 
   const filteredInvestments = useMemo(() => {
@@ -374,13 +431,16 @@ export function InvestmentDashboard() {
 
   const stats = useMemo(() => {
     return {
-      gold: investments.filter(i => i.type === "GOLD").reduce((sum, i) => sum + i.quantity, 0),
-      saving: investments.filter(i => i.type === "SAVING").length,
-      stock: investments.filter(i => i.type === "STOCK").reduce((sum, i) => sum + i.quantity, 0),
-      crypto: investments.filter(i => i.type === "CRYPTO").reduce((sum, i) => sum + i.quantity, 0),
-      realEstate: investments.filter(i => i.type === "REAL_ESTATE").length,
-      debt: investments.filter(i => i.type === "DEBT").length,
-      loan: investments.filter(i => i.type === "LOAN").length,
+      gold: investments.filter((i) => i.type === "GOLD").reduce((sum, i) => sum + i.quantity, 0),
+      saving: investments.filter((i) => i.type === "SAVING").length,
+      stock: investments.filter((i) => i.type === "STOCK").reduce((sum, i) => sum + i.quantity, 0),
+      dcds: investments.filter((i) => i.type === "FUND_DCDS").reduce((sum, i) => sum + i.quantity, 0),
+      etfVn30: investments.filter((i) => i.type === "FUND_ETF_VN30").reduce((sum, i) => sum + i.quantity, 0),
+      crypto: investments.filter((i) => i.type === "CRYPTO").reduce((sum, i) => sum + i.quantity, 0),
+      realEstate: investments.filter((i) => i.type === "REAL_ESTATE").length,
+      debt: investments.filter((i) => i.type === "DEBT").length,
+      debtInterest: investments.filter((i) => i.type === "DEBT_INTEREST").length,
+      loan: investments.filter((i) => i.type === "LOAN").length,
     };
   }, [investments]);
 
@@ -397,7 +457,7 @@ export function InvestmentDashboard() {
       type: investment.type,
       quantity: String(investment.quantity),
       purchasePrice: String(investment.purchasePrice),
-      currentPrice: String(investment.currentPrice),
+      currentPrice: investment.currentPrice > 0 ? String(investment.currentPrice) : "",
       interestRate: investment.interestRate ? String(investment.interestRate) : "",
       term: investment.term || "",
       member: investment.member,
@@ -417,9 +477,9 @@ export function InvestmentDashboard() {
     event.preventDefault();
     const quantity = Number(form.quantity);
     const purchasePrice = Number(form.purchasePrice);
-    const currentPrice = Number(form.currentPrice);
+    const currentPrice = form.currentPrice.trim() === "" ? 0 : Number(form.currentPrice);
 
-    if (!quantity || quantity <= 0 || purchasePrice < 0 || currentPrice < 0 || !form.name) {
+    if (!quantity || quantity <= 0 || purchasePrice < 0 || Number.isNaN(currentPrice) || currentPrice < 0 || !form.name) {
       return;
     }
 
@@ -524,6 +584,64 @@ export function InvestmentDashboard() {
     }
   }
 
+  function quoteLabel(quote: { price: number; asOf?: string | null; kind: string } | null, fallback: string) {
+    if (!quote) return fallback;
+    const datePart = quote.asOf ? ` (${dateLabel(quote.asOf)})` : "";
+    const kindPart = quote.kind === "nav" ? "NAV" : "Khớp";
+    return `${kindPart}: ${currency(quote.price)}${datePart}`;
+  }
+
+  async function fetchCcqPrices() {
+    setIsFetchingCcq(true);
+    setPriceError(null);
+
+    try {
+      const response = await fetch("/api/market/ccq");
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Không thể tải giá chứng chỉ quỹ.");
+      }
+
+      const dcdsQuote = data.data?.dcds ?? null;
+      const etfQuote = data.data?.etfVn30 ?? null;
+      const parts = [
+        dcdsQuote ? `DCDS ${quoteLabel(dcdsQuote, "")}` : null,
+        etfQuote ? `E1VFVN30 ${quoteLabel(etfQuote, "")}` : null,
+      ].filter(Boolean);
+      setCcqPriceStr(parts.join("  ·  "));
+
+      const dcdsPrice = typeof dcdsQuote?.price === "number" ? dcdsQuote.price : null;
+      const etfPrice = typeof etfQuote?.price === "number" ? etfQuote.price : null;
+
+      const targets = investments.filter((item) => isFundType(item.type));
+      if (targets.length > 0) {
+        await Promise.all(
+          targets.map(async (asset) => {
+            const currentPrice = asset.type === "FUND_DCDS" ? dcdsPrice : etfPrice;
+            if (currentPrice == null) return null;
+            await fetch(`/api/investments/${asset.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ currentPrice }),
+            });
+          }),
+        );
+
+        setInvestments((current) =>
+          current.map((item) => {
+            if (item.type === "FUND_DCDS" && dcdsPrice != null) return { ...item, currentPrice: dcdsPrice };
+            if (item.type === "FUND_ETF_VN30" && etfPrice != null) return { ...item, currentPrice: etfPrice };
+            return item;
+          }),
+        );
+      }
+    } catch (err) {
+      setPriceError(err instanceof Error ? err.message : "Không thể tải giá chứng chỉ quỹ.");
+    } finally {
+      setIsFetchingCcq(false);
+    }
+  }
+
   return (
     <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
       <header className="flex flex-col gap-5 rounded-lg border border-purple-100 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
@@ -536,10 +654,18 @@ export function InvestmentDashboard() {
         </div>
         <div className="flex flex-col items-end gap-2">
            {goldPriceStr && <p className="text-xs font-bold text-yellow-600">{goldPriceStr}</p>}
-           <Button variant="outline" onClick={fetchGoldPrice} disabled={isFetchingGold}>
-             <Icon name="sparkles" className="w-4 h-4 text-yellow-500" />
-             {isFetchingGold ? "Đang lấy giá..." : "Cập nhật Giá Vàng SJC (Realtime)"}
-           </Button>
+           {ccqPriceStr && <p className="text-xs font-bold text-indigo-600">{ccqPriceStr}</p>}
+           {priceError && <p className="text-xs font-semibold text-rose-600">{priceError}</p>}
+           <div className="flex flex-wrap justify-end gap-2">
+             <Button variant="outline" onClick={fetchGoldPrice} disabled={isFetchingGold}>
+               <Icon name="sparkles" className="w-4 h-4 text-yellow-500" />
+               {isFetchingGold ? "Đang lấy giá..." : "Cập nhật Giá Vàng SJC (Realtime)"}
+             </Button>
+             <Button variant="outline" onClick={fetchCcqPrices} disabled={isFetchingCcq}>
+               <Icon name="briefcase" className="w-4 h-4 text-indigo-500" />
+               {isFetchingCcq ? "Đang lấy giá..." : "Cập nhật giá CCQ"}
+             </Button>
+           </div>
         </div>
       </header>
 
@@ -597,28 +723,26 @@ export function InvestmentDashboard() {
               </div>
               <select className={cn(inputClass(), "w-full")} onChange={(event) => setTypeFilter(event.target.value as AssetType | "all")} value={typeFilter}>
                 <option value="all">Tất cả loại hình</option>
-                <option value="GOLD">Vàng</option>
-                <option value="STOCK">Chứng khoán</option>
-                <option value="SAVING">Tiết kiệm</option>
-                <option value="REAL_ESTATE">Bất động sản</option>
-                <option value="CRYPTO">Tiền điện tử</option>
-                <option value="DEBT">Nợ</option>
-                <option value="LOAN">Cho vay</option>
-                <option value="OTHER">Khác</option>
+                {ASSET_TYPES.map((type) => (
+                  <option key={type} value={type}>{assetMeta[type].label}</option>
+                ))}
               </select>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-slate-50/50 p-4 text-sm text-slate-600">
             <span className="font-semibold text-slate-800">Thống kê nhanh:</span>
-            {stats.gold > 0 && <Badge className="bg-yellow-50 text-yellow-700 ring-yellow-200">{stats.gold.toLocaleString('vi-VN')} chỉ Vàng</Badge>}
-            {stats.saving > 0 && <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">{stats.saving.toLocaleString('vi-VN')} Sổ tiết kiệm</Badge>}
-            {stats.stock > 0 && <Badge className="bg-blue-50 text-blue-700 ring-blue-200">{stats.stock.toLocaleString('vi-VN')} Cổ phiếu</Badge>}
-            {stats.crypto > 0 && <Badge className="bg-purple-50 text-purple-700 ring-purple-200">{stats.crypto.toLocaleString('vi-VN')} Coin / Crypto</Badge>}
-            {stats.realEstate > 0 && <Badge className="bg-orange-50 text-orange-700 ring-orange-200">{stats.realEstate.toLocaleString('vi-VN')} Bất động sản</Badge>}
-            {stats.debt > 0 && <Badge className="bg-rose-50 text-rose-700 ring-rose-200">{stats.debt.toLocaleString('vi-VN')} Khoản Nợ</Badge>}
-            {stats.loan > 0 && <Badge className="bg-sky-50 text-sky-700 ring-sky-200">{stats.loan.toLocaleString('vi-VN')} Khoản Cho Vay</Badge>}
-            {(stats.gold === 0 && stats.saving === 0 && stats.stock === 0 && stats.crypto === 0 && stats.realEstate === 0 && stats.debt === 0 && stats.loan === 0) && (
+            {stats.gold > 0 && <Badge className="bg-yellow-50 text-yellow-700 ring-yellow-200">{formatQuantity(stats.gold)} chỉ Vàng</Badge>}
+            {stats.saving > 0 && <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">{stats.saving.toLocaleString("vi-VN")} Sổ tiết kiệm</Badge>}
+            {stats.stock > 0 && <Badge className="bg-blue-50 text-blue-700 ring-blue-200">{formatQuantity(stats.stock)} Cổ phiếu</Badge>}
+            {stats.dcds > 0 && <Badge className="bg-indigo-50 text-indigo-700 ring-indigo-200">{formatQuantity(stats.dcds)} CCQ DCDS</Badge>}
+            {stats.etfVn30 > 0 && <Badge className="bg-teal-50 text-teal-700 ring-teal-200">{formatQuantity(stats.etfVn30)} CCQ ETF VN30</Badge>}
+            {stats.crypto > 0 && <Badge className="bg-purple-50 text-purple-700 ring-purple-200">{formatQuantity(stats.crypto)} Coin / Crypto</Badge>}
+            {stats.realEstate > 0 && <Badge className="bg-orange-50 text-orange-700 ring-orange-200">{stats.realEstate.toLocaleString("vi-VN")} Bất động sản</Badge>}
+            {stats.debt > 0 && <Badge className="bg-rose-50 text-rose-700 ring-rose-200">{stats.debt.toLocaleString("vi-VN")} Khoản Nợ</Badge>}
+            {stats.debtInterest > 0 && <Badge className="bg-rose-50 text-rose-800 ring-rose-200">{stats.debtInterest.toLocaleString("vi-VN")} Trả nợ lãi vay</Badge>}
+            {stats.loan > 0 && <Badge className="bg-sky-50 text-sky-700 ring-sky-200">{stats.loan.toLocaleString("vi-VN")} Khoản Cho Vay</Badge>}
+            {(stats.gold === 0 && stats.saving === 0 && stats.stock === 0 && stats.dcds === 0 && stats.etfVn30 === 0 && stats.crypto === 0 && stats.realEstate === 0 && stats.debt === 0 && stats.debtInterest === 0 && stats.loan === 0) && (
               <span className="text-slate-400 italic">Chưa có dữ liệu</span>
             )}
           </div>
@@ -647,13 +771,14 @@ export function InvestmentDashboard() {
                 ) : null}
                 {!isLoading && !error ? filteredInvestments.map((inv) => {
                   const meta = assetMeta[inv.type];
+                  const hidePnl = isZeroPnlType(inv.type);
                   let pnl = 0;
-                  if (inv.type === "DEBT" || inv.type === "LOAN") {
+                  if (hidePnl) {
                     pnl = 0;
                   } else if (inv.type === "SAVING" && inv.interestRate && inv.term) {
                     pnl = (inv.purchasePrice * inv.quantity) * (inv.interestRate / 100) / 12 * Number(inv.term);
                   } else {
-                    pnl = (inv.currentPrice - inv.purchasePrice) * inv.quantity;
+                    pnl = (effectiveUnitPrice(inv) - inv.purchasePrice) * inv.quantity;
                   }
                   const pnlPercentItem = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
                   
@@ -671,9 +796,9 @@ export function InvestmentDashboard() {
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-700">{dateLabel(inv.date)}</td>
-                      <td className="px-3 py-3 text-right font-medium">{inv.quantity.toLocaleString('vi-VN')}</td>
+                      <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
                       <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
-                      <td className="px-3 py-3 text-right font-bold text-slate-900">{currency(inv.currentPrice)}</td>
+                      <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
                       <td className="px-3 py-3 text-right">
                          {inv.type === "SAVING" ? (
                            <>
@@ -686,12 +811,18 @@ export function InvestmentDashboard() {
                       </td>
                       <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice * inv.quantity)}</td>
                       <td className="px-3 py-3 text-right">
-                         <div className={cn("font-bold", pnl >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                           {pnl >= 0 ? "+" : ""}{currency(pnl)}
-                         </div>
-                         <div className={cn("text-[10px] font-semibold", pnl >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                           {pnl >= 0 ? "+" : ""}{pnlPercentItem.toFixed(2)}%
-                         </div>
+                         {hidePnl ? (
+                           <span className="text-slate-300">—</span>
+                         ) : (
+                           <>
+                             <div className={cn("font-bold", pnl >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                               {pnl >= 0 ? "+" : ""}{currency(pnl)}
+                             </div>
+                             <div className={cn("text-[10px] font-semibold", pnl >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                               {pnl >= 0 ? "+" : ""}{pnlPercentItem.toFixed(2)}%
+                             </div>
+                           </>
+                         )}
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex justify-end gap-1">
@@ -730,29 +861,40 @@ export function InvestmentDashboard() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field id="type" label="Loại hình">
-              <select className={inputClass()} id="type" onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as AssetType }))} value={form.type}>
-                <option value="GOLD">Vàng</option>
-                <option value="STOCK">Chứng khoán</option>
-                <option value="SAVING">Tiết kiệm</option>
-                <option value="REAL_ESTATE">Bất động sản</option>
-                <option value="CRYPTO">Tiền điện tử</option>
-                <option value="DEBT">Nợ</option>
-                <option value="LOAN">Cho vay</option>
-                <option value="OTHER">Khác</option>
+              <select
+                className={inputClass()}
+                id="type"
+                onChange={(event) => {
+                  const nextType = event.target.value as AssetType;
+                  setForm((current) => {
+                    const autoNames = Object.values(FUND_DEFAULT_NAMES);
+                    const shouldFillName = !current.name.trim() || autoNames.includes(current.name);
+                    return {
+                      ...current,
+                      type: nextType,
+                      name: shouldFillName && FUND_DEFAULT_NAMES[nextType] ? FUND_DEFAULT_NAMES[nextType]! : current.name,
+                    };
+                  });
+                }}
+                value={form.type}
+              >
+                {ASSET_TYPES.map((type) => (
+                  <option key={type} value={type}>{assetMeta[type].label}</option>
+                ))}
               </select>
             </Field>
-            <Field id="quantity" label="Số lượng (Lượng, Cổ phiếu...)">
-              <input className={inputClass()} id="quantity" min="0.000001" step="any" onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} required type="number" value={form.quantity} />
+            <Field id="quantity" label={form.type === "GOLD" ? "Số chỉ" : isFundType(form.type) ? "Số CCQ" : "Số lượng (Lượng, Cổ phiếu...)"}>
+              <input className={inputClass()} id="quantity" min="0.000001" step="0.01" onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} required type="number" value={form.quantity} />
             </Field>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="purchasePrice" label="Giá vốn (trên 1 đơn vị)">
+            <Field id="purchasePrice" label={isFundType(form.type) ? "Giá mua / CCQ" : "Giá vốn (trên 1 đơn vị)"}>
               <input className={inputClass()} id="purchasePrice" min="0" step="any" onChange={(event) => setForm((current) => ({ ...current, purchasePrice: event.target.value }))} required type="number" value={form.purchasePrice} />
               {form.purchasePrice && <p className="text-xs italic text-rose-600">{readMoney(form.purchasePrice)}</p>}
             </Field>
-            <Field id="currentPrice" label="Giá hiện tại (trên 1 đơn vị)">
-              <input className={inputClass()} id="currentPrice" min="0" step="any" onChange={(event) => setForm((current) => ({ ...current, currentPrice: event.target.value }))} required type="number" value={form.currentPrice} />
+            <Field id="currentPrice" label={isFundType(form.type) ? "Giá hiện tại / CCQ (không bắt buộc)" : "Giá hiện tại (không bắt buộc)"}>
+              <input className={inputClass()} id="currentPrice" min="0" step="any" onChange={(event) => setForm((current) => ({ ...current, currentPrice: event.target.value }))} type="number" value={form.currentPrice} />
               {form.currentPrice && <p className="text-xs italic text-rose-600">{readMoney(form.currentPrice)}</p>}
             </Field>
           </div>

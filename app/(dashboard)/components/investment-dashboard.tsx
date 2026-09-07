@@ -936,6 +936,11 @@ export function InvestmentDashboard() {
     [selectedInvestments],
   );
 
+  const selectedPnlValue = useMemo(
+    () => selectedInvestments.reduce((sum, item) => sum + computePnl(item), 0),
+    [selectedInvestments],
+  );
+
   useEffect(() => {
     setSelectedIds((current) => {
       const next = current.filter((id) => tabInvestmentIds.includes(id));
@@ -1910,10 +1915,10 @@ export function InvestmentDashboard() {
     const categoryAssets = investments.filter((inv) =>
       TAB_ASSET_MAP[activeTab as Exclude<TabKey, "overview">]?.includes(inv.type)
     );
-    const categoryTotalAssets = categoryAssets.reduce((sum, inv) => sum + assetPresentValue(inv), 0);
+    const categoryTotalAssets = categoryAssets.reduce((sum, inv) => sum + Math.abs(assetPresentValue(inv)), 0);
     const categoryAssetsByType = Object.entries(
       categoryAssets.reduce((acc, inv) => {
-        acc[inv.type] = (acc[inv.type] || 0) + assetPresentValue(inv);
+        acc[inv.type] = (acc[inv.type] || 0) + Math.abs(assetPresentValue(inv));
         return acc;
       }, {} as Record<string, number>)
     ).map(([type, amount]) => ({ type: type as AssetType, amount })).sort((a, b) => b.amount - a.amount);
@@ -1973,6 +1978,9 @@ export function InvestmentDashboard() {
               </p>
               <p className="font-bold text-emerald-900">
                 Tổng hiện tại: {currency(selectedPresentValue)}
+              </p>
+              <p className={cn("font-bold", selectedPnlValue >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                Lãi/lỗ: {selectedPnlValue >= 0 ? "+" : ""}{currency(selectedPnlValue)}
               </p>
             </div>
           </div>

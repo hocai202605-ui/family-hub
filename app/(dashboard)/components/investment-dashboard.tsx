@@ -19,7 +19,7 @@ type AssetType =
   | "DEBT_INTEREST";
 type FamilyMember = "CK" | "VK" | "CON";
 
-type TabKey = "overview" | "gold" | "stock" | "saving" | "fund" | "debt" | "other";
+type TabKey = "overview" | "gold" | "stock" | "saving" | "fund" | "crypto" | "debt" | "other";
 
 const ASSET_TYPES: AssetType[] = [
   "GOLD",
@@ -40,8 +40,9 @@ const TAB_ASSET_MAP: Record<Exclude<TabKey, "overview">, AssetType[]> = {
   stock: ["STOCK"],
   saving: ["SAVING"],
   fund: ["FUND_DCDS", "FUND_ETF_VN30"],
+  crypto: ["CRYPTO"],
   debt: ["DEBT", "DEBT_INTEREST", "LOAN"],
-  other: ["REAL_ESTATE", "CRYPTO", "OTHER"],
+  other: ["REAL_ESTATE", "OTHER"],
 };
 
 const ZERO_PNL_TYPES: AssetType[] = ["DEBT", "LOAN", "DEBT_INTEREST"];
@@ -234,11 +235,12 @@ const tabMeta: Record<TabKey, { label: string; icon: IconName; color: string; ba
   stock: { label: "Chứng khoán", icon: "trendingUp", color: "blue", badge: "bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100", iconColor: "text-blue-500" },
   saving: { label: "Tiết kiệm", icon: "wallet", color: "emerald", badge: "bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100", iconColor: "text-emerald-500" },
   fund: { label: "Chứng chỉ quỹ", icon: "briefcase", color: "indigo", badge: "bg-indigo-50 text-indigo-700 ring-indigo-200 hover:bg-indigo-100", iconColor: "text-indigo-500" },
+  crypto: { label: "Bitcoin", icon: "bitcoin", color: "orange", badge: "bg-orange-50 text-orange-700 ring-orange-200 hover:bg-orange-100", iconColor: "text-orange-500" },
   debt: { label: "Nợ & Cho vay", icon: "trendingDown", color: "rose", badge: "bg-rose-50 text-rose-700 ring-rose-200 hover:bg-rose-100", iconColor: "text-rose-500" },
   other: { label: "Khác", icon: "target", color: "slate", badge: "bg-slate-100 text-slate-700 ring-slate-200 hover:bg-slate-200", iconColor: "text-slate-500" },
 };
 
-const TAB_KEYS: TabKey[] = ["overview", "gold", "stock", "saving", "fund", "debt", "other"];
+const TAB_KEYS: TabKey[] = ["overview", "gold", "stock", "saving", "fund", "crypto", "debt", "other"];
 
 // ─── Shared UI primitives ───────────────────────────────────────────────────
 
@@ -884,7 +886,7 @@ export function InvestmentDashboard() {
 
   /** Count items per tab for the badge */
   const tabCounts = useMemo(() => {
-    const counts: Record<TabKey, number> = { overview: investments.length, gold: 0, stock: 0, saving: 0, fund: 0, debt: 0, other: 0 };
+    const counts: Record<TabKey, number> = { overview: investments.length, gold: 0, stock: 0, saving: 0, fund: 0, crypto: 0, debt: 0, other: 0 };
     for (const inv of investments) {
       for (const [tab, types] of Object.entries(TAB_ASSET_MAP)) {
         if (types.includes(inv.type)) {
@@ -1242,6 +1244,43 @@ export function InvestmentDashboard() {
             const pnlPct = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
             return (
               <>
+                <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
+                <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice * inv.quantity)}</td>
+                <td className="px-3 py-3 text-right">{pnlCell(pnl, pnlPct)}</td>
+              </>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
+
+  function renderCryptoTable() {
+    return (
+      <table className="w-full min-w-[700px] border-collapse text-left text-xs">
+        <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="w-10 px-3 py-3">{selectAllCheckbox()}</th>
+            <th className="px-3 py-3 font-semibold">Mã Coin</th>
+            <th className="px-3 py-3 font-semibold">Ngày mua</th>
+            <th className="px-3 py-3 text-right font-semibold">Số lượng</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá mua</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá HT</th>
+            <th className="px-3 py-3 text-right font-semibold">Tổng vốn</th>
+            <th className="px-3 py-3 text-right font-semibold">Lãi/Lỗ</th>
+            <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {tableBody(tabInvestments, (inv) => {
+            const pnl = computePnl(inv);
+            const pnlPct = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
+            return (
+              <>
+                <td className="px-3 py-3 font-medium text-slate-900">{inv.name}</td>
+                <td className="px-3 py-3 text-slate-500">{dateLabel(inv.date)}</td>
                 <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
                 <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
                 <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
@@ -1915,7 +1954,7 @@ export function InvestmentDashboard() {
     const categoryAssets = investments.filter((inv) =>
       TAB_ASSET_MAP[activeTab as Exclude<TabKey, "overview">]?.includes(inv.type)
     );
-    const categoryTotalAssets = categoryAssets.reduce((sum, inv) => sum + Math.abs(assetPresentValue(inv)), 0);
+    const categoryTotalAssets = categoryAssets.reduce((sum, inv) => sum + assetPresentValue(inv), 0);
     const categoryAssetsByType = Object.entries(
       categoryAssets.reduce((acc, inv) => {
         acc[inv.type] = (acc[inv.type] || 0) + Math.abs(assetPresentValue(inv));
@@ -1992,6 +2031,7 @@ export function InvestmentDashboard() {
           {activeTab === "stock" && renderStockTable()}
           {activeTab === "saving" && renderSavingTable()}
           {activeTab === "fund" && renderFundTable()}
+          {activeTab === "crypto" && renderCryptoTable()}
           {activeTab === "debt" && renderDebtTable()}
           {activeTab === "other" && renderOtherTable()}
         </div>

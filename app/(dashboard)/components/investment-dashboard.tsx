@@ -19,6 +19,8 @@ type AssetType =
   | "DEBT_INTEREST";
 type FamilyMember = "CK" | "VK" | "CON";
 
+type TabKey = "overview" | "gold" | "stock" | "saving" | "fund" | "debt" | "other";
+
 const ASSET_TYPES: AssetType[] = [
   "GOLD",
   "STOCK",
@@ -32,6 +34,15 @@ const ASSET_TYPES: AssetType[] = [
   "LOAN",
   "OTHER",
 ];
+
+const TAB_ASSET_MAP: Record<Exclude<TabKey, "overview">, AssetType[]> = {
+  gold: ["GOLD"],
+  stock: ["STOCK"],
+  saving: ["SAVING"],
+  fund: ["FUND_DCDS", "FUND_ETF_VN30"],
+  debt: ["DEBT", "DEBT_INTEREST", "LOAN"],
+  other: ["REAL_ESTATE", "CRYPTO", "OTHER"],
+};
 
 const ZERO_PNL_TYPES: AssetType[] = ["DEBT", "LOAN", "DEBT_INTEREST"];
 const FUND_DEFAULT_NAMES: Partial<Record<AssetType, string>> = {
@@ -168,10 +179,10 @@ type InvestmentForm = {
   date: string;
 };
 
-function createEmptyForm(): InvestmentForm {
+function createEmptyForm(defaultType: AssetType = "GOLD"): InvestmentForm {
   return {
-    name: "",
-    type: "GOLD",
+    name: FUND_DEFAULT_NAMES[defaultType] ?? "",
+    type: defaultType,
     quantity: "1",
     purchasePrice: "",
     currentPrice: "",
@@ -181,6 +192,18 @@ function createEmptyForm(): InvestmentForm {
     note: "",
     date: vietnamToday(),
   };
+}
+
+function defaultTypeForTab(tab: TabKey): AssetType {
+  switch (tab) {
+    case "gold": return "GOLD";
+    case "stock": return "STOCK";
+    case "saving": return "SAVING";
+    case "fund": return "FUND_DCDS";
+    case "debt": return "DEBT";
+    case "other": return "REAL_ESTATE";
+    default: return "GOLD";
+  }
 }
 
 const assetMeta: Record<AssetType, { label: string; icon: IconName; chart: string; badge: string }> = {
@@ -204,6 +227,20 @@ const memberMeta: Record<FamilyMember, { label: string; role: string; badge: str
   VK: { label: "VK", role: "Vợ", badge: "bg-pink-50 text-pink-700 ring-pink-100", dot: "bg-pink-500" },
   CON: { label: "CON", role: "Con", badge: "bg-lime-50 text-lime-700 ring-lime-100", dot: "bg-lime-500" },
 };
+
+const tabMeta: Record<TabKey, { label: string; icon: IconName; color: string }> = {
+  overview: { label: "Tổng quan", icon: "barChart", color: "purple" },
+  gold: { label: "Vàng", icon: "sparkles", color: "yellow" },
+  stock: { label: "Chứng khoán", icon: "trendingUp", color: "blue" },
+  saving: { label: "Tiết kiệm", icon: "wallet", color: "emerald" },
+  fund: { label: "Chứng chỉ quỹ", icon: "briefcase", color: "indigo" },
+  debt: { label: "Nợ & Cho vay", icon: "trendingDown", color: "rose" },
+  other: { label: "Khác", icon: "target", color: "slate" },
+};
+
+const TAB_KEYS: TabKey[] = ["overview", "gold", "stock", "saving", "fund", "debt", "other"];
+
+// ─── Shared UI primitives ───────────────────────────────────────────────────
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -402,14 +439,6 @@ function Dialog({ open, title, description, children, onClose }: { open: boolean
   );
 }
 
-function Progress({ value, className, colorClass = "bg-emerald-500" }: { value: number; className?: string; colorClass?: string }) {
-  return (
-    <div className={cn("h-2.5 overflow-hidden rounded-full bg-slate-100", className)}>
-      <div className={cn("h-full rounded-full transition-all", colorClass)} style={{ width: `${Math.min(Math.max(value, 0), 100)}%` }} />
-    </div>
-  );
-}
-
 function InvestmentDonut({
   data,
   total,
@@ -480,10 +509,140 @@ function InvestmentDonut({
   );
 }
 
+// ─── PnL calculation helper ─────────────────────────────────────────────────
+
+function computePnl(inv: Investment) {
+  if (isZeroPnlType(inv.type)) return 0;
+  if (inv.type === "SAVING" && inv.interestRate && inv.term) {
+    return (inv.purchasePrice * inv.quantity) * (inv.interestRate / 100) / 12 * Number(inv.term);
+  }
+  return (effectiveUnitPrice(inv) - inv.purchasePrice) * inv.quantity;
+}
+
+// ─── Mobile Card component ──────────────────────────────────────────────────
+
+function InvestmentCard({
+  inv,
+  isSelected,
+  showType,
+  onToggleSelect,
+  onEdit,
+  onDelete,
+}: {
+  inv: Investment;
+  isSelected: boolean;
+  showType: boolean;
+  onToggleSelect: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const meta = assetMeta[inv.type];
+  const hidePnl = isZeroPnlType(inv.type);
+  const pnl = computePnl(inv);
+  const pnlPercent = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
+  const isSaving = inv.type === "SAVING";
+
+  return (
+    <div className={cn(
+      "rounded-lg border bg-white p-4 shadow-sm transition hover:shadow-md",
+      isSelected ? "border-emerald-300 bg-emerald-50/50 ring-1 ring-emerald-200" : "border-slate-200",
+    )}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <input
+            aria-label={`Chọn ${inv.name}`}
+            checked={isSelected}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            onChange={onToggleSelect}
+            type="checkbox"
+          />
+          <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg" style={{ backgroundColor: meta.chart + '20', color: meta.chart }}>
+            <Icon name={meta.icon} className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900">{inv.name}</p>
+            {showType && <Badge className={cn("mt-1 text-[10px] px-1.5 py-0.5", meta.badge)}>{meta.label}</Badge>}
+            <p className="mt-1 text-xs text-slate-500">
+              <span className="font-medium">{memberMeta[inv.member].role}</span> · {dateLabel(inv.date)}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <IconButton label="Sửa" onClick={onEdit}>
+            <Icon className="h-3.5 w-3.5" name="edit" />
+          </IconButton>
+          <IconButton label="Xóa" onClick={onDelete} tone="danger">
+            <Icon className="h-3.5 w-3.5" name="trash" />
+          </IconButton>
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-1.5 border-t border-slate-100 pt-3 text-sm">
+        {isSaving ? (
+          <>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Số tiền gửi</span>
+              <span className="font-semibold text-slate-900">{currency(inv.purchasePrice * inv.quantity)}</span>
+            </div>
+            {inv.interestRate ? (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Lãi suất</span>
+                <span className="font-medium text-slate-700">{inv.interestRate}%/năm{inv.term ? ` · ${inv.term} tháng` : ""}</span>
+              </div>
+            ) : null}
+            <div className="flex justify-between">
+              <span className="text-slate-500">Lãi dự kiến</span>
+              <span className="font-bold text-emerald-600">+{currency(pnl)}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between">
+              <span className="text-slate-500">SL × Giá mua</span>
+              <span className="font-medium text-slate-700">{formatQuantity(inv.quantity)} × {currency(inv.purchasePrice)}</span>
+            </div>
+            {inv.currentPrice > 0 && !hidePnl && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Giá hiện tại</span>
+                <span className="font-semibold text-slate-900">{currency(inv.currentPrice)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-slate-500">Tổng vốn</span>
+              <span className="font-medium text-slate-700">{currency(inv.purchasePrice * inv.quantity)}</span>
+            </div>
+            {!hidePnl && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Lãi/Lỗ</span>
+                <span className={cn("font-bold", pnl >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                  {pnl >= 0 ? "+" : ""}{currency(pnl)}
+                  <span className="ml-1 text-xs font-semibold">({pnl >= 0 ? "+" : ""}{pnlPercent.toFixed(2)}%)</span>
+                </span>
+              </div>
+            )}
+            {hidePnl && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Số tiền</span>
+                <span className="font-semibold text-slate-900">{currency(inv.currentPrice > 0 ? inv.currentPrice * inv.quantity : inv.purchasePrice * inv.quantity)}</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {inv.note && (
+        <p className="mt-2 truncate text-xs italic text-slate-400">{inv.note}</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ─────────────────────────────────────────────────────────
+
 export function InvestmentDashboard() {
   const [investments, setInvestments] = useState<Investment[]>([]);
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
   const [form, setForm] = useState<InvestmentForm>(createEmptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -497,6 +656,8 @@ export function InvestmentDashboard() {
   const [goldPriceStr, setGoldPriceStr] = useState<string>("");
   const [ccqPriceStr, setCcqPriceStr] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  // ─── Data loading ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     let isActive = true;
@@ -523,6 +684,8 @@ export function InvestmentDashboard() {
     void loadInvestments();
     return () => { isActive = false; };
   }, []);
+
+  // ─── Derived data ─────────────────────────────────────────────────────────
 
   const totalAssets = useMemo(() => investments.reduce((sum, item) => {
     if (item.type === "DEBT") {
@@ -571,10 +734,26 @@ export function InvestmentDashboard() {
     }).filter((i) => i.amount > 0).sort((a, b) => b.amount - a.amount);
   }, [investments]);
 
-  const filteredInvestments = useMemo(() => {
+  /** Count items per tab for the badge */
+  const tabCounts = useMemo(() => {
+    const counts: Record<TabKey, number> = { overview: investments.length, gold: 0, stock: 0, saving: 0, fund: 0, debt: 0, other: 0 };
+    for (const inv of investments) {
+      for (const [tab, types] of Object.entries(TAB_ASSET_MAP)) {
+        if (types.includes(inv.type)) {
+          counts[tab as TabKey]++;
+        }
+      }
+    }
+    return counts;
+  }, [investments]);
+
+  /** Investments filtered to the active tab + search query */
+  const tabInvestments = useMemo(() => {
+    if (activeTab === "overview") return [];
+    const tabTypes = TAB_ASSET_MAP[activeTab];
     const normalizedQuery = query.trim().toLowerCase();
     return investments
-      .filter((item) => typeFilter === "all" || item.type === typeFilter)
+      .filter((item) => tabTypes.includes(item.type))
       .filter((item) => {
         if (!normalizedQuery) return true;
         return (
@@ -584,19 +763,19 @@ export function InvestmentDashboard() {
         );
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [typeFilter, investments, query]);
+  }, [activeTab, investments, query]);
 
-  const filteredInvestmentIds = useMemo(() => filteredInvestments.map((item) => item.id), [filteredInvestments]);
+  const tabInvestmentIds = useMemo(() => tabInvestments.map((item) => item.id), [tabInvestments]);
 
   const allVisibleSelected =
-    filteredInvestmentIds.length > 0 && filteredInvestmentIds.every((id) => selectedIds.includes(id));
+    tabInvestmentIds.length > 0 && tabInvestmentIds.every((id) => selectedIds.includes(id));
 
   const someVisibleSelected =
-    filteredInvestmentIds.some((id) => selectedIds.includes(id)) && !allVisibleSelected;
+    tabInvestmentIds.some((id) => selectedIds.includes(id)) && !allVisibleSelected;
 
   const selectedInvestments = useMemo(
-    () => filteredInvestments.filter((item) => selectedIds.includes(item.id)),
-    [filteredInvestments, selectedIds],
+    () => tabInvestments.filter((item) => selectedIds.includes(item.id)),
+    [tabInvestments, selectedIds],
   );
 
   const selectedPresentValue = useMemo(
@@ -611,17 +790,19 @@ export function InvestmentDashboard() {
 
   useEffect(() => {
     setSelectedIds((current) => {
-      const next = current.filter((id) => filteredInvestmentIds.includes(id));
+      const next = current.filter((id) => tabInvestmentIds.includes(id));
       return next.length === current.length ? current : next;
     });
-  }, [filteredInvestmentIds]);
+  }, [tabInvestmentIds]);
+
+  // ─── Selection helpers ────────────────────────────────────────────────────
 
   function toggleSelectAllVisible() {
     if (allVisibleSelected) {
-      setSelectedIds((current) => current.filter((id) => !filteredInvestmentIds.includes(id)));
+      setSelectedIds((current) => current.filter((id) => !tabInvestmentIds.includes(id)));
       return;
     }
-    setSelectedIds((current) => Array.from(new Set([...current, ...filteredInvestmentIds])));
+    setSelectedIds((current) => Array.from(new Set([...current, ...tabInvestmentIds])));
   }
 
   function toggleSelectInvestment(id: number) {
@@ -630,24 +811,12 @@ export function InvestmentDashboard() {
     );
   }
 
-  const stats = useMemo(() => {
-    return {
-      gold: investments.filter((i) => i.type === "GOLD").reduce((sum, i) => sum + i.quantity, 0),
-      saving: investments.filter((i) => i.type === "SAVING").length,
-      stock: investments.filter((i) => i.type === "STOCK").reduce((sum, i) => sum + i.quantity, 0),
-      dcds: investments.filter((i) => i.type === "FUND_DCDS").reduce((sum, i) => sum + i.quantity, 0),
-      etfVn30: investments.filter((i) => i.type === "FUND_ETF_VN30").reduce((sum, i) => sum + i.quantity, 0),
-      crypto: investments.filter((i) => i.type === "CRYPTO").reduce((sum, i) => sum + i.quantity, 0),
-      realEstate: investments.filter((i) => i.type === "REAL_ESTATE").length,
-      debt: investments.filter((i) => i.type === "DEBT").length,
-      debtInterest: investments.filter((i) => i.type === "DEBT_INTEREST").length,
-      loan: investments.filter((i) => i.type === "LOAN").length,
-    };
-  }, [investments]);
+  // ─── Form actions ─────────────────────────────────────────────────────────
 
   function openCreateDialog() {
     setEditingId(null);
-    setForm(createEmptyForm());
+    const dt = defaultTypeForTab(activeTab);
+    setForm(createEmptyForm(dt));
     setIsFormOpen(true);
   }
 
@@ -671,7 +840,7 @@ export function InvestmentDashboard() {
   function closeFormDialog() {
     setIsFormOpen(false);
     setEditingId(null);
-    setForm(createEmptyForm());
+    setForm(createEmptyForm(defaultTypeForTab(activeTab)));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -749,6 +918,8 @@ export function InvestmentDashboard() {
       setIsSaving(false);
     }
   }
+
+  // ─── Market price fetch ───────────────────────────────────────────────────
 
   async function fetchGoldPrice() {
     setIsFetchingGold(true);
@@ -859,245 +1030,682 @@ export function InvestmentDashboard() {
     }
   }
 
-  return (
-    <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
-      <header className="flex flex-col gap-5 rounded-lg border border-purple-100 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-purple-700">Investment Management</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950 md:text-4xl">Quản lý Đầu tư</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Theo dõi tổng tài sản, tính toán lãi/lỗ của các danh mục đầu tư Vàng, Chứng khoán, và Tiết kiệm.
-          </p>
+  // ─── Tab-specific table renderers ─────────────────────────────────────────
+
+  function renderGoldTable() {
+    return (
+      <table className="w-full min-w-[700px] border-collapse text-left text-xs">
+        <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="w-10 px-3 py-3">{selectAllCheckbox()}</th>
+            <th className="px-3 py-3 font-semibold">Tên</th>
+            <th className="px-3 py-3 font-semibold">Ngày mua</th>
+            <th className="px-3 py-3 text-right font-semibold">Số chỉ</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá mua/chỉ</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá HT/chỉ</th>
+            <th className="px-3 py-3 text-right font-semibold">Tổng vốn</th>
+            <th className="px-3 py-3 text-right font-semibold">Lãi/Lỗ</th>
+            <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {tableBody(tabInvestments, (inv) => {
+            const pnl = computePnl(inv);
+            const pnlPct = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
+            return (
+              <>
+                <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
+                <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice * inv.quantity)}</td>
+                <td className="px-3 py-3 text-right">{pnlCell(pnl, pnlPct)}</td>
+              </>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
+
+  function renderStockTable() {
+    return (
+      <table className="w-full min-w-[700px] border-collapse text-left text-xs">
+        <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="w-10 px-3 py-3">{selectAllCheckbox()}</th>
+            <th className="px-3 py-3 font-semibold">Mã CK</th>
+            <th className="px-3 py-3 font-semibold">Ngày mua</th>
+            <th className="px-3 py-3 text-right font-semibold">Số CP</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá mua</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá HT</th>
+            <th className="px-3 py-3 text-right font-semibold">Tổng vốn</th>
+            <th className="px-3 py-3 text-right font-semibold">Lãi/Lỗ</th>
+            <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {tableBody(tabInvestments, (inv) => {
+            const pnl = computePnl(inv);
+            const pnlPct = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
+            return (
+              <>
+                <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
+                <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice * inv.quantity)}</td>
+                <td className="px-3 py-3 text-right">{pnlCell(pnl, pnlPct)}</td>
+              </>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
+
+  function renderSavingTable() {
+    return (
+      <table className="w-full min-w-[750px] border-collapse text-left text-xs">
+        <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="w-10 px-3 py-3">{selectAllCheckbox()}</th>
+            <th className="px-3 py-3 font-semibold">Ngân hàng / Tên</th>
+            <th className="px-3 py-3 font-semibold">Ngày gửi</th>
+            <th className="px-3 py-3 text-right font-semibold">Số tiền gửi</th>
+            <th className="px-3 py-3 text-right font-semibold">Lãi suất</th>
+            <th className="px-3 py-3 text-right font-semibold">Kỳ hạn</th>
+            <th className="px-3 py-3 text-right font-semibold">Lãi dự kiến</th>
+            <th className="px-3 py-3 text-right font-semibold">Tổng đáo hạn</th>
+            <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {tableBody(tabInvestments, (inv) => {
+            const depositAmount = inv.purchasePrice * inv.quantity;
+            const pnl = computePnl(inv);
+            return (
+              <>
+                <td className="px-3 py-3 text-right font-semibold text-slate-900">{currency(depositAmount)}</td>
+                <td className="px-3 py-3 text-right text-slate-700">{inv.interestRate ? `${inv.interestRate}%/năm` : "—"}</td>
+                <td className="px-3 py-3 text-right text-slate-700">{inv.term ? `${inv.term} tháng` : "—"}</td>
+                <td className="px-3 py-3 text-right font-bold text-emerald-600">+{currency(pnl)}</td>
+                <td className="px-3 py-3 text-right font-bold text-slate-900">{currency(depositAmount + pnl)}</td>
+              </>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
+
+  function renderFundTable() {
+    return (
+      <table className="w-full min-w-[800px] border-collapse text-left text-xs">
+        <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="w-10 px-3 py-3">{selectAllCheckbox()}</th>
+            <th className="px-3 py-3 font-semibold">Tên CCQ</th>
+            <th className="px-3 py-3 font-semibold">Loại quỹ</th>
+            <th className="px-3 py-3 font-semibold">Ngày mua</th>
+            <th className="px-3 py-3 text-right font-semibold">Số CCQ</th>
+            <th className="px-3 py-3 text-right font-semibold">NAV mua</th>
+            <th className="px-3 py-3 text-right font-semibold">NAV HT</th>
+            <th className="px-3 py-3 text-right font-semibold">Tổng vốn</th>
+            <th className="px-3 py-3 text-right font-semibold">Lãi/Lỗ</th>
+            <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {tableBody(tabInvestments, (inv) => {
+            const meta = assetMeta[inv.type];
+            const pnl = computePnl(inv);
+            const pnlPct = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
+            return (
+              <>
+                <td className="px-3 py-3"><Badge className={cn("text-[10px] px-1.5 py-0.5", meta.badge)}>{meta.label}</Badge></td>
+                <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-700">{dateLabel(inv.date)}</td>
+                <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
+                <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice * inv.quantity)}</td>
+                <td className="px-3 py-3 text-right">{pnlCell(pnl, pnlPct)}</td>
+              </>
+            );
+          }, /* skipDateColumn */ true)}
+        </tbody>
+      </table>
+    );
+  }
+
+  function renderDebtTable() {
+    return (
+      <table className="w-full min-w-[600px] border-collapse text-left text-xs">
+        <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="w-10 px-3 py-3">{selectAllCheckbox()}</th>
+            <th className="px-3 py-3 font-semibold">Tên khoản</th>
+            <th className="px-3 py-3 font-semibold">Loại</th>
+            <th className="px-3 py-3 font-semibold">Ngày</th>
+            <th className="px-3 py-3 text-right font-semibold">Số tiền</th>
+            <th className="px-3 py-3 font-semibold">Người QL</th>
+            <th className="px-3 py-3 font-semibold">Ghi chú</th>
+            <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {tableBody(tabInvestments, (inv) => {
+            const meta = assetMeta[inv.type];
+            const amount = inv.currentPrice > 0 ? inv.currentPrice * inv.quantity : inv.purchasePrice * inv.quantity;
+            return (
+              <>
+                <td className="px-3 py-3"><Badge className={cn("text-[10px] px-1.5 py-0.5", meta.badge)}>{meta.label}</Badge></td>
+                <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-700">{dateLabel(inv.date)}</td>
+                <td className="px-3 py-3 text-right font-semibold text-slate-900">{currency(amount)}</td>
+                <td className="px-3 py-3 text-slate-600">{memberMeta[inv.member].role}</td>
+                <td className="px-3 py-3 max-w-[160px] truncate text-slate-500">{inv.note || "—"}</td>
+              </>
+            );
+          }, /* skipDateColumn */ true)}
+        </tbody>
+      </table>
+    );
+  }
+
+  function renderOtherTable() {
+    return (
+      <table className="w-full min-w-[800px] border-collapse text-left text-xs">
+        <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="w-10 px-3 py-3">{selectAllCheckbox()}</th>
+            <th className="px-3 py-3 font-semibold">Tên</th>
+            <th className="px-3 py-3 font-semibold">Loại</th>
+            <th className="px-3 py-3 font-semibold">Ngày mua</th>
+            <th className="px-3 py-3 text-right font-semibold">SL</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá mua</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá HT</th>
+            <th className="px-3 py-3 text-right font-semibold">Tổng vốn</th>
+            <th className="px-3 py-3 text-right font-semibold">Lãi/Lỗ</th>
+            <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {tableBody(tabInvestments, (inv) => {
+            const meta = assetMeta[inv.type];
+            const pnl = computePnl(inv);
+            const pnlPct = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
+            return (
+              <>
+                <td className="px-3 py-3"><Badge className={cn("text-[10px] px-1.5 py-0.5", meta.badge)}>{meta.label}</Badge></td>
+                <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-700">{dateLabel(inv.date)}</td>
+                <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
+                <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
+                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice * inv.quantity)}</td>
+                <td className="px-3 py-3 text-right">{pnlCell(pnl, pnlPct)}</td>
+              </>
+            );
+          }, /* skipDateColumn */ true)}
+        </tbody>
+      </table>
+    );
+  }
+
+  // ─── Shared table helpers ─────────────────────────────────────────────────
+
+  function selectAllCheckbox() {
+    return (
+      <input
+        aria-label="Chọn tất cả"
+        checked={allVisibleSelected}
+        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+        disabled={isLoading || tabInvestmentIds.length === 0}
+        onChange={toggleSelectAllVisible}
+        ref={(input) => {
+          if (input) input.indeterminate = someVisibleSelected;
+        }}
+        type="checkbox"
+      />
+    );
+  }
+
+  function pnlCell(pnl: number, pnlPct: number) {
+    return (
+      <>
+        <div className={cn("font-bold", pnl >= 0 ? "text-emerald-600" : "text-rose-600")}>
+          {pnl >= 0 ? "+" : ""}{currency(pnl)}
         </div>
-        <div className="flex flex-col items-end gap-2">
-           {goldPriceStr && <p className="text-xs font-bold text-yellow-600">{goldPriceStr}</p>}
-           {ccqPriceStr && <p className="text-xs font-bold text-indigo-600">{ccqPriceStr}</p>}
-           {priceError && <p className="text-xs font-semibold text-rose-600">{priceError}</p>}
-           <div className="flex flex-wrap justify-end gap-2">
-             <Button variant="outline" onClick={fetchGoldPrice} disabled={isFetchingGold}>
-               <Icon name="sparkles" className="w-4 h-4 text-yellow-500" />
-               {isFetchingGold ? "Đang lấy giá..." : "Cập nhật Giá Vàng SJC (Realtime)"}
-             </Button>
-             <Button variant="outline" onClick={fetchCcqPrices} disabled={isFetchingCcq}>
-               <Icon name="briefcase" className="w-4 h-4 text-indigo-500" />
-               {isFetchingCcq ? "Đang lấy giá..." : "Cập nhật giá CCQ"}
-             </Button>
-           </div>
+        <div className={cn("text-[10px] font-semibold", pnl >= 0 ? "text-emerald-500" : "text-rose-500")}>
+          {pnl >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
         </div>
-      </header>
+      </>
+    );
+  }
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <Card className="p-5 border-l-4 border-l-purple-500">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Tổng tài sản hiện tại</p>
-              <p className="mt-3 text-3xl font-bold text-slate-950">{currency(totalAssets)}</p>
-            </div>
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-purple-50 text-purple-600">
-              <Icon name="barChart" className="w-6 h-6" />
-            </div>
-          </div>
-          <p className="mt-4 text-sm text-slate-500">Tổng vốn đầu tư: {currency(totalCost)}</p>
-        </Card>
-
-        <Card className={cn("p-5 border-l-4", totalPnL >= 0 ? "border-l-emerald-500" : "border-l-rose-500")}>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Lãi / Lỗ (PnL)</p>
-              <p className={cn("mt-3 text-3xl font-bold", totalPnL >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                {totalPnL >= 0 ? "+" : ""}{currency(totalPnL)}
-              </p>
-            </div>
-            <div className={cn("grid h-12 w-12 place-items-center rounded-xl", totalPnL >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
-              <Icon name="trendingUp" className="w-6 h-6" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-             <Badge className={totalPnL >= 0 ? "bg-emerald-100 text-emerald-800 ring-emerald-200" : "bg-rose-100 text-rose-800 ring-rose-200"}>
-               {totalPnL >= 0 ? "+" : ""}{pnlPercent.toFixed(2)}%
-             </Badge>
-             <span className="text-sm text-slate-500">so với giá vốn</span>
-          </div>
-        </Card>
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-[1.55fr_0.95fr]">
-        <Card className="overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-slate-100 p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-xl font-bold text-slate-950">Danh mục tài sản</h2>
-              <Button className="w-full sm:w-fit" disabled={isSaving} onClick={openCreateDialog}>
-                <Icon className="h-4 w-4" name="plus" />
-                Thêm tài sản
-              </Button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <Icon className="h-4 w-4" name="search" />
-                </span>
-                <input className={cn(inputClass(), "w-full pl-9")} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên tài sản..." type="search" value={query} />
+  function tableBody(items: Investment[], renderExtraCells: (inv: Investment) => ReactNode, skipDateColumn = false) {
+    if (isLoading) {
+      return <tr><td className="px-3 py-8 text-center text-slate-500" colSpan={12}>Đang tải...</td></tr>;
+    }
+    if (error) {
+      return <tr><td className="px-3 py-8 text-center text-rose-600" colSpan={12}>{error}</td></tr>;
+    }
+    if (items.length === 0) {
+      return <tr><td className="px-3 py-8 text-center text-slate-400 italic" colSpan={12}>Chưa có dữ liệu</td></tr>;
+    }
+    return items.map((inv) => {
+      const meta = assetMeta[inv.type];
+      const isSelected = selectedIds.includes(inv.id);
+      return (
+        <tr className={cn("bg-white transition hover:bg-purple-50/40", isSelected && "bg-emerald-50/70")} key={inv.id}>
+          <td className="px-3 py-3">
+            <input
+              aria-label={`Chọn ${inv.name}`}
+              checked={isSelected}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              onChange={() => toggleSelectInvestment(inv.id)}
+              type="checkbox"
+            />
+          </td>
+          <td className="px-3 py-3">
+            <div className="flex items-center gap-2">
+              <div className="grid h-7 w-7 place-items-center rounded-lg" style={{ backgroundColor: meta.chart + '20', color: meta.chart }}>
+                <Icon name={meta.icon} className="h-3.5 w-3.5" />
               </div>
-              <select className={cn(inputClass(), "w-full")} onChange={(event) => setTypeFilter(event.target.value as AssetType | "all")} value={typeFilter}>
-                <option value="all">Tất cả loại hình</option>
-                {ASSET_TYPES.map((type) => (
-                  <option key={type} value={type}>{assetMeta[type].label}</option>
-                ))}
-              </select>
+              <p className="font-bold text-slate-900">{inv.name}</p>
             </div>
-          </div>
+          </td>
+          {!skipDateColumn && <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-700">{dateLabel(inv.date)}</td>}
+          {renderExtraCells(inv)}
+          <td className="px-3 py-3">
+            <div className="flex justify-end gap-1">
+              <IconButton label="Sửa" onClick={() => openEditDialog(inv)}>
+                <Icon className="h-3.5 w-3.5" name="edit" />
+              </IconButton>
+              <IconButton label="Xóa" onClick={() => setPendingDelete(inv)} tone="danger">
+                <Icon className="h-3.5 w-3.5" name="trash" />
+              </IconButton>
+            </div>
+          </td>
+        </tr>
+      );
+    });
+  }
 
-          <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-slate-50/50 p-4 text-sm text-slate-600">
+  // ─── Tab-specific forms ───────────────────────────────────────────────────
+
+  function renderForm() {
+    const tab = activeTab === "overview" ? "gold" : activeTab;
+    switch (tab) {
+      case "gold": return renderGoldForm();
+      case "stock": return renderStockForm();
+      case "saving": return renderSavingForm();
+      case "fund": return renderFundForm();
+      case "debt": return renderDebtForm();
+      case "other": return renderOtherForm();
+    }
+  }
+
+  function renderGoldForm() {
+    return (
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <Field id="name" label="Tên tài sản (VD: Vàng nhẫn SJC 24k)">
+          <input className={inputClass()} id="name" onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} required type="text" value={form.name} />
+        </Field>
+
+        <Field id="quantity" label="Số chỉ">
+          <div className="grid gap-2">
+            <QuantityCombobox
+              id="quantity"
+              onChange={(quantity) => setForm((c) => ({ ...c, quantity }))}
+              placeholder="Chọn 0.5–5 hoặc nhập tay"
+              value={form.quantity}
+            />
+            {form.quantity.trim() && !isAllowedUnitQuantity(parseStoredNumber(form.quantity)) ? (
+              <p className="text-xs font-medium text-rose-600">Số lượng không hợp lệ. Dùng 0.5 hoặc 1, 2, 3…</p>
+            ) : null}
+          </div>
+        </Field>
+
+        {priceFields("Giá mua/chỉ", "Giá HT/chỉ (không bắt buộc)")}
+        {memberDateFields()}
+        {noteField()}
+        {formButtons()}
+      </form>
+    );
+  }
+
+  function renderStockForm() {
+    return (
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <Field id="name" label="Mã cổ phiếu (VD: FPT, VNM, VIC)">
+          <input className={inputClass()} id="name" onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} required type="text" value={form.name} />
+        </Field>
+
+        <Field id="quantity" label="Số lượng cổ phiếu">
+          <input className={inputClass()} id="quantity" inputMode="decimal" onChange={(e) => setForm((c) => ({ ...c, quantity: canonicalizeQuantityInput(e.target.value) }))} required value={form.quantity} />
+        </Field>
+
+        {priceFields("Giá mua", "Giá hiện tại (không bắt buộc)")}
+        {memberDateFields()}
+        {noteField()}
+        {formButtons()}
+      </form>
+    );
+  }
+
+  function renderSavingForm() {
+    return (
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <Field id="name" label="Ngân hàng / Tên sổ (VD: STK Vietcombank)">
+          <input className={inputClass()} id="name" onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} required type="text" value={form.name} />
+        </Field>
+
+        <Field id="purchasePrice" label="Số tiền gửi">
+          <input
+            className={inputClass()}
+            id="purchasePrice"
+            inputMode="decimal"
+            onChange={(e) => setForm((c) => ({ ...c, purchasePrice: canonicalizeNumberInput(e.target.value) }))}
+            required
+            value={formatNumberInput(form.purchasePrice)}
+          />
+          {form.purchasePrice && <p className="text-xs italic text-rose-600">{readMoney(form.purchasePrice)}</p>}
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2 rounded-md bg-emerald-50 p-4 border border-emerald-100">
+          <Field id="interestRate" label="Lãi suất (%/năm)">
+            <input className={inputClass()} id="interestRate" min="0" step="any" onChange={(e) => setForm((c) => ({ ...c, interestRate: e.target.value }))} placeholder="VD: 5.5" type="number" value={form.interestRate} />
+          </Field>
+          <Field id="term" label="Kỳ hạn (Tháng)">
+            <input className={inputClass()} id="term" min="1" step="1" onChange={(e) => setForm((c) => ({ ...c, term: e.target.value }))} placeholder="VD: 6" type="number" value={form.term} />
+          </Field>
+        </div>
+
+        {memberDateFields()}
+        {noteField()}
+        {formButtons()}
+      </form>
+    );
+  }
+
+  function renderFundForm() {
+    return (
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="type" label="Loại quỹ">
+            <select
+              className={inputClass()}
+              id="type"
+              onChange={(e) => {
+                const nextType = e.target.value as AssetType;
+                setForm((c) => ({
+                  ...c,
+                  type: nextType,
+                  name: FUND_DEFAULT_NAMES[nextType] ?? c.name,
+                }));
+              }}
+              value={form.type}
+            >
+              <option value="FUND_DCDS">{assetMeta.FUND_DCDS.label}</option>
+              <option value="FUND_ETF_VN30">{assetMeta.FUND_ETF_VN30.label}</option>
+            </select>
+          </Field>
+          <Field id="name" label="Tên CCQ">
+            <input className={inputClass()} id="name" onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} required type="text" value={form.name} />
+          </Field>
+        </div>
+
+        <Field id="quantity" label="Số CCQ">
+          <div className="grid gap-2">
+            <QuantityCombobox
+              id="quantity"
+              onChange={(quantity) => setForm((c) => ({ ...c, quantity }))}
+              placeholder="Chọn 0.5–5 hoặc nhập tay (vd: 10.56)"
+              value={form.quantity}
+            />
+          </div>
+        </Field>
+
+        {priceFields("Giá NAV mua / CCQ", "Giá NAV hiện tại / CCQ (không bắt buộc)")}
+        {memberDateFields()}
+        {noteField()}
+        {formButtons()}
+      </form>
+    );
+  }
+
+  function renderDebtForm() {
+    return (
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <Field id="type" label="Loại">
+          <select
+            className={inputClass()}
+            id="type"
+            onChange={(e) => setForm((c) => ({ ...c, type: e.target.value as AssetType }))}
+            value={form.type}
+          >
+            <option value="DEBT">{assetMeta.DEBT.label}</option>
+            <option value="DEBT_INTEREST">{assetMeta.DEBT_INTEREST.label}</option>
+            <option value="LOAN">{assetMeta.LOAN.label}</option>
+          </select>
+        </Field>
+
+        <Field id="name" label="Tên khoản (VD: Vay mua nhà, Cho bạn A vay)">
+          <input className={inputClass()} id="name" onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} required type="text" value={form.name} />
+        </Field>
+
+        <Field id="purchasePrice" label="Số tiền">
+          <input
+            className={inputClass()}
+            id="purchasePrice"
+            inputMode="decimal"
+            onChange={(e) => setForm((c) => ({ ...c, purchasePrice: canonicalizeNumberInput(e.target.value) }))}
+            required
+            value={formatNumberInput(form.purchasePrice)}
+          />
+          {form.purchasePrice && <p className="text-xs italic text-rose-600">{readMoney(form.purchasePrice)}</p>}
+        </Field>
+
+        {memberDateFields()}
+        {noteField()}
+        {formButtons()}
+      </form>
+    );
+  }
+
+  function renderOtherForm() {
+    return (
+      <form className="grid gap-4" onSubmit={handleSubmit}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="type" label="Loại hình">
+            <select
+              className={inputClass()}
+              id="type"
+              onChange={(e) => setForm((c) => ({ ...c, type: e.target.value as AssetType }))}
+              value={form.type}
+            >
+              <option value="REAL_ESTATE">{assetMeta.REAL_ESTATE.label}</option>
+              <option value="CRYPTO">{assetMeta.CRYPTO.label}</option>
+              <option value="OTHER">{assetMeta.OTHER.label}</option>
+            </select>
+          </Field>
+          <Field id="name" label="Tên tài sản">
+            <input className={inputClass()} id="name" onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} required type="text" value={form.name} />
+          </Field>
+        </div>
+
+        <Field id="quantity" label="Số lượng">
+          <input className={inputClass()} id="quantity" inputMode="decimal" onChange={(e) => setForm((c) => ({ ...c, quantity: canonicalizeQuantityInput(e.target.value) }))} required value={form.quantity} />
+        </Field>
+
+        {priceFields("Giá mua (trên 1 đơn vị)", "Giá hiện tại (không bắt buộc)")}
+        {memberDateFields()}
+        {noteField()}
+        {formButtons()}
+      </form>
+    );
+  }
+
+  // ─── Shared form field helpers ────────────────────────────────────────────
+
+  function priceFields(buyLabel: string, currentLabel: string) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="purchasePrice" label={buyLabel}>
+          <input
+            className={inputClass()}
+            id="purchasePrice"
+            inputMode="decimal"
+            onChange={(e) => setForm((c) => ({ ...c, purchasePrice: canonicalizeNumberInput(e.target.value) }))}
+            required
+            value={formatNumberInput(form.purchasePrice)}
+          />
+          {form.purchasePrice && <p className="text-xs italic text-rose-600">{readMoney(form.purchasePrice)}</p>}
+        </Field>
+        <Field id="currentPrice" label={currentLabel}>
+          <input
+            className={inputClass()}
+            id="currentPrice"
+            inputMode="decimal"
+            onChange={(e) => setForm((c) => ({ ...c, currentPrice: canonicalizeNumberInput(e.target.value) }))}
+            value={formatNumberInput(form.currentPrice)}
+          />
+          {form.currentPrice && <p className="text-xs italic text-rose-600">{readMoney(form.currentPrice)}</p>}
+        </Field>
+      </div>
+    );
+  }
+
+  function memberDateFields() {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="member" label="Người quản lý">
+          <select className={inputClass()} id="member" onChange={(e) => setForm((c) => ({ ...c, member: e.target.value as FamilyMember }))} value={form.member}>
+            {familyMembers.map((member) => (
+              <option key={member} value={member}>
+                {memberMeta[member].role}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field id="date" label="Ngày mua/bắt đầu">
+          <input className={inputClass()} id="date" onChange={(e) => setForm((c) => ({ ...c, date: e.target.value }))} required type="date" value={form.date} />
+        </Field>
+      </div>
+    );
+  }
+
+  function noteField() {
+    return (
+      <Field id="note" label="Ghi chú">
+        <input className={inputClass()} id="note" onChange={(e) => setForm((c) => ({ ...c, note: e.target.value }))} type="text" value={form.note} />
+      </Field>
+    );
+  }
+
+  function formButtons() {
+    return (
+      <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button className="w-full sm:w-fit" disabled={isSaving} onClick={closeFormDialog} variant="secondary">Hủy</Button>
+        <Button className="w-full sm:w-fit" disabled={isSaving} type="submit">
+          {isSaving ? "Đang lưu..." : editingId ? "Lưu thay đổi" : "Thêm tài sản"}
+        </Button>
+      </div>
+    );
+  }
+
+  // ─── Form dialog title/description per tab ────────────────────────────────
+
+  function formTitle() {
+    if (editingId) return "Sửa tài sản";
+    const tab = activeTab === "overview" ? "gold" : activeTab;
+    const meta = tabMeta[tab];
+    return `Thêm ${meta.label}`;
+  }
+
+  function formDescription() {
+    const tab = activeTab === "overview" ? "gold" : activeTab;
+    switch (tab) {
+      case "gold": return "Nhập thông tin vàng, số chỉ và giá mua.";
+      case "stock": return "Nhập mã cổ phiếu, số lượng và giá mua.";
+      case "saving": return "Nhập thông tin sổ tiết kiệm, lãi suất và kỳ hạn.";
+      case "fund": return "Nhập thông tin chứng chỉ quỹ, NAV mua và số CCQ.";
+      case "debt": return "Nhập thông tin khoản nợ hoặc cho vay.";
+      case "other": return "Nhập thông tin tài sản.";
+    }
+  }
+
+  // ─── Render tab content ───────────────────────────────────────────────────
+
+  function renderTabContent() {
+    if (activeTab === "overview") return renderOverview();
+    return renderCategoryTab();
+  }
+
+  function renderOverview() {
+    return (
+      <>
+        {/* KPI Cards */}
+        <section className="grid gap-4 md:grid-cols-2">
+          <Card className="p-5 border-l-4 border-l-purple-500">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Tổng tài sản hiện tại</p>
+                <p className="mt-3 text-3xl font-bold text-slate-950">{currency(totalAssets)}</p>
+              </div>
+              <div className="grid h-12 w-12 place-items-center rounded-xl bg-purple-50 text-purple-600">
+                <Icon name="barChart" className="w-6 h-6" />
+              </div>
+            </div>
+            <p className="mt-4 text-sm text-slate-500">Tổng vốn đầu tư: {currency(totalCost)}</p>
+          </Card>
+
+          <Card className={cn("p-5 border-l-4", totalPnL >= 0 ? "border-l-emerald-500" : "border-l-rose-500")}>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Lãi / Lỗ (PnL)</p>
+                <p className={cn("mt-3 text-3xl font-bold", totalPnL >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                  {totalPnL >= 0 ? "+" : ""}{currency(totalPnL)}
+                </p>
+              </div>
+              <div className={cn("grid h-12 w-12 place-items-center rounded-xl", totalPnL >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600")}>
+                <Icon name="trendingUp" className="w-6 h-6" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+               <Badge className={totalPnL >= 0 ? "bg-emerald-100 text-emerald-800 ring-emerald-200" : "bg-rose-100 text-rose-800 ring-rose-200"}>
+                 {totalPnL >= 0 ? "+" : ""}{pnlPercent.toFixed(2)}%
+               </Badge>
+               <span className="text-sm text-slate-500">so với giá vốn</span>
+            </div>
+          </Card>
+        </section>
+
+        {/* Quick stats */}
+        <Card className="p-5">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
             <span className="font-semibold text-slate-800">Thống kê nhanh:</span>
-            {stats.gold > 0 && <Badge className="bg-yellow-50 text-yellow-700 ring-yellow-200">{formatQuantity(stats.gold)} chỉ Vàng</Badge>}
-            {stats.saving > 0 && <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">{stats.saving.toLocaleString("vi-VN")} Sổ tiết kiệm</Badge>}
-            {stats.stock > 0 && <Badge className="bg-blue-50 text-blue-700 ring-blue-200">{formatQuantity(stats.stock)} Cổ phiếu</Badge>}
-            {stats.dcds > 0 && <Badge className="bg-indigo-50 text-indigo-700 ring-indigo-200">{formatQuantity(stats.dcds)} CCQ DCDS</Badge>}
-            {stats.etfVn30 > 0 && <Badge className="bg-teal-50 text-teal-700 ring-teal-200">{formatQuantity(stats.etfVn30)} CCQ ETF VN30</Badge>}
-            {stats.crypto > 0 && <Badge className="bg-purple-50 text-purple-700 ring-purple-200">{formatQuantity(stats.crypto)} Coin / Crypto</Badge>}
-            {stats.realEstate > 0 && <Badge className="bg-orange-50 text-orange-700 ring-orange-200">{stats.realEstate.toLocaleString("vi-VN")} Bất động sản</Badge>}
-            {stats.debt > 0 && <Badge className="bg-rose-50 text-rose-700 ring-rose-200">{stats.debt.toLocaleString("vi-VN")} Khoản Nợ</Badge>}
-            {stats.debtInterest > 0 && <Badge className="bg-rose-50 text-rose-800 ring-rose-200">{stats.debtInterest.toLocaleString("vi-VN")} Trả nợ lãi vay</Badge>}
-            {stats.loan > 0 && <Badge className="bg-sky-50 text-sky-700 ring-sky-200">{stats.loan.toLocaleString("vi-VN")} Khoản Cho Vay</Badge>}
-            {(stats.gold === 0 && stats.saving === 0 && stats.stock === 0 && stats.dcds === 0 && stats.etfVn30 === 0 && stats.crypto === 0 && stats.realEstate === 0 && stats.debt === 0 && stats.debtInterest === 0 && stats.loan === 0) && (
+            {TAB_KEYS.filter((k) => k !== "overview").map((tabKey) => {
+              const count = tabCounts[tabKey];
+              if (count === 0) return null;
+              const meta = tabMeta[tabKey];
+              return (
+                <button
+                  key={tabKey}
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100 transition cursor-pointer"
+                  onClick={() => setActiveTab(tabKey)}
+                >
+                  <Icon name={meta.icon} className="h-3 w-3" />
+                  {meta.label}: {count}
+                </button>
+              );
+            })}
+            {investments.length === 0 && (
               <span className="text-slate-400 italic">Chưa có dữ liệu</span>
             )}
           </div>
-
-          {selectedInvestments.length > 0 ? (
-            <div className="flex flex-col gap-1 border-b border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-medium text-emerald-950">
-                Đã chọn <span className="font-bold">{selectedInvestments.length}</span> tài sản
-              </p>
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
-                <p className="text-slate-600">
-                  Vốn: <span className="font-semibold text-slate-800">{currency(selectedCostValue)}</span>
-                </p>
-                <p className="font-bold text-emerald-900">
-                  Tổng hiện tại: {currency(selectedPresentValue)}
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[940px] border-collapse text-left text-xs">
-              <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="w-10 px-3 py-3">
-                    <input
-                      aria-label="Chọn tất cả"
-                      checked={allVisibleSelected}
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                      disabled={isLoading || filteredInvestmentIds.length === 0}
-                      onChange={toggleSelectAllVisible}
-                      ref={(input) => {
-                        if (input) input.indeterminate = someVisibleSelected;
-                      }}
-                      type="checkbox"
-                    />
-                  </th>
-                  <th className="px-3 py-3 font-semibold">Tên tài sản</th>
-                  <th className="px-3 py-3 font-semibold">Ngày mua</th>
-                  <th className="px-3 py-3 text-right font-semibold">SL</th>
-                  <th className="px-3 py-3 text-right font-semibold">Giá mua</th>
-                  <th className="px-3 py-3 text-right font-semibold">Giá HT</th>
-                  <th className="px-3 py-3 text-right font-semibold">Lãi suất/Kỳ hạn</th>
-                  <th className="px-3 py-3 text-right font-semibold">Tổng vốn</th>
-                  <th className="px-3 py-3 text-right font-semibold">Lãi/Lỗ</th>
-                  <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {isLoading ? (
-                  <tr><td className="px-3 py-8 text-center text-slate-500" colSpan={10}>Đang tải...</td></tr>
-                ) : null}
-                {!isLoading && error ? (
-                  <tr><td className="px-3 py-8 text-center text-rose-600" colSpan={10}>{error}</td></tr>
-                ) : null}
-                {!isLoading && !error ? filteredInvestments.map((inv) => {
-                  const meta = assetMeta[inv.type];
-                  const hidePnl = isZeroPnlType(inv.type);
-                  const isSelected = selectedIds.includes(inv.id);
-                  let pnl = 0;
-                  if (hidePnl) {
-                    pnl = 0;
-                  } else if (inv.type === "SAVING" && inv.interestRate && inv.term) {
-                    pnl = (inv.purchasePrice * inv.quantity) * (inv.interestRate / 100) / 12 * Number(inv.term);
-                  } else {
-                    pnl = (effectiveUnitPrice(inv) - inv.purchasePrice) * inv.quantity;
-                  }
-                  const pnlPercentItem = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
-                  
-                  return (
-                    <tr className={cn("bg-white transition hover:bg-purple-50/40", isSelected && "bg-emerald-50/70")} key={inv.id}>
-                      <td className="px-3 py-3">
-                        <input
-                          aria-label={`Chọn ${inv.name}`}
-                          checked={isSelected}
-                          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                          onChange={() => toggleSelectInvestment(inv.id)}
-                          type="checkbox"
-                        />
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-2">
-                           <div className="grid h-7 w-7 place-items-center rounded-lg" style={{ backgroundColor: meta.chart + '20', color: meta.chart }}>
-                             <Icon name={meta.icon} className="h-3.5 w-3.5" />
-                           </div>
-                           <div>
-                              <p className="font-bold text-slate-900">{inv.name}</p>
-                              <Badge className={cn("mt-1 text-[10px] px-1.5 py-0.5", meta.badge)}>{meta.label}</Badge>
-                           </div>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-700">{dateLabel(inv.date)}</td>
-                      <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
-                      <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
-                      <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
-                      <td className="px-3 py-3 text-right">
-                         {inv.type === "SAVING" ? (
-                           <>
-                             <div className="font-semibold text-slate-900">{inv.interestRate ? `${inv.interestRate}%/năm` : "-"}</div>
-                             <div className="text-[10px] text-slate-500">{inv.term ? `${inv.term} Tháng` : "-"}</div>
-                           </>
-                         ) : (
-                           <span className="text-slate-300">-</span>
-                         )}
-                      </td>
-                      <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice * inv.quantity)}</td>
-                      <td className="px-3 py-3 text-right">
-                         {hidePnl ? (
-                           <span className="text-slate-300">—</span>
-                         ) : (
-                           <>
-                             <div className={cn("font-bold", pnl >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                               {pnl >= 0 ? "+" : ""}{currency(pnl)}
-                             </div>
-                             <div className={cn("text-[10px] font-semibold", pnl >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                               {pnl >= 0 ? "+" : ""}{pnlPercentItem.toFixed(2)}%
-                             </div>
-                           </>
-                         )}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex justify-end gap-1">
-                          <IconButton label="Sửa" onClick={() => openEditDialog(inv)}>
-                            <Icon className="h-3.5 w-3.5" name="edit" />
-                          </IconButton>
-                          <IconButton label="Xóa" onClick={() => setPendingDelete(inv)} tone="danger">
-                            <Icon className="h-3.5 w-3.5" name="trash" />
-                          </IconButton>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                }) : null}
-              </tbody>
-            </table>
-          </div>
         </Card>
 
+        {/* Donut chart */}
         <Card className="p-5">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
@@ -1107,127 +1715,177 @@ export function InvestmentDashboard() {
           </div>
           <InvestmentDonut data={assetsByType} total={totalAssets} />
         </Card>
-      </div>
+      </>
+    );
+  }
 
-      <Dialog description="Nhập thông tin tài sản, số lượng và giá vốn ban đầu." onClose={closeFormDialog} open={isFormOpen} title={editingId ? "Sửa tài sản" : "Thêm tài sản"}>
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <Field id="name" label="Tên tài sản (VD: Vàng SJC, Cổ phiếu FPT, STK Vietcombank)">
-            <input className={inputClass()} id="name" onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required type="text" value={form.name} />
-          </Field>
+  function renderCategoryTab() {
+    const meta = tabMeta[activeTab];
+    const showType = (TAB_ASSET_MAP[activeTab as Exclude<TabKey, "overview">] || []).length > 1;
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="type" label="Loại hình">
-              <select
-                className={inputClass()}
-                id="type"
-                onChange={(event) => {
-                  const nextType = event.target.value as AssetType;
-                  setForm((current) => {
-                    const autoNames = Object.values(FUND_DEFAULT_NAMES);
-                    const shouldFillName = !current.name.trim() || autoNames.includes(current.name);
-                    return {
-                      ...current,
-                      type: nextType,
-                      name: shouldFillName && FUND_DEFAULT_NAMES[nextType] ? FUND_DEFAULT_NAMES[nextType]! : current.name,
-                    };
-                  });
-                }}
-                value={form.type}
-              >
-                {ASSET_TYPES.map((type) => (
-                  <option key={type} value={type}>{assetMeta[type].label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field id="quantity" label={form.type === "GOLD" ? "Số chỉ" : isFundType(form.type) ? "Số CCQ" : "Số lượng (Lượng, Cổ phiếu...)"}>
-              {usesQuantityPresets(form.type) ? (
-                <div className="grid gap-2">
-                  <QuantityCombobox
-                    id="quantity"
-                    onChange={(quantity) => setForm((current) => ({ ...current, quantity }))}
-                    placeholder={form.type === "GOLD" ? "Chọn 0.5–5 hoặc nhập tay" : "Chọn 0.5–5 hoặc nhập tay (vd: 10.56)"}
-                    value={form.quantity}
-                  />
-                  {form.type === "GOLD" && form.quantity.trim() && !isAllowedUnitQuantity(parseStoredNumber(form.quantity)) ? (
-                    <p className="text-xs font-medium text-rose-600">Số lượng không hợp lệ. Dùng 0.5 hoặc 1, 2, 3…</p>
-                  ) : null}
-                </div>
-              ) : (
-                <input
-                  className={inputClass()}
-                  id="quantity"
-                  inputMode="decimal"
-                  onChange={(event) => setForm((current) => ({ ...current, quantity: canonicalizeQuantityInput(event.target.value) }))}
-                  required
-                  value={form.quantity}
-                />
+    return (
+      <Card className="overflow-hidden">
+        {/* Sub-header */}
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-xl font-bold text-slate-950">{meta.label}</h2>
+            <div className="flex flex-wrap gap-2">
+              {/* Gold price button */}
+              {activeTab === "gold" && (
+                <Button variant="outline" onClick={fetchGoldPrice} disabled={isFetchingGold}>
+                  <Icon name="sparkles" className="w-4 h-4 text-yellow-500" />
+                  {isFetchingGold ? "Đang lấy giá..." : "Cập nhật Giá Vàng SJC"}
+                </Button>
               )}
-            </Field>
+              {/* CCQ price button */}
+              {activeTab === "fund" && (
+                <Button variant="outline" onClick={fetchCcqPrices} disabled={isFetchingCcq}>
+                  <Icon name="briefcase" className="w-4 h-4 text-indigo-500" />
+                  {isFetchingCcq ? "Đang lấy giá..." : "Cập nhật giá CCQ"}
+                </Button>
+              )}
+              <Button className="w-full sm:w-fit" disabled={isSaving} onClick={openCreateDialog}>
+                <Icon className="h-4 w-4" name="plus" />
+                Thêm {meta.label}
+              </Button>
+            </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="purchasePrice" label={isFundType(form.type) ? "Giá mua / CCQ" : "Giá vốn (trên 1 đơn vị)"}>
-              <input
-                className={inputClass()}
-                id="purchasePrice"
-                inputMode="decimal"
-                onChange={(event) => setForm((current) => ({ ...current, purchasePrice: canonicalizeNumberInput(event.target.value) }))}
-                required
-                value={formatNumberInput(form.purchasePrice)}
-              />
-              {form.purchasePrice && <p className="text-xs italic text-rose-600">{readMoney(form.purchasePrice)}</p>}
-            </Field>
-            <Field id="currentPrice" label={isFundType(form.type) ? "Giá hiện tại / CCQ (không bắt buộc)" : "Giá hiện tại (không bắt buộc)"}>
-              <input
-                className={inputClass()}
-                id="currentPrice"
-                inputMode="decimal"
-                onChange={(event) => setForm((current) => ({ ...current, currentPrice: canonicalizeNumberInput(event.target.value) }))}
-                value={formatNumberInput(form.currentPrice)}
-              />
-              {form.currentPrice && <p className="text-xs italic text-rose-600">{readMoney(form.currentPrice)}</p>}
-            </Field>
-          </div>
+          {/* Market price info */}
+          {activeTab === "gold" && goldPriceStr && <p className="text-xs font-bold text-yellow-600">{goldPriceStr}</p>}
+          {activeTab === "fund" && ccqPriceStr && <p className="text-xs font-bold text-indigo-600">{ccqPriceStr}</p>}
+          {priceError && <p className="text-xs font-semibold text-rose-600">{priceError}</p>}
 
-          {form.type === "SAVING" && (
-            <div className="grid gap-4 sm:grid-cols-2 rounded-md bg-emerald-50 p-4 border border-emerald-100">
-              <Field id="interestRate" label="Lãi suất (%/năm)">
-                <input className={inputClass()} id="interestRate" min="0" step="any" onChange={(event) => setForm((current) => ({ ...current, interestRate: event.target.value }))} placeholder="VD: 5.5" type="number" value={form.interestRate} />
-              </Field>
-              <Field id="term" label="Kỳ hạn (Tháng)">
-                <input className={inputClass()} id="term" min="1" step="1" onChange={(event) => setForm((current) => ({ ...current, term: event.target.value }))} placeholder="VD: 6" type="number" value={form.term} />
-              </Field>
+          {/* Search */}
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <Icon className="h-4 w-4" name="search" />
+            </span>
+            <input className={cn(inputClass(), "w-full pl-9")} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm tên tài sản..." type="search" value={query} />
+          </div>
+        </div>
+
+        {/* Selection bar */}
+        {selectedInvestments.length > 0 ? (
+          <div className="flex flex-col gap-1 border-b border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-medium text-emerald-950">
+              Đã chọn <span className="font-bold">{selectedInvestments.length}</span> tài sản
+            </p>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
+              <p className="text-slate-600">
+                Vốn: <span className="font-semibold text-slate-800">{currency(selectedCostValue)}</span>
+              </p>
+              <p className="font-bold text-emerald-900">
+                Tổng hiện tại: {currency(selectedPresentValue)}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
+          {activeTab === "gold" && renderGoldTable()}
+          {activeTab === "stock" && renderStockTable()}
+          {activeTab === "saving" && renderSavingTable()}
+          {activeTab === "fund" && renderFundTable()}
+          {activeTab === "debt" && renderDebtTable()}
+          {activeTab === "other" && renderOtherTable()}
+        </div>
+
+        {/* Mobile card grid */}
+        <div className="block md:hidden p-4">
+          {isLoading ? (
+            <p className="py-8 text-center text-slate-500">Đang tải...</p>
+          ) : error ? (
+            <p className="py-8 text-center text-rose-600">{error}</p>
+          ) : tabInvestments.length === 0 ? (
+            <p className="py-8 text-center text-slate-400 italic">Chưa có dữ liệu</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {tabInvestments.map((inv) => (
+                <InvestmentCard
+                  key={inv.id}
+                  inv={inv}
+                  isSelected={selectedIds.includes(inv.id)}
+                  showType={showType}
+                  onToggleSelect={() => toggleSelectInvestment(inv.id)}
+                  onEdit={() => openEditDialog(inv)}
+                  onDelete={() => setPendingDelete(inv)}
+                />
+              ))}
             </div>
           )}
+        </div>
+      </Card>
+    );
+  }
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="member" label="Người quản lý">
-              <select className={inputClass()} id="member" onChange={(event) => setForm((current) => ({ ...current, member: event.target.value as FamilyMember }))} value={form.member}>
-                {familyMembers.map((member) => (
-                  <option key={member} value={member}>
-                    {memberMeta[member].role}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field id="date" label="Ngày mua/bắt đầu">
-              <input className={inputClass()} id="date" onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required type="date" value={form.date} />
-            </Field>
-          </div>
+  // ─── Main render ──────────────────────────────────────────────────────────
 
-          <Field id="note" label="Ghi chú">
-            <input className={inputClass()} id="note" onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} type="text" value={form.note} />
-          </Field>
+  return (
+    <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
+      {/* Page header */}
+      <header className="flex flex-col gap-5 rounded-lg border border-purple-100 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-purple-700">Investment Management</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950 md:text-4xl">Quản lý Đầu tư</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Theo dõi tổng tài sản, tính toán lãi/lỗ của các danh mục đầu tư Vàng, Chứng khoán, và Tiết kiệm.
+          </p>
+        </div>
+      </header>
 
-          <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <Button className="w-full sm:w-fit" disabled={isSaving} onClick={closeFormDialog} variant="secondary">Hủy</Button>
-            <Button className="w-full sm:w-fit" disabled={isSaving} type="submit">
-              {isSaving ? "Đang lưu..." : editingId ? "Lưu thay đổi" : "Thêm tài sản"}
-            </Button>
-          </div>
-        </form>
+      {/* Tab bar */}
+      <div className="overflow-x-auto -mx-2.5 px-2.5">
+        <div className="flex gap-1.5 min-w-max rounded-xl bg-slate-100 p-1.5">
+          {TAB_KEYS.map((tabKey) => {
+            const meta = tabMeta[tabKey];
+            const count = tabCounts[tabKey];
+            const isActive = activeTab === tabKey;
+            return (
+              <button
+                key={tabKey}
+                type="button"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-sm font-semibold transition-all whitespace-nowrap",
+                  isActive
+                    ? "bg-white text-slate-950 shadow-sm ring-1 ring-slate-200"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-white/50",
+                )}
+                onClick={() => {
+                  setActiveTab(tabKey);
+                  setQuery("");
+                  setSelectedIds([]);
+                }}
+              >
+                <Icon name={meta.icon} className={cn("h-4 w-4", isActive && tabKey !== "overview" && `text-${meta.color}-500`)} />
+                <span className="hidden sm:inline">{meta.label}</span>
+                <span className="sm:hidden">{meta.label.split(" ")[0]}</span>
+                {tabKey !== "overview" && count > 0 && (
+                  <span className={cn(
+                    "ml-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
+                    isActive
+                      ? "bg-slate-950 text-white"
+                      : "bg-slate-200 text-slate-600",
+                  )}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tab content */}
+      {renderTabContent()}
+
+      {/* Form dialog */}
+      <Dialog description={formDescription()} onClose={closeFormDialog} open={isFormOpen} title={formTitle()}>
+        {renderForm()}
       </Dialog>
 
+      {/* Delete confirmation dialog */}
       <Dialog description="Bạn có chắc chắn muốn xoá tài sản này?" onClose={() => setPendingDelete(null)} open={Boolean(pendingDelete)} title="Xóa tài sản?">
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button className="w-full sm:w-fit" disabled={isSaving} onClick={() => setPendingDelete(null)} variant="secondary">Hủy</Button>

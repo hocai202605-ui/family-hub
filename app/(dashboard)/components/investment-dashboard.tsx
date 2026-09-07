@@ -552,6 +552,111 @@ function MonthlyBarChart({
   );
 }
 
+// ─── Gold Monthly Bar Chart Component ───────────────────────────────────────
+
+function GoldMonthlyBarChart({ data }: { data: Investment[] }) {
+  // Extract all years from gold data
+  const years = Array.from(new Set(data.map(inv => inv.date.substring(0, 4)))).sort((a, b) => b.localeCompare(a));
+  const currentYear = new Date().getFullYear().toString();
+  const defaultYear = years.includes(currentYear) ? currentYear : (years[0] || currentYear);
+  const [selectedYear, setSelectedYear] = useState(defaultYear);
+
+  // Group by month for the selected year
+  const monthlyData = useMemo(() => {
+    const result = Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      quantity: 0,
+      cost: 0,
+    }));
+    
+    data.forEach((inv) => {
+      if (inv.date.startsWith(selectedYear)) {
+        const m = parseInt(inv.date.substring(5, 7), 10);
+        if (m >= 1 && m <= 12) {
+          result[m - 1].quantity += inv.quantity;
+          result[m - 1].cost += inv.quantity * inv.purchasePrice;
+        }
+      }
+    });
+    return result;
+  }, [data, selectedYear]);
+
+  if (data.length === 0) {
+    return <div className="grid h-48 place-items-center text-slate-400 italic">Chưa có giao dịch</div>;
+  }
+
+  const maxQty = Math.max(...monthlyData.map((d) => d.quantity)) || 1;
+  const maxCost = Math.max(...monthlyData.map((d) => d.cost)) || 1;
+
+  const renderHalfYear = (start: number, end: number) => (
+    <div className="relative h-40 w-full pt-4 mt-2">
+      <div className="absolute inset-0 flex flex-col justify-between text-[10px] text-slate-400 pb-6 pointer-events-none opacity-30">
+        <div className="border-b border-slate-300 flex-1 relative" />
+        <div className="border-b border-slate-300 flex-1 relative" />
+        <div className="border-b border-slate-300 flex-1 relative" />
+        <div className="flex-1 relative border-b border-slate-300" />
+      </div>
+      <div className="absolute inset-0 pb-6 flex items-end justify-around gap-1 overflow-visible">
+        {monthlyData.slice(start, end).map((item) => {
+          const qtyH = (item.quantity / maxQty) * 100;
+          const costH = (item.cost / maxCost) * 100;
+          return (
+            <div key={item.month} className="group relative flex w-full flex-col items-center justify-end h-full">
+              <div className="flex items-end justify-center w-full gap-1 h-full">
+                {/* Quantity bar (Yellow) */}
+                <div 
+                  className="w-[12px] sm:w-[16px] rounded-t-sm bg-yellow-400 transition-all group-hover:bg-yellow-500 relative" 
+                  style={{ height: `${Math.max(qtyH, item.quantity > 0 ? 2 : 0)}%` }} 
+                />
+                {/* Cost bar (Blue) */}
+                <div 
+                  className="w-[12px] sm:w-[16px] rounded-t-sm bg-blue-400 transition-all group-hover:bg-blue-500 relative" 
+                  style={{ height: `${Math.max(costH, item.cost > 0 ? 2 : 0)}%` }} 
+                />
+              </div>
+              <div className="absolute -bottom-6 w-full text-center text-xs text-slate-500 font-medium">T{item.month}</div>
+              
+              {/* Tooltip */}
+              <div className="pointer-events-none absolute -top-12 z-20 hidden whitespace-nowrap rounded-md bg-slate-800 px-3 py-2 text-xs text-white shadow-xl group-hover:block left-1/2 -translate-x-1/2">
+                <p className="font-bold border-b border-slate-600 pb-1 mb-1">Tháng {item.month}/{selectedYear}</p>
+                <div className="flex items-center gap-2"><span className="w-2 h-2 bg-yellow-400 rounded-sm"/> Khối lượng: <span className="font-mono font-semibold">{item.quantity} chỉ</span></div>
+                <div className="flex items-center gap-2"><span className="w-2 h-2 bg-blue-400 rounded-sm"/> Số tiền: <span className="font-mono font-semibold">{currency(item.cost)}</span></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex gap-4 text-xs font-medium">
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-yellow-400"/> Số chỉ</div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-blue-400"/> Tiền vốn</div>
+        </div>
+        <select 
+          className="rounded-md border-slate-200 text-sm py-1 pl-2 pr-6 bg-slate-50"
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+        >
+          {years.map(y => <option key={y} value={y}>{y}</option>)}
+          {!years.includes(currentYear) && <option value={currentYear}>{currentYear}</option>}
+        </select>
+      </div>
+      
+      {/* 6 months top */}
+      {renderHalfYear(0, 6)}
+      
+      {/* 6 months bottom */}
+      <div className="mt-4">
+        {renderHalfYear(6, 12)}
+      </div>
+    </div>
+  );
+}
+
 // ─── PnL calculation helper ─────────────────────────────────────────────────
 
 function computePnl(inv: Investment) {
@@ -1774,8 +1879,8 @@ export function InvestmentDashboard() {
           </div>
         </Card>
 
-        {/* Bar chart (70%) + Donut chart (30%) */}
-        <div className="grid gap-6 xl:grid-cols-[1fr_0.42fr]">
+        {/* Bar chart (60%) + Donut chart (40%) */}
+        <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
           {/* Monthly bar chart */}
           <Card className="p-5">
             <div className="mb-5">
@@ -1814,7 +1919,7 @@ export function InvestmentDashboard() {
     ).map(([type, amount]) => ({ type: type as AssetType, amount })).sort((a, b) => b.amount - a.amount);
 
     return (
-      <div className="grid gap-6 xl:grid-cols-[1fr_0.42fr] items-start">
+      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr] items-start">
         <Card className="overflow-hidden">
         {/* Sub-header */}
         <div className="flex flex-col gap-4 border-b border-slate-100 p-5">
@@ -1912,10 +2017,16 @@ export function InvestmentDashboard() {
       {/* Right side chart for category */}
       <Card className="p-5 xl:sticky xl:top-24">
         <div className="mb-5">
-          <h2 className="text-xl font-bold text-slate-950">Phân bổ {meta.label.toLowerCase()}</h2>
-          <p className="mt-1 text-sm text-slate-500">Tỷ trọng các tài sản trong danh mục này.</p>
+          <h2 className="text-xl font-bold text-slate-950">
+            {activeTab === "gold" ? "Biểu đồ Mua Vàng theo tháng" : `Phân bổ ${meta.label.toLowerCase()}`}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {activeTab === "gold" ? "Khối lượng và số tiền đầu tư theo tháng." : "Tỷ trọng các tài sản trong danh mục này."}
+          </p>
         </div>
-        {categoryAssets.length > 0 ? (
+        {activeTab === "gold" ? (
+          <GoldMonthlyBarChart data={categoryAssets} />
+        ) : categoryAssets.length > 0 ? (
           <InvestmentDonut data={categoryAssetsByType} total={categoryTotalAssets} />
         ) : (
           <div className="grid h-48 place-items-center text-sm italic text-slate-400">

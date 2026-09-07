@@ -228,14 +228,14 @@ const memberMeta: Record<FamilyMember, { label: string; role: string; badge: str
   CON: { label: "CON", role: "Con", badge: "bg-lime-50 text-lime-700 ring-lime-100", dot: "bg-lime-500" },
 };
 
-const tabMeta: Record<TabKey, { label: string; icon: IconName; color: string }> = {
-  overview: { label: "Tổng quan", icon: "barChart", color: "purple" },
-  gold: { label: "Vàng", icon: "sparkles", color: "yellow" },
-  stock: { label: "Chứng khoán", icon: "trendingUp", color: "blue" },
-  saving: { label: "Tiết kiệm", icon: "wallet", color: "emerald" },
-  fund: { label: "Chứng chỉ quỹ", icon: "briefcase", color: "indigo" },
-  debt: { label: "Nợ & Cho vay", icon: "trendingDown", color: "rose" },
-  other: { label: "Khác", icon: "target", color: "slate" },
+const tabMeta: Record<TabKey, { label: string; icon: IconName; color: string; badge: string; iconColor: string }> = {
+  overview: { label: "Tổng quan", icon: "barChart", color: "purple", badge: "bg-purple-50 text-purple-700 ring-purple-200 hover:bg-purple-100", iconColor: "text-purple-500" },
+  gold: { label: "Vàng", icon: "sparkles", color: "yellow", badge: "bg-yellow-50 text-yellow-700 ring-yellow-200 hover:bg-yellow-100", iconColor: "text-yellow-500" },
+  stock: { label: "Chứng khoán", icon: "trendingUp", color: "blue", badge: "bg-blue-50 text-blue-700 ring-blue-200 hover:bg-blue-100", iconColor: "text-blue-500" },
+  saving: { label: "Tiết kiệm", icon: "wallet", color: "emerald", badge: "bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100", iconColor: "text-emerald-500" },
+  fund: { label: "Chứng chỉ quỹ", icon: "briefcase", color: "indigo", badge: "bg-indigo-50 text-indigo-700 ring-indigo-200 hover:bg-indigo-100", iconColor: "text-indigo-500" },
+  debt: { label: "Nợ & Cho vay", icon: "trendingDown", color: "rose", badge: "bg-rose-50 text-rose-700 ring-rose-200 hover:bg-rose-100", iconColor: "text-rose-500" },
+  other: { label: "Khác", icon: "target", color: "slate", badge: "bg-slate-100 text-slate-700 ring-slate-200 hover:bg-slate-200", iconColor: "text-slate-500" },
 };
 
 const TAB_KEYS: TabKey[] = ["overview", "gold", "stock", "saving", "fund", "debt", "other"];
@@ -500,6 +500,49 @@ function InvestmentDonut({
               </div>
               <div className={cn("mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100")}>
                 <div className="h-full rounded-full transition-all" style={{ width: `${percent}%`, backgroundColor: meta.chart }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Monthly Bar Chart Component ────────────────────────────────────────────
+
+function MonthlyBarChart({
+  data,
+}: {
+  data: Array<{ month: string; label: string; value: number }>;
+}) {
+  if (data.length === 0) {
+    return <div className="grid h-48 place-items-center text-slate-400 italic">Chưa có dữ liệu</div>;
+  }
+
+  const maxVal = Math.max(...data.map((d) => d.value)) || 1;
+
+  return (
+    <div className="relative h-56 w-full pt-4">
+      <div className="absolute inset-0 flex flex-col justify-between text-xs text-slate-400 pb-6 pointer-events-none">
+        <div className="border-b border-slate-100 flex-1 relative"><span className="absolute -top-2 bg-white pr-2">{currency(maxVal)}</span></div>
+        <div className="border-b border-slate-100 flex-1 relative"><span className="absolute -top-2 bg-white pr-2">{currency(maxVal * 0.66)}</span></div>
+        <div className="border-b border-slate-100 flex-1 relative"><span className="absolute -top-2 bg-white pr-2">{currency(maxVal * 0.33)}</span></div>
+        <div className="flex-1 relative"><span className="absolute -top-2 bg-white pr-2">0 ₫</span></div>
+      </div>
+      <div className="absolute inset-0 pb-6 pl-16 pr-2 flex items-end justify-between gap-1 overflow-hidden">
+        {data.map((item) => {
+          const hPercent = (item.value / maxVal) * 100;
+          return (
+            <div key={item.month} className="group relative flex w-full flex-col items-center justify-end h-full">
+              <div 
+                className="w-full max-w-[40px] rounded-t-sm bg-purple-500 transition-all hover:bg-purple-600" 
+                style={{ height: `${Math.max(hPercent, 2)}%` }} 
+              />
+              <div className="absolute -bottom-6 w-full text-center text-xs text-slate-500 truncate">{item.label}</div>
+              {/* Tooltip */}
+              <div className="pointer-events-none absolute -top-10 z-10 hidden whitespace-nowrap rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white shadow-md group-hover:block">
+                {item.label}: {currency(item.value)}
               </div>
             </div>
           );
@@ -1640,6 +1683,32 @@ export function InvestmentDashboard() {
     return renderCategoryTab();
   }
 
+  /** Monthly cumulative portfolio value for the bar chart */
+  const monthlyPortfolioData = useMemo(() => {
+    if (investments.length === 0) return [];
+
+    // Build a map of month → cumulative present value at that point
+    // We sort all investments by date, then compute running totals by month
+    const sorted = [...investments].sort((a, b) => a.date.localeCompare(b.date));
+    const monthMap = new Map<string, number>();
+
+    for (const inv of sorted) {
+      const month = inv.date.slice(0, 7); // "YYYY-MM"
+      const value = assetPresentValue(inv);
+      monthMap.set(month, (monthMap.get(month) || 0) + value);
+    }
+
+    // Convert to cumulative
+    const entries = Array.from(monthMap.entries()).sort(([a], [b]) => a.localeCompare(b));
+    let cumulative = 0;
+    return entries.map(([month, value]) => {
+      cumulative += value;
+      const [year, m] = month.split("-");
+      const label = `T${parseInt(m)}/${year.slice(2)}`;
+      return { month, label, value: cumulative };
+    });
+  }, [investments]);
+
   function renderOverview() {
     return (
       <>
@@ -1691,10 +1760,10 @@ export function InvestmentDashboard() {
                 <button
                   key={tabKey}
                   type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100 transition cursor-pointer"
+                  className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset transition cursor-pointer", meta.badge)}
                   onClick={() => setActiveTab(tabKey)}
                 >
-                  <Icon name={meta.icon} className="h-3 w-3" />
+                  <Icon name={meta.icon} className={cn("h-3 w-3", meta.iconColor)} />
                   {meta.label}: {count}
                 </button>
               );
@@ -1705,16 +1774,26 @@ export function InvestmentDashboard() {
           </div>
         </Card>
 
-        {/* Donut chart */}
-        <Card className="p-5">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div>
+        {/* Bar chart (70%) + Donut chart (30%) */}
+        <div className="grid gap-6 xl:grid-cols-[1fr_0.42fr]">
+          {/* Monthly bar chart */}
+          <Card className="p-5">
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-slate-950">Tổng tài sản theo tháng</h2>
+              <p className="mt-1 text-sm text-slate-500">Tổng giá trị tài sản tích lũy theo tháng mua/gửi.</p>
+            </div>
+            <MonthlyBarChart data={monthlyPortfolioData} />
+          </Card>
+
+          {/* Donut chart */}
+          <Card className="p-5">
+            <div className="mb-5">
               <h2 className="text-xl font-bold text-slate-950">Phân bổ tài sản</h2>
               <p className="mt-1 text-sm text-slate-500">Tỷ trọng theo loại hình đầu tư.</p>
             </div>
-          </div>
-          <InvestmentDonut data={assetsByType} total={totalAssets} />
-        </Card>
+            <InvestmentDonut data={assetsByType} total={totalAssets} />
+          </Card>
+        </div>
       </>
     );
   }
@@ -1723,8 +1802,20 @@ export function InvestmentDashboard() {
     const meta = tabMeta[activeTab];
     const showType = (TAB_ASSET_MAP[activeTab as Exclude<TabKey, "overview">] || []).length > 1;
 
+    const categoryAssets = investments.filter((inv) =>
+      TAB_ASSET_MAP[activeTab as Exclude<TabKey, "overview">]?.includes(inv.type)
+    );
+    const categoryTotalAssets = categoryAssets.reduce((sum, inv) => sum + assetPresentValue(inv), 0);
+    const categoryAssetsByType = Object.entries(
+      categoryAssets.reduce((acc, inv) => {
+        acc[inv.type] = (acc[inv.type] || 0) + assetPresentValue(inv);
+        return acc;
+      }, {} as Record<string, number>)
+    ).map(([type, amount]) => ({ type: type as AssetType, amount })).sort((a, b) => b.amount - a.amount);
+
     return (
-      <Card className="overflow-hidden">
+      <div className="grid gap-6 xl:grid-cols-[1fr_0.42fr] items-start">
+        <Card className="overflow-hidden">
         {/* Sub-header */}
         <div className="flex flex-col gap-4 border-b border-slate-100 p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1817,8 +1908,24 @@ export function InvestmentDashboard() {
           )}
         </div>
       </Card>
-    );
-  }
+      
+      {/* Right side chart for category */}
+      <Card className="p-5 xl:sticky xl:top-24">
+        <div className="mb-5">
+          <h2 className="text-xl font-bold text-slate-950">Phân bổ {meta.label.toLowerCase()}</h2>
+          <p className="mt-1 text-sm text-slate-500">Tỷ trọng các tài sản trong danh mục này.</p>
+        </div>
+        {categoryAssets.length > 0 ? (
+          <InvestmentDonut data={categoryAssetsByType} total={categoryTotalAssets} />
+        ) : (
+          <div className="grid h-48 place-items-center text-sm italic text-slate-400">
+            Chưa có tài sản
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
 
   // ─── Main render ──────────────────────────────────────────────────────────
 

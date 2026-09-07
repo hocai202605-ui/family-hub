@@ -381,18 +381,22 @@ function QuantityCombobox({
 function Dialog({ open, title, description, children, onClose }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4 py-6" role="presentation">
-      <div aria-modal="true" className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-xl" role="dialog">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
-            {description ? <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p> : null}
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 px-4 py-6" role="presentation">
+      <div className="flex min-h-full items-center justify-center">
+        <div aria-modal="true" className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl" role="dialog">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-4 rounded-t-lg border-b border-slate-100 bg-white p-5">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
+              {description ? <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p> : null}
+            </div>
+            <IconButton label="Đóng" onClick={onClose}>
+              <Icon className="h-4 w-4" name="x" />
+            </IconButton>
           </div>
-          <IconButton label="Đóng" onClick={onClose}>
-            <Icon className="h-4 w-4" name="x" />
-          </IconButton>
+          <div className="p-5">
+            {children}
+          </div>
         </div>
-        {children}
       </div>
     </div>
   );
@@ -1106,7 +1110,7 @@ export function InvestmentDashboard() {
       </div>
 
       <Dialog description="Nhập thông tin tài sản, số lượng và giá vốn ban đầu." onClose={closeFormDialog} open={isFormOpen} title={editingId ? "Sửa tài sản" : "Thêm tài sản"}>
-        <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
+        <form className="grid gap-4" onSubmit={handleSubmit}>
           <Field id="name" label="Tên tài sản (VD: Vàng SJC, Cổ phiếu FPT, STK Vietcombank)">
             <input className={inputClass()} id="name" onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required type="text" value={form.name} />
           </Field>
@@ -1225,7 +1229,7 @@ export function InvestmentDashboard() {
       </Dialog>
 
       <Dialog description="Bạn có chắc chắn muốn xoá tài sản này?" onClose={() => setPendingDelete(null)} open={Boolean(pendingDelete)} title="Xóa tài sản?">
-        <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button className="w-full sm:w-fit" disabled={isSaving} onClick={() => setPendingDelete(null)} variant="secondary">Hủy</Button>
           <Button className="w-full sm:w-fit" disabled={isSaving} onClick={confirmDelete} variant="danger">
             {isSaving ? "Đang xóa..." : "Xóa"}

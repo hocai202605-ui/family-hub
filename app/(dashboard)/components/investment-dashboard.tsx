@@ -114,13 +114,12 @@ function isZeroPnlType(type: AssetType) {
 }
 
 function effectiveUnitPrice(item: { type: AssetType; purchasePrice: number; currentPrice: number }) {
-  if (isZeroPnlType(item.type)) return item.currentPrice;
   return item.currentPrice > 0 ? item.currentPrice : item.purchasePrice;
 }
 
 function assetPresentValue(item: Investment) {
   if (item.type === "DEBT") {
-    return -(item.currentPrice * item.quantity);
+    return -(effectiveUnitPrice(item) * item.quantity);
   }
   if (item.type === "DEBT_INTEREST") {
     return 0;

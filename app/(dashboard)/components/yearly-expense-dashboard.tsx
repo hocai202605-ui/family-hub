@@ -46,8 +46,17 @@ function currency(value: number) {
 }
 
 function compactCurrency(value: number) {
-  if (value >= 1000000) return (value / 1000000).toFixed(1).replace(/\.0$/, "") + "Tr";
-  if (value >= 1000) return (value / 1000).toFixed(0) + "K";
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) {
+    const v = abs / 1_000_000_000;
+    return sign + (v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, "")) + "B";
+  }
+  if (abs >= 1_000_000) {
+    const v = abs / 1_000_000;
+    return sign + (v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, "")) + "M";
+  }
+  if (abs >= 1_000) return sign + (abs / 1_000).toFixed(0) + "K";
   return value.toString();
 }
 
@@ -83,8 +92,8 @@ function ExpenseDonut({ data, total, categoryMeta }: { data: Array<{ category: C
   let offset = 0;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[220px_1fr] lg:items-center">
-      <div className="relative mx-auto h-56 w-56">
+    <div className="grid gap-5 lg:grid-cols-[180px_1fr] lg:items-center">
+      <div className="relative mx-auto h-44 w-44">
         <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
           <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
           {data.map((item) => {
@@ -102,28 +111,21 @@ function ExpenseDonut({ data, total, categoryMeta }: { data: Array<{ category: C
         </svg>
         <div className="absolute inset-0 grid place-items-center text-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tổng chi</p>
-            <p className="mt-1 text-lg font-bold text-slate-950">{currency(total)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tổng chi</p>
+            <p className="mt-0.5 text-xs font-bold text-slate-950">{compactCurrency(total)}</p>
           </div>
         </div>
       </div>
-      <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
         {data.map((item) => {
           const percent = total ? Math.round((item.amount / total) * 100) : 0;
           const meta = categoryMeta[item.category] ?? { id: item.category, label: item.category, ...fallbackCategoryMeta };
           return (
-            <div key={item.category}>
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 font-medium text-slate-800">
-                  <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: meta.chart }} />
-                  {meta.label}
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-semibold text-slate-800">{currency(item.amount)}</p>
-                  <p className="text-xs text-slate-500">{percent}%</p>
-                </div>
-              </div>
-              <Progress className="mt-2 h-2" value={percent} />
+            <div key={item.category} className="flex items-center gap-2 text-xs">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: meta.chart }} />
+              <span className="truncate font-medium text-slate-700">{meta.label}</span>
+              <span className="ml-auto shrink-0 font-semibold text-slate-500">{compactCurrency(item.amount)}</span>
+              <span className="shrink-0 text-slate-400">{percent}%</span>
             </div>
           );
         })}
@@ -284,67 +286,36 @@ export function YearlyExpenseDashboard() {
         {/* Bar Chart */}
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-semibold text-slate-950 mb-6">Biểu đồ chi tiêu 12 tháng</h2>
-          <div className="flex flex-col gap-8">
-            {/* Months 1-6 */}
-            <div className="flex h-48 w-full gap-2">
-              <div className="flex h-full w-12 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-xs font-medium text-slate-400">
-                {ticks.map((t, i) => <span key={i} className="leading-none mt-1">{compactCurrency(t)}</span>)}
-              </div>
-              <div className="relative flex flex-1 items-end justify-between gap-1 pb-6">
-                <div className="absolute inset-0 flex flex-col justify-between pb-[1.75rem] pointer-events-none">
-                  {ticks.map((t, i) => (
-                    <div key={i} className={cn("w-full border-t border-slate-200", i === ticks.length - 1 ? "mb-[1px]" : "border-dashed mt-1.5")} />
-                  ))}
-                </div>
-                {monthlyData.slice(0, 6).map((item) => {
-                  const heightPercent = chartMax > 0 ? (item.amount / chartMax) * 100 : 0;
-                  return (
-                    <div key={item.month} className="group relative flex h-full w-full flex-col items-center justify-end gap-2 z-10">
-                      <div 
-                        className="w-full max-w-[60px] rounded-t-md bg-rose-500 transition-all group-hover:bg-rose-600"
-                        style={{ height: `${Math.max(heightPercent, 2)}%` }}
-                      >
-                        <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-xs text-white shadow-md group-hover:block z-20 pointer-events-none">
-                          {currency(item.amount)}
-                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-                        </div>
-                      </div>
-                      <span className="text-xs font-medium text-slate-500">T{item.month}</span>
-                    </div>
-                  );
-                })}
-              </div>
+          <div className="flex h-56 w-full gap-2">
+            <div className="flex h-full w-10 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-[10px] font-medium text-slate-400">
+              {ticks.map((t, i) => <span key={i} className="leading-none mt-1">{compactCurrency(t)}</span>)}
             </div>
-
-            {/* Months 7-12 */}
-            <div className="flex h-48 w-full gap-2">
-              <div className="flex h-full w-12 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-xs font-medium text-slate-400">
-                {ticks.map((t, i) => <span key={i} className="leading-none mt-1">{compactCurrency(t)}</span>)}
+            <div className="relative flex flex-1 items-end justify-between gap-0.5 pb-6">
+              <div className="absolute inset-0 flex flex-col justify-between pb-[1.75rem] pointer-events-none">
+                {ticks.map((t, i) => (
+                  <div key={i} className={cn("w-full border-t border-slate-200", i === ticks.length - 1 ? "mb-[1px]" : "border-dashed mt-1.5")} />
+                ))}
               </div>
-              <div className="relative flex flex-1 items-end justify-between gap-1 pb-6">
-                <div className="absolute inset-0 flex flex-col justify-between pb-[1.75rem] pointer-events-none">
-                  {ticks.map((t, i) => (
-                    <div key={i} className={cn("w-full border-t border-slate-200", i === ticks.length - 1 ? "mb-[1px]" : "border-dashed mt-1.5")} />
-                  ))}
-                </div>
-                {monthlyData.slice(6, 12).map((item) => {
-                  const heightPercent = chartMax > 0 ? (item.amount / chartMax) * 100 : 0;
-                  return (
-                    <div key={item.month} className="group relative flex h-full w-full flex-col items-center justify-end gap-2 z-10">
-                      <div 
-                        className="w-full max-w-[60px] rounded-t-md bg-rose-500 transition-all group-hover:bg-rose-600"
-                        style={{ height: `${Math.max(heightPercent, 2)}%` }}
-                      >
-                        <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-1 text-xs text-white shadow-md group-hover:block z-20 pointer-events-none">
-                          {currency(item.amount)}
-                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-                        </div>
+              {monthlyData.map((item) => {
+                const heightPercent = chartMax > 0 ? (item.amount / chartMax) * 100 : 0;
+                return (
+                  <div key={item.month} className="group relative flex h-full w-full flex-col items-center justify-end z-10">
+                    <span className="mb-1 text-[9px] font-bold text-slate-500 whitespace-nowrap">
+                      {item.amount > 0 ? compactCurrency(item.amount) : ""}
+                    </span>
+                    <div 
+                      className="w-full max-w-[36px] rounded-t-md bg-rose-500 transition-all group-hover:bg-rose-600"
+                      style={{ height: `${Math.max(heightPercent, item.amount > 0 ? 2 : 0.5)}%` }}
+                    >
+                      <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white shadow-md group-hover:block z-20 pointer-events-none">
+                        {currency(item.amount)}
+                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
                       </div>
-                      <span className="text-xs font-medium text-slate-500">T{item.month}</span>
                     </div>
-                  );
-                })}
-              </div>
+                    <span className="mt-1 text-[10px] font-medium text-slate-500">T{item.month}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -32,6 +32,8 @@ Browser
 | `app/(dashboard)/admin/users/` | User management (admin) |
 | `app/(dashboard)/calendar/` | Daily habits + weekly log (mock data via `PersonalGrowthDashboard`) |
 | `app/(dashboard)/goals|health|parenting/` | Coming-soon placeholders |
+| `app/(dashboard)/travel/` | Travel map overview; `details/` coming soon |
+| `app/api/travel/` | Province visits + destination flags |
 | `app/(dashboard)/components/` | Large client dashboards + shell + icons |
 | `app/api/auth/` | `login`, `logout`, `me` |
 | `app/api/expenses|incomes|investments|categories/` | CRUD + list filters |
@@ -74,6 +76,8 @@ Browser
 | Overview as true family summary | Partial (reuses expenses UI) |
 | Calendar (habits + daily log) | UI mock on `/calendar` (`data/mockGrowth.json`), no API yet |
 | Goals / health / parenting | Scaffold only (`ComingSoonModule`) |
+| Travel overview (`/travel`) | SVG map of 34 provinces + destination flags; household-wide |
+| Travel details (`/travel/details`) | Scaffold only (`ComingSoonModule`) |
 
 ## Design notes for agents
 

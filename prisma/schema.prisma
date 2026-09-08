@@ -260,3 +260,37 @@ model GrowthCalendarEvent {
   @@index([member, date])
   @@map("growth_calendar_events")
 }
+
+// --- Travel map (menuKey: travel.overview) ---
+
+/// Household check-in for a provincial unit (GSO code, e.g. "01" Hà Nội).
+model TravelProvinceVisit {
+  id           String   @id @default(cuid())
+  provinceCode String   @unique
+  visitedOn    DateTime @db.Date
+  note         String
+  createdBy    String
+  updatedBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("travel_province_visits")
+}
+
+/// A specific destination flag planted on the Vietnam SVG map.
+model TravelDestination {
+  id           String   @id @default(cuid())
+  provinceCode String
+  name         String
+  svgX         Float
+  svgY         Float
+  visitedOn    DateTime @db.Date
+  note         String
+  createdBy    String
+  updatedBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([provinceCode])
+  @@map("travel_destinations")
+}

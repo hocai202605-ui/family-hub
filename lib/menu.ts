@@ -11,6 +11,8 @@ export type MenuKey =
   | "goals"
   | "health"
   | "parenting"
+  | "travel.overview"
+  | "travel.details"
   | "admin.users";
 
 export type NavItem = {
@@ -58,6 +60,17 @@ export const navItems: NavItem[] = [
   { href: "/goals", label: "Mục tiêu", description: "Kế hoạch dài hạn", icon: "target", menuKey: "goals" },
   { href: "/health", label: "Sức khỏe", description: "Thói quen chăm sóc", icon: "heart", menuKey: "health" },
   { href: "/parenting", label: "Nuôi dạy con", description: "Học tập và nề nếp", icon: "leaf", menuKey: "parenting" },
+  {
+    href: "/travel",
+    label: "Du lịch",
+    description: "Bản đồ và chuyến đi",
+    icon: "plane",
+    menuKey: "travel.overview",
+    children: [
+      { href: "/travel", label: "Bản đồ", description: "Tỉnh đã đi và cắm cờ", icon: "map", menuKey: "travel.overview" },
+      { href: "/travel/details", label: "Chi tiết", description: "Chuyến đi và ngân sách", icon: "flag", menuKey: "travel.details" },
+    ],
+  },
   { href: "/admin/users", label: "Người dùng", description: "Tài khoản và phân quyền", icon: "users", menuKey: "admin.users", adminOnly: true },
 ];
 
@@ -109,6 +122,8 @@ export function menuKeyForPath(pathname: string): MenuKey | null {
   if (pathname === "/goals") return "goals";
   if (pathname === "/health") return "health";
   if (pathname === "/parenting") return "parenting";
+  if (pathname === "/travel") return "travel.overview";
+  if (pathname === "/travel/details") return "travel.details";
   if (pathname === "/admin/users") return "admin.users";
   return null;
 }

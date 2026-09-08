@@ -45,6 +45,14 @@ Transactions are **not** scoped per `User` id; they are household-wide and tagge
 - Fund types: `FUND_DCDS` (CCQ CP DCDS, daily NAV), `FUND_ETF_VN30` (E1VFVN30 last price)
 - `DEBT_INTEREST` (Trả nợ lãi vay) is not included in net assets or PnL
 
+### Travel (household-wide, menuKey `travel.overview`)
+
+- 34 tỉnh/thành is a **static catalog** (`lib/travel/provinces.ts`, GSO codes) — not a DB table
+- `TravelProvinceVisit` — one optional check-in per `provinceCode` (`visitedOn` + `note`)
+- `TravelDestination` — flag on the SVG map (`name`, `svgX`/`svgY`, `visitedOn`, `note`)
+- A province is “visited” if it has a visit row **or** at least one destination flag
+- No `FamilyMember` / user scoping — same shared household model as expenses
+
 ### MenuPermission
 
 - Per-user grant of a `menuKey` string
@@ -67,6 +75,8 @@ Defined in `lib/menu.ts` as `MenuKey`:
 | `goals` | `/goals` |
 | `health` | `/health` |
 | `parenting` | `/parenting` |
+| `travel.overview` | `/travel` (bản đồ 34 tỉnh + cắm cờ) |
+| `travel.details` | `/travel/details` (Coming Soon) |
 | `admin.users` | `/admin/users` (adminOnly) |
 
 API access should use the same keys (e.g. expenses list → `expenses.monthly`; note yearly income uses `income.yearly` when querying by year — expenses yearly API currently uses monthly key; fix carefully if changing).

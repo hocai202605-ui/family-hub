@@ -8,14 +8,17 @@ export type IconName =
   | "check"
   | "chevronRight"
   | "edit"
+  | "flag"
   | "gift"
   | "heart"
   | "home"
   | "key"
   | "leaf"
   | "logOut"
+  | "map"
   | "menu"
   | "piggyBank"
+  | "plane"
   | "plus"
   | "search"
   | "sparkles"
@@ -115,6 +118,14 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     );
   }
 
+  if (name === "flag") {
+    return (
+      <svg {...common}>
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22V15" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
   if (name === "gift") {
     return (
       <svg {...common}>
@@ -160,6 +171,14 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     return (
       <svg {...common}>
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === "map") {
+    return (
+      <svg {...common}>
+        <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
       </svg>
     );
   }
@@ -256,6 +275,14 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     return (
       <svg {...common}>
         <path d="M4 7h14a2 2 0 0 1 2 2v10H6a2 2 0 0 1-2-2V7Zm0 0a2 2 0 0 1 2-2h11v2M16 13h.01" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === "plane") {
+    return (
+      <svg {...common} stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+        <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.2-1.1.6L3 8l5 5-3.2 3.2-2.4-.6v1.8l3 1.2 1.2 3h1.8v-2.4l3.2-3.2 5 5 1.2-.7c.4-.2.7-.6.6-1.1z" />
       </svg>
     );
   }

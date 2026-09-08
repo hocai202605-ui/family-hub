@@ -529,9 +529,9 @@ function InvestmentDonut({
   );
 }
 
-// ─── Monthly Bar Chart Component ────────────────────────────────────────────
+// ─── Monthly Line Chart Component ───────────────────────────────────────────
 
-function MonthlyBarChart({
+function MonthlyLineChart({
   investments,
 }: {
   investments: Investment[];
@@ -540,6 +540,7 @@ function MonthlyBarChart({
   const currentYear = new Date().getFullYear().toString();
   const defaultYear = years.includes(currentYear) ? currentYear : (years[0] || currentYear);
   const [selectedYear, setSelectedYear] = useState(defaultYear);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const data = useMemo(() => {
     if (investments.length === 0) return [];
@@ -553,7 +554,7 @@ function MonthlyBarChart({
           total += assetPresentValue(inv);
         }
       }
-      result.push({ month: i.toString(), label: `T${i}`, value: total });
+      result.push({ month: i, label: `T${i}`, value: total });
     }
     return result;
   }, [investments, selectedYear]);
@@ -562,81 +563,128 @@ function MonthlyBarChart({
     return <div className="grid h-48 place-items-center text-slate-400 italic">Chưa có dữ liệu</div>;
   }
 
-  const maxVal = Math.max(...data.map((d) => d.value)) || 1;
+  const maxVal = Math.max(...data.map((d) => d.value), 1);
+  // Chart area dimensions
+  const W = 600;
+  const H = 240;
+  const PL = 50; // padding left
+  const PR = 20; // padding right
+  const PT = 24; // padding top
+  const PB = 32; // padding bottom
+  const chartW = W - PL - PR;
+  const chartH = H - PT - PB;
 
-  const CHART_COLORS = [
-    { from: '#818cf8', to: '#6366f1' },
-    { from: '#a78bfa', to: '#7c3aed' },
-    { from: '#c084fc', to: '#9333ea' },
-    { from: '#e879f9', to: '#c026d3' },
-    { from: '#f472b6', to: '#db2777' },
-    { from: '#fb7185', to: '#e11d48' },
-    { from: '#f97316', to: '#ea580c' },
-    { from: '#fbbf24', to: '#d97706' },
-    { from: '#34d399', to: '#059669' },
-    { from: '#2dd4bf', to: '#0d9488' },
-    { from: '#38bdf8', to: '#0284c7' },
-    { from: '#60a5fa', to: '#2563eb' },
-  ];
+  // Map data to SVG coordinates (Y starts from 0)
+  const points = data.map((d, i) => ({
+    x: PL + (i / 11) * chartW,
+    y: PT + chartH - (d.value / maxVal) * chartH,
+    ...d,
+  }));
+
+  // Build polyline path
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+  // Build area path (fill under line)
+  const areaPath = `${linePath} L${points[points.length - 1].x},${PT + chartH} L${points[0].x},${PT + chartH} Z`;
+
+  // Y-axis grid lines (0, 25%, 50%, 75%, 100%)
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <div className="relative h-72 w-full pt-4">
-      <div className="absolute top-0 right-0 z-10 -mt-12">
+    <div className="relative w-full">
+      {/* Year selector */}
+      <div className="flex justify-end mb-3">
         <select
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
           className="rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-3 pr-8 text-sm font-medium text-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition"
         >
           {years.map((y) => (
-            <option key={y} value={y}>
-              Năm {y}
-            </option>
+            <option key={y} value={y}>Năm {y}</option>
           ))}
           {!years.includes(currentYear) && (
             <option value={currentYear}>Năm {currentYear}</option>
           )}
         </select>
       </div>
-      <div className="absolute inset-0 flex flex-col justify-between text-xs text-slate-300 pb-8 pointer-events-none mt-8">
-        <div className="border-b border-dashed border-slate-200 flex-1 relative"><span className="absolute -top-2 bg-white pr-2 font-medium text-slate-400">{formatShortCurrency(maxVal)}</span></div>
-        <div className="border-b border-dashed border-slate-200 flex-1 relative"><span className="absolute -top-2 bg-white pr-2 font-medium text-slate-400">{formatShortCurrency(maxVal * 0.66)}</span></div>
-        <div className="border-b border-dashed border-slate-200 flex-1 relative"><span className="absolute -top-2 bg-white pr-2 font-medium text-slate-400">{formatShortCurrency(maxVal * 0.33)}</span></div>
-        <div className="flex-1 relative"><span className="absolute -top-2 bg-white pr-2 font-medium text-slate-400">0</span></div>
-      </div>
-      <div className="absolute inset-0 pb-8 pl-10 pr-2 flex items-end justify-between gap-1.5 overflow-visible mt-8">
-        {data.map((item, idx) => {
-          const hPercent = (item.value / maxVal) * 100;
-          const colors = CHART_COLORS[idx % CHART_COLORS.length];
-          const gradientId = `bar-grad-${idx}`;
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" style={{ minHeight: 220 }}>
+        <defs>
+          <linearGradient id="line-area-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#818cf8" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#818cf8" stopOpacity="0.02" />
+          </linearGradient>
+          <linearGradient id="line-stroke-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#6366f1" />
+            <stop offset="50%" stopColor="#8b5cf6" />
+            <stop offset="100%" stopColor="#a78bfa" />
+          </linearGradient>
+        </defs>
+
+        {/* Y-axis grid lines + labels */}
+        {yTicks.map((t) => {
+          const y = PT + chartH - t * chartH;
           return (
-            <div key={item.month} className="group relative flex w-full flex-col items-center justify-end h-full">
-              <span className="mb-1.5 text-[10px] font-bold text-slate-600 whitespace-nowrap">
-                {formatShortCurrency(item.value)}
-              </span>
-              <svg className="w-full max-w-[36px] overflow-visible" style={{ height: `${Math.max(hPercent, 1)}%` }}>
-                <defs>
-                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={colors.from} />
-                    <stop offset="100%" stopColor={colors.to} />
-                  </linearGradient>
-                </defs>
-                <rect
-                  x="0" y="0"
-                  width="100%" height="100%"
-                  rx="4" ry="4"
-                  fill={`url(#${gradientId})`}
-                  className="transition-all duration-300 opacity-85 group-hover:opacity-100"
-                />
-              </svg>
-              <div className="absolute -bottom-7 w-full text-center text-[11px] font-semibold text-slate-500">{item.label}</div>
-              {/* Tooltip */}
-              <div className="pointer-events-none absolute top-8 z-10 hidden whitespace-nowrap rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10 group-hover:block">
-                {item.label}: {currency(item.value)}
-              </div>
-            </div>
+            <g key={t}>
+              <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="#e2e8f0" strokeWidth="1" strokeDasharray={t > 0 ? "4 3" : "0"} />
+              <text x={PL - 6} y={y + 4} textAnchor="end" className="text-[10px] fill-slate-400 font-medium">
+                {formatShortCurrency(maxVal * t)}
+              </text>
+            </g>
           );
         })}
-      </div>
+
+        {/* Area fill */}
+        <path d={areaPath} fill="url(#line-area-grad)" />
+
+        {/* Line */}
+        <path d={linePath} fill="none" stroke="url(#line-stroke-grad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* Data points + X labels */}
+        {points.map((p, i) => (
+          <g key={i}>
+            {/* X-axis label */}
+            <text x={p.x} y={H - 8} textAnchor="middle" className="text-[10px] fill-slate-500 font-semibold">
+              {p.label}
+            </text>
+
+            {/* Hover hit area */}
+            <rect
+              x={p.x - 20} y={PT} width={40} height={chartH}
+              fill="transparent"
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+              style={{ cursor: "pointer" }}
+            />
+
+            {/* Vertical guide line on hover */}
+            {hoverIdx === i && (
+              <line x1={p.x} y1={PT} x2={p.x} y2={PT + chartH} stroke="#a78bfa" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+            )}
+
+            {/* Dot */}
+            <circle
+              cx={p.x} cy={p.y} r={hoverIdx === i ? 5 : 3.5}
+              fill={hoverIdx === i ? "#6366f1" : "#818cf8"}
+              stroke="white" strokeWidth="2"
+              className="transition-all duration-150"
+            />
+
+            {/* Value label on hover */}
+            {hoverIdx === i && (
+              <g>
+                <rect
+                  x={p.x - 40} y={p.y - 28}
+                  width={80} height={22} rx={6}
+                  fill="#1e1b4b" opacity="0.92"
+                />
+                <text x={p.x} y={p.y - 13} textAnchor="middle" className="text-[10px] fill-white font-bold">
+                  {formatShortCurrency(p.value)}
+                </text>
+              </g>
+            )}
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }
@@ -677,47 +725,6 @@ function GoldMonthlyBarChart({ data }: { data: Investment[] }) {
   const maxQty = Math.max(...monthlyData.map((d) => d.quantity)) || 1;
   const maxCost = Math.max(...monthlyData.map((d) => d.cost)) || 1;
 
-  const renderHalfYear = (start: number, end: number) => (
-    <div className="relative h-40 w-full pt-4 mt-2">
-      <div className="absolute inset-0 flex flex-col justify-between text-[10px] text-slate-400 pb-6 pointer-events-none opacity-30">
-        <div className="border-b border-slate-300 flex-1 relative" />
-        <div className="border-b border-slate-300 flex-1 relative" />
-        <div className="border-b border-slate-300 flex-1 relative" />
-        <div className="flex-1 relative border-b border-slate-300" />
-      </div>
-      <div className="absolute inset-0 pb-6 flex items-end justify-around gap-1 overflow-visible">
-        {monthlyData.slice(start, end).map((item) => {
-          const qtyH = (item.quantity / maxQty) * 100;
-          const costH = (item.cost / maxCost) * 100;
-          return (
-            <div key={item.month} className="group relative flex w-full flex-col items-center justify-end h-full">
-              <div className="flex items-end justify-center w-full gap-1 h-full">
-                {/* Quantity bar (Yellow) */}
-                <div 
-                  className="w-[12px] sm:w-[16px] rounded-t-sm bg-yellow-400 transition-all group-hover:bg-yellow-500 relative" 
-                  style={{ height: `${Math.max(qtyH, item.quantity > 0 ? 2 : 0)}%` }} 
-                />
-                {/* Cost bar (Blue) */}
-                <div 
-                  className="w-[12px] sm:w-[16px] rounded-t-sm bg-blue-400 transition-all group-hover:bg-blue-500 relative" 
-                  style={{ height: `${Math.max(costH, item.cost > 0 ? 2 : 0)}%` }} 
-                />
-              </div>
-              <div className="absolute -bottom-6 w-full text-center text-xs text-slate-500 font-medium">T{item.month}</div>
-              
-              {/* Tooltip */}
-              <div className="pointer-events-none absolute -top-12 z-20 hidden whitespace-nowrap rounded-md bg-slate-800 px-3 py-2 text-xs text-white shadow-xl group-hover:block left-1/2 -translate-x-1/2">
-                <p className="font-bold border-b border-slate-600 pb-1 mb-1">Tháng {item.month}/{selectedYear}</p>
-                <div className="flex items-center gap-2"><span className="w-2 h-2 bg-yellow-400 rounded-sm"/> Khối lượng: <span className="font-mono font-semibold">{item.quantity} chỉ</span></div>
-                <div className="flex items-center gap-2"><span className="w-2 h-2 bg-blue-400 rounded-sm"/> Số tiền: <span className="font-mono font-semibold">{currency(item.cost)}</span></div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between mb-2">
@@ -735,12 +742,40 @@ function GoldMonthlyBarChart({ data }: { data: Investment[] }) {
         </select>
       </div>
       
-      {/* 6 months top */}
-      {renderHalfYear(0, 6)}
-      
-      {/* 6 months bottom */}
-      <div className="mt-4">
-        {renderHalfYear(6, 12)}
+      {/* All 12 months in one row */}
+      <div className="relative h-44 w-full pt-4">
+        <div className="absolute inset-0 flex flex-col justify-between text-[10px] text-slate-400 pb-6 pointer-events-none opacity-30">
+          <div className="border-b border-slate-300 flex-1 relative" />
+          <div className="border-b border-slate-300 flex-1 relative" />
+          <div className="border-b border-slate-300 flex-1 relative" />
+          <div className="flex-1 relative border-b border-slate-300" />
+        </div>
+        <div className="absolute inset-0 pb-6 flex items-end justify-around gap-0.5 overflow-visible">
+          {monthlyData.map((item) => {
+            const qtyH = (item.quantity / maxQty) * 100;
+            const costH = (item.cost / maxCost) * 100;
+            return (
+              <div key={item.month} className="group relative flex w-full flex-col items-center justify-end h-full">
+                <div className="flex items-end justify-center w-full gap-px h-full">
+                  <div 
+                    className="w-[8px] sm:w-[10px] rounded-t-sm bg-yellow-400 transition-all group-hover:bg-yellow-500" 
+                    style={{ height: `${Math.max(qtyH, item.quantity > 0 ? 2 : 0)}%` }} 
+                  />
+                  <div 
+                    className="w-[8px] sm:w-[10px] rounded-t-sm bg-blue-400 transition-all group-hover:bg-blue-500" 
+                    style={{ height: `${Math.max(costH, item.cost > 0 ? 2 : 0)}%` }} 
+                  />
+                </div>
+                <div className="absolute -bottom-5 w-full text-center text-[9px] text-slate-500 font-medium">T{item.month}</div>
+                <div className="pointer-events-none absolute -top-12 z-20 hidden whitespace-nowrap rounded-md bg-slate-800 px-3 py-2 text-xs text-white shadow-xl group-hover:block left-1/2 -translate-x-1/2">
+                  <p className="font-bold border-b border-slate-600 pb-1 mb-1">Tháng {item.month}/{selectedYear}</p>
+                  <div className="flex items-center gap-2"><span className="w-2 h-2 bg-yellow-400 rounded-sm"/> KL: <span className="font-mono font-semibold">{item.quantity} chỉ</span></div>
+                  <div className="flex items-center gap-2"><span className="w-2 h-2 bg-blue-400 rounded-sm"/> Tiền: <span className="font-mono font-semibold">{currency(item.cost)}</span></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -776,14 +811,14 @@ function GoldRightPanel({ categoryAssets }: { categoryAssets: Investment[] }) {
             Chưa có tài sản vàng
           </div>
         ) : (
-          <div className="grid gap-6 lg:items-center">
-            <div className="relative mx-auto h-52 w-52">
+          <div className="grid gap-6 lg:grid-cols-[180px_1fr] lg:items-center">
+            <div className="relative mx-auto h-44 w-44">
               <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
                 <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
-                {/* Cost segment */}
+                {/* Cost segment (gold/yellow) */}
                 <circle
                   cx="90" cy="90" fill="none" r={radius}
-                  stroke="#3b82f6" strokeWidth="22"
+                  stroke="#eab308" strokeWidth="22"
                   strokeDasharray={`${costLength} ${circumference}`}
                   strokeDashoffset={0}
                   strokeLinecap="round"
@@ -801,38 +836,38 @@ function GoldRightPanel({ categoryAssets }: { categoryAssets: Investment[] }) {
               </svg>
               <div className="absolute inset-0 grid place-items-center text-center">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tổng giá trị</p>
-                  <p className="mt-1 text-sm font-bold text-slate-950">{currency(totalPresent)}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tổng giá trị</p>
+                  <p className="mt-0.5 text-xs font-bold text-slate-950">{formatShortCurrency(totalPresent)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Cost row */}
               <div>
-                <div className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center justify-between gap-2 text-sm">
                   <div className="flex items-center gap-2 font-medium text-slate-800">
-                    <span className="h-3 w-3 rounded-sm bg-blue-500" />
+                    <span className="h-3 w-3 rounded-sm bg-yellow-500" />
                     Vốn đầu tư
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-xs">
                     <span className="font-semibold text-slate-700">{formatShortCurrency(totalCost)}</span>
                     <span className="text-slate-400">·</span>
                     <span className="text-slate-500">{costPercent}%</span>
                   </div>
                 </div>
-                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${costPercent}%` }} />
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-yellow-500 transition-all" style={{ width: `${costPercent}%` }} />
                 </div>
               </div>
               {/* Profit row */}
               <div>
-                <div className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center justify-between gap-2 text-sm">
                   <div className="flex items-center gap-2 font-medium text-slate-800">
                     <span className={cn("h-3 w-3 rounded-sm", totalProfit >= 0 ? "bg-emerald-500" : "bg-rose-500")} />
                     {totalProfit >= 0 ? "Lợi nhuận" : "Lỗ"}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-xs">
                     <span className={cn("font-semibold", totalProfit >= 0 ? "text-emerald-600" : "text-rose-600")}>
                       {totalProfit >= 0 ? "+" : ""}{formatShortCurrency(totalProfit)}
                     </span>
@@ -842,7 +877,7 @@ function GoldRightPanel({ categoryAssets }: { categoryAssets: Investment[] }) {
                     </span>
                   </div>
                 </div>
-                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className={cn("h-full rounded-full transition-all", totalProfit >= 0 ? "bg-emerald-500" : "bg-rose-500")}
                     style={{ width: `${Math.abs(profitPercent)}%` }}
@@ -2120,7 +2155,7 @@ export function InvestmentDashboard() {
               <h2 className="text-xl font-bold text-slate-950">Tổng tài sản theo tháng</h2>
               <p className="mt-1 text-sm text-slate-500">Tổng giá trị tài sản tích lũy theo tháng mua/gửi.</p>
             </div>
-            <MonthlyBarChart investments={investments} />
+            <MonthlyLineChart investments={investments} />
           </Card>
 
           {/* Donut chart */}

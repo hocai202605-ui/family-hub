@@ -255,6 +255,21 @@ function currency(value: number) {
   }).format(value);
 }
 
+function formatShortCurrency(value: number) {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  if (abs >= 1_000_000_000) {
+    const v = abs / 1_000_000_000;
+    return sign + (v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, "")) + "B";
+  }
+  if (abs >= 1_000_000) {
+    const v = abs / 1_000_000;
+    return sign + (v >= 100 ? v.toFixed(0) : v.toFixed(0)) + "M";
+  }
+  if (abs >= 1_000) return sign + (abs / 1_000).toFixed(0) + "K";
+  return value.toString();
+}
+
 function dateLabel(date: string) {
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
@@ -497,7 +512,11 @@ function InvestmentDonut({
                   <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: meta.chart }} />
                   {meta.label}
                 </div>
-                <span className="text-slate-500">{percent}%</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-700">{formatShortCurrency(item.amount)}</span>
+                  <span className="text-slate-400">·</span>
+                  <span className="text-slate-500">{percent}%</span>
+                </div>
               </div>
               <div className={cn("mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100")}>
                 <div className="h-full rounded-full transition-all" style={{ width: `${percent}%`, backgroundColor: meta.chart }} />
@@ -513,36 +532,105 @@ function InvestmentDonut({
 // ─── Monthly Bar Chart Component ────────────────────────────────────────────
 
 function MonthlyBarChart({
-  data,
+  investments,
 }: {
-  data: Array<{ month: string; label: string; value: number }>;
+  investments: Investment[];
 }) {
-  if (data.length === 0) {
+  const years = Array.from(new Set(investments.map(inv => inv.date.substring(0, 4)))).sort((a, b) => b.localeCompare(a));
+  const currentYear = new Date().getFullYear().toString();
+  const defaultYear = years.includes(currentYear) ? currentYear : (years[0] || currentYear);
+  const [selectedYear, setSelectedYear] = useState(defaultYear);
+
+  const data = useMemo(() => {
+    if (investments.length === 0) return [];
+    const result = [];
+    for (let i = 1; i <= 12; i++) {
+      const monthStr = i.toString().padStart(2, "0");
+      const maxDate = `${selectedYear}-${monthStr}-31`;
+      let total = 0;
+      for (const inv of investments) {
+        if (inv.date <= maxDate) {
+          total += assetPresentValue(inv);
+        }
+      }
+      result.push({ month: i.toString(), label: `T${i}`, value: total });
+    }
+    return result;
+  }, [investments, selectedYear]);
+
+  if (investments.length === 0) {
     return <div className="grid h-48 place-items-center text-slate-400 italic">Chưa có dữ liệu</div>;
   }
 
   const maxVal = Math.max(...data.map((d) => d.value)) || 1;
 
+  const CHART_COLORS = [
+    { from: '#818cf8', to: '#6366f1' },
+    { from: '#a78bfa', to: '#7c3aed' },
+    { from: '#c084fc', to: '#9333ea' },
+    { from: '#e879f9', to: '#c026d3' },
+    { from: '#f472b6', to: '#db2777' },
+    { from: '#fb7185', to: '#e11d48' },
+    { from: '#f97316', to: '#ea580c' },
+    { from: '#fbbf24', to: '#d97706' },
+    { from: '#34d399', to: '#059669' },
+    { from: '#2dd4bf', to: '#0d9488' },
+    { from: '#38bdf8', to: '#0284c7' },
+    { from: '#60a5fa', to: '#2563eb' },
+  ];
+
   return (
-    <div className="relative h-56 w-full pt-4">
-      <div className="absolute inset-0 flex flex-col justify-between text-xs text-slate-400 pb-6 pointer-events-none">
-        <div className="border-b border-slate-100 flex-1 relative"><span className="absolute -top-2 bg-white pr-2">{currency(maxVal)}</span></div>
-        <div className="border-b border-slate-100 flex-1 relative"><span className="absolute -top-2 bg-white pr-2">{currency(maxVal * 0.66)}</span></div>
-        <div className="border-b border-slate-100 flex-1 relative"><span className="absolute -top-2 bg-white pr-2">{currency(maxVal * 0.33)}</span></div>
-        <div className="flex-1 relative"><span className="absolute -top-2 bg-white pr-2">0 ₫</span></div>
+    <div className="relative h-72 w-full pt-4">
+      <div className="absolute top-0 right-0 z-10 -mt-12">
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-3 pr-8 text-sm font-medium text-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition"
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>
+              Năm {y}
+            </option>
+          ))}
+          {!years.includes(currentYear) && (
+            <option value={currentYear}>Năm {currentYear}</option>
+          )}
+        </select>
       </div>
-      <div className="absolute inset-0 pb-6 pl-16 pr-2 flex items-end justify-between gap-1 overflow-hidden">
-        {data.map((item) => {
+      <div className="absolute inset-0 flex flex-col justify-between text-xs text-slate-300 pb-8 pointer-events-none mt-8">
+        <div className="border-b border-dashed border-slate-200 flex-1 relative"><span className="absolute -top-2 bg-white pr-2 font-medium text-slate-400">{formatShortCurrency(maxVal)}</span></div>
+        <div className="border-b border-dashed border-slate-200 flex-1 relative"><span className="absolute -top-2 bg-white pr-2 font-medium text-slate-400">{formatShortCurrency(maxVal * 0.66)}</span></div>
+        <div className="border-b border-dashed border-slate-200 flex-1 relative"><span className="absolute -top-2 bg-white pr-2 font-medium text-slate-400">{formatShortCurrency(maxVal * 0.33)}</span></div>
+        <div className="flex-1 relative"><span className="absolute -top-2 bg-white pr-2 font-medium text-slate-400">0</span></div>
+      </div>
+      <div className="absolute inset-0 pb-8 pl-10 pr-2 flex items-end justify-between gap-1.5 overflow-visible mt-8">
+        {data.map((item, idx) => {
           const hPercent = (item.value / maxVal) * 100;
+          const colors = CHART_COLORS[idx % CHART_COLORS.length];
+          const gradientId = `bar-grad-${idx}`;
           return (
             <div key={item.month} className="group relative flex w-full flex-col items-center justify-end h-full">
-              <div 
-                className="w-full max-w-[40px] rounded-t-sm bg-purple-500 transition-all hover:bg-purple-600" 
-                style={{ height: `${Math.max(hPercent, 2)}%` }} 
-              />
-              <div className="absolute -bottom-6 w-full text-center text-xs text-slate-500 truncate">{item.label}</div>
+              <span className="mb-1.5 text-[10px] font-bold text-slate-600 whitespace-nowrap">
+                {formatShortCurrency(item.value)}
+              </span>
+              <svg className="w-full max-w-[36px] overflow-visible" style={{ height: `${Math.max(hPercent, 1)}%` }}>
+                <defs>
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={colors.from} />
+                    <stop offset="100%" stopColor={colors.to} />
+                  </linearGradient>
+                </defs>
+                <rect
+                  x="0" y="0"
+                  width="100%" height="100%"
+                  rx="4" ry="4"
+                  fill={`url(#${gradientId})`}
+                  className="transition-all duration-300 opacity-85 group-hover:opacity-100"
+                />
+              </svg>
+              <div className="absolute -bottom-7 w-full text-center text-[11px] font-semibold text-slate-500">{item.label}</div>
               {/* Tooltip */}
-              <div className="pointer-events-none absolute -top-10 z-10 hidden whitespace-nowrap rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white shadow-md group-hover:block">
+              <div className="pointer-events-none absolute top-8 z-10 hidden whitespace-nowrap rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10 group-hover:block">
                 {item.label}: {currency(item.value)}
               </div>
             </div>
@@ -654,6 +742,142 @@ function GoldMonthlyBarChart({ data }: { data: Investment[] }) {
       <div className="mt-4">
         {renderHalfYear(6, 12)}
       </div>
+    </div>
+  );
+}
+
+// ─── Gold Right Panel (Donut + Collapsible Monthly Chart) ───────────────────
+
+function GoldRightPanel({ categoryAssets }: { categoryAssets: Investment[] }) {
+  const [chartOpen, setChartOpen] = useState(false);
+
+  const totalCost = categoryAssets.reduce((sum, inv) => sum + inv.purchasePrice * inv.quantity, 0);
+  const totalPresent = categoryAssets.reduce((sum, inv) => sum + assetPresentValue(inv), 0);
+  const totalProfit = totalPresent - totalCost;
+  const costPercent = totalPresent > 0 ? Math.round((totalCost / totalPresent) * 100) : 0;
+  const profitPercent = totalPresent > 0 ? 100 - costPercent : 0;
+
+  const radius = 64;
+  const circumference = 2 * Math.PI * radius;
+  const costLength = totalPresent > 0 ? (totalCost / totalPresent) * circumference : 0;
+  const profitLength = totalPresent > 0 ? (Math.max(totalProfit, 0) / totalPresent) * circumference : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Donut: Investment vs Profit */}
+      <div>
+        <div className="mb-5">
+          <h2 className="text-xl font-bold text-slate-950">Tổng quan tài sản Vàng</h2>
+          <p className="mt-1 text-sm text-slate-500">Vốn đầu tư và lợi nhuận.</p>
+        </div>
+
+        {categoryAssets.length === 0 ? (
+          <div className="grid h-48 place-items-center text-sm italic text-slate-400">
+            Chưa có tài sản vàng
+          </div>
+        ) : (
+          <div className="grid gap-6 lg:items-center">
+            <div className="relative mx-auto h-52 w-52">
+              <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
+                <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
+                {/* Cost segment */}
+                <circle
+                  cx="90" cy="90" fill="none" r={radius}
+                  stroke="#3b82f6" strokeWidth="22"
+                  strokeDasharray={`${costLength} ${circumference}`}
+                  strokeDashoffset={0}
+                  strokeLinecap="round"
+                />
+                {/* Profit segment */}
+                {totalProfit > 0 && (
+                  <circle
+                    cx="90" cy="90" fill="none" r={radius}
+                    stroke="#10b981" strokeWidth="22"
+                    strokeDasharray={`${profitLength} ${circumference}`}
+                    strokeDashoffset={-costLength}
+                    strokeLinecap="round"
+                  />
+                )}
+              </svg>
+              <div className="absolute inset-0 grid place-items-center text-center">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tổng giá trị</p>
+                  <p className="mt-1 text-sm font-bold text-slate-950">{currency(totalPresent)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Cost row */}
+              <div>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center gap-2 font-medium text-slate-800">
+                    <span className="h-3 w-3 rounded-sm bg-blue-500" />
+                    Vốn đầu tư
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700">{formatShortCurrency(totalCost)}</span>
+                    <span className="text-slate-400">·</span>
+                    <span className="text-slate-500">{costPercent}%</span>
+                  </div>
+                </div>
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${costPercent}%` }} />
+                </div>
+              </div>
+              {/* Profit row */}
+              <div>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center gap-2 font-medium text-slate-800">
+                    <span className={cn("h-3 w-3 rounded-sm", totalProfit >= 0 ? "bg-emerald-500" : "bg-rose-500")} />
+                    {totalProfit >= 0 ? "Lợi nhuận" : "Lỗ"}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("font-semibold", totalProfit >= 0 ? "text-emerald-600" : "text-rose-600")}>
+                      {totalProfit >= 0 ? "+" : ""}{formatShortCurrency(totalProfit)}
+                    </span>
+                    <span className="text-slate-400">·</span>
+                    <span className={cn("font-medium", totalProfit >= 0 ? "text-emerald-500" : "text-rose-500")}>
+                      {totalProfit >= 0 ? "+" : ""}{profitPercent}%
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className={cn("h-full rounded-full transition-all", totalProfit >= 0 ? "bg-emerald-500" : "bg-rose-500")}
+                    style={{ width: `${Math.abs(profitPercent)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Collapsible Monthly Chart */}
+      {categoryAssets.length > 0 && (
+        <div className="border-t border-slate-100 pt-4">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-2 text-left transition hover:bg-slate-50"
+            onClick={() => setChartOpen((v) => !v)}
+          >
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Biểu đồ Mua Vàng theo tháng</h3>
+              <p className="text-xs text-slate-500">Khối lượng và số tiền đầu tư.</p>
+            </div>
+            <Icon
+              name="chevronRight"
+              className={cn("h-4 w-4 text-slate-400 transition-transform", chartOpen && "rotate-90")}
+            />
+          </button>
+          {chartOpen && (
+            <div className="mt-3">
+              <GoldMonthlyBarChart data={categoryAssets} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -837,17 +1061,7 @@ export function InvestmentDashboard() {
   // ─── Derived data ─────────────────────────────────────────────────────────
 
   const totalAssets = useMemo(() => investments.reduce((sum, item) => {
-    if (item.type === "DEBT") {
-      return sum - (item.currentPrice * item.quantity);
-    }
-    if (item.type === "DEBT_INTEREST") {
-      return sum;
-    }
-    if (item.type === "SAVING" && item.interestRate && item.term) {
-      const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
-      return sum + (item.purchasePrice * item.quantity) + pnl;
-    }
-    return sum + (effectiveUnitPrice(item) * item.quantity);
+    return sum + assetPresentValue(item);
   }, 0), [investments]);
 
   const totalCost = useMemo(() => investments.reduce((sum, item) => {
@@ -1831,31 +2045,7 @@ export function InvestmentDashboard() {
     return renderCategoryTab();
   }
 
-  /** Monthly cumulative portfolio value for the bar chart */
-  const monthlyPortfolioData = useMemo(() => {
-    if (investments.length === 0) return [];
 
-    // Build a map of month → cumulative present value at that point
-    // We sort all investments by date, then compute running totals by month
-    const sorted = [...investments].sort((a, b) => a.date.localeCompare(b.date));
-    const monthMap = new Map<string, number>();
-
-    for (const inv of sorted) {
-      const month = inv.date.slice(0, 7); // "YYYY-MM"
-      const value = assetPresentValue(inv);
-      monthMap.set(month, (monthMap.get(month) || 0) + value);
-    }
-
-    // Convert to cumulative
-    const entries = Array.from(monthMap.entries()).sort(([a], [b]) => a.localeCompare(b));
-    let cumulative = 0;
-    return entries.map(([month, value]) => {
-      cumulative += value;
-      const [year, m] = month.split("-");
-      const label = `T${parseInt(m)}/${year.slice(2)}`;
-      return { month, label, value: cumulative };
-    });
-  }, [investments]);
 
   function renderOverview() {
     return (
@@ -1930,7 +2120,7 @@ export function InvestmentDashboard() {
               <h2 className="text-xl font-bold text-slate-950">Tổng tài sản theo tháng</h2>
               <p className="mt-1 text-sm text-slate-500">Tổng giá trị tài sản tích lũy theo tháng mua/gửi.</p>
             </div>
-            <MonthlyBarChart data={monthlyPortfolioData} />
+            <MonthlyBarChart investments={investments} />
           </Card>
 
           {/* Donut chart */}
@@ -1963,7 +2153,7 @@ export function InvestmentDashboard() {
 
     return (
       <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr] items-start">
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden order-2 xl:order-1">
         {/* Sub-header */}
         <div className="flex flex-col gap-4 border-b border-slate-100 p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2025,7 +2215,7 @@ export function InvestmentDashboard() {
         ) : null}
 
         {/* Desktop table */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto max-h-[540px] overflow-y-auto">
           {activeTab === "gold" && renderGoldTable()}
           {activeTab === "stock" && renderStockTable()}
           {activeTab === "saving" && renderSavingTable()}
@@ -2036,7 +2226,7 @@ export function InvestmentDashboard() {
         </div>
 
         {/* Mobile card grid */}
-        <div className="block md:hidden p-4">
+        <div className="block md:hidden p-4 max-h-[600px] overflow-y-auto">
           {isLoading ? (
             <p className="py-8 text-center text-slate-500">Đang tải...</p>
           ) : error ? (
@@ -2062,23 +2252,27 @@ export function InvestmentDashboard() {
       </Card>
       
       {/* Right side chart for category */}
-      <Card className="p-5 xl:sticky xl:top-24">
-        <div className="mb-5">
-          <h2 className="text-xl font-bold text-slate-950">
-            {activeTab === "gold" ? "Biểu đồ Mua Vàng theo tháng" : `Phân bổ ${meta.label.toLowerCase()}`}
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {activeTab === "gold" ? "Khối lượng và số tiền đầu tư theo tháng." : "Tỷ trọng các tài sản trong danh mục này."}
-          </p>
-        </div>
+      <Card className="p-5 xl:sticky xl:top-24 order-1 xl:order-2">
         {activeTab === "gold" ? (
-          <GoldMonthlyBarChart data={categoryAssets} />
-        ) : categoryAssets.length > 0 ? (
-          <InvestmentDonut data={categoryAssetsByType} total={categoryTotalAssets} />
+          <GoldRightPanel categoryAssets={categoryAssets} />
         ) : (
-          <div className="grid h-48 place-items-center text-sm italic text-slate-400">
-            Chưa có tài sản
-          </div>
+          <>
+            <div className="mb-5">
+              <h2 className="text-xl font-bold text-slate-950">
+                {`Phân bổ ${meta.label.toLowerCase()}`}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Tỷ trọng các tài sản trong danh mục này.
+              </p>
+            </div>
+            {categoryAssets.length > 0 ? (
+              <InvestmentDonut data={categoryAssetsByType} total={categoryTotalAssets} />
+            ) : (
+              <div className="grid h-48 place-items-center text-sm italic text-slate-400">
+                Chưa có tài sản
+              </div>
+            )}
+          </>
         )}
       </Card>
     </div>

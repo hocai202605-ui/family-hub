@@ -92,8 +92,8 @@ function ExpenseDonut({ data, total, categoryMeta }: { data: Array<{ category: C
   let offset = 0;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[180px_1fr] lg:items-center">
-      <div className="relative mx-auto h-44 w-44">
+    <div className="grid gap-6 lg:grid-cols-[220px_1fr] lg:items-center">
+      <div className="relative mx-auto h-52 w-52">
         <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
           <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
           {data.map((item) => {

@@ -536,78 +536,78 @@ function MonthlyLineChart({
 }: {
   investments: Investment[];
 }) {
-  const years = Array.from(new Set(investments.map(inv => inv.date.substring(0, 4)))).sort((a, b) => b.localeCompare(a));
-  const currentYear = new Date().getFullYear().toString();
-  const defaultYear = years.includes(currentYear) ? currentYear : (years[0] || currentYear);
-  const [selectedYear, setSelectedYear] = useState(defaultYear);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const data = useMemo(() => {
     if (investments.length === 0) return [];
-    const result = [];
-    for (let i = 1; i <= 12; i++) {
-      const monthStr = i.toString().padStart(2, "0");
-      const maxDate = `${selectedYear}-${monthStr}-31`;
+
+    // Build months from 2025-01 to current month
+    const now = new Date();
+    const endYear = now.getFullYear();
+    const endMonth = now.getMonth() + 1; // 1-based
+    const startYear = 2025;
+    const startMonth = 1;
+
+    const result: Array<{ key: string; label: string; value: number }> = [];
+
+    let y = startYear;
+    let m = startMonth;
+    while (y < endYear || (y === endYear && m <= endMonth)) {
+      const monthStr = m.toString().padStart(2, "0");
+      const maxDate = `${y}-${monthStr}-31`;
       let total = 0;
       for (const inv of investments) {
         if (inv.date <= maxDate) {
           total += assetPresentValue(inv);
         }
       }
-      result.push({ month: i, label: `T${i}`, value: total });
+      const shortYear = String(y).slice(2);
+      result.push({ key: `${y}-${monthStr}`, label: `T${m}/${shortYear}`, value: total });
+      m++;
+      if (m > 12) { m = 1; y++; }
     }
     return result;
-  }, [investments, selectedYear]);
+  }, [investments]);
 
-  if (investments.length === 0) {
+  if (investments.length === 0 || data.length === 0) {
     return <div className="grid h-48 place-items-center text-slate-400 italic">Chưa có dữ liệu</div>;
   }
 
   const maxVal = Math.max(...data.map((d) => d.value), 1);
+  const count = data.length;
+
   // Chart area dimensions
-  const W = 600;
+  const W = Math.max(600, count * 48);
   const H = 240;
-  const PL = 50; // padding left
-  const PR = 20; // padding right
-  const PT = 24; // padding top
-  const PB = 32; // padding bottom
+  const PL = 50;
+  const PR = 20;
+  const PT = 24;
+  const PB = 32;
   const chartW = W - PL - PR;
   const chartH = H - PT - PB;
 
   // Map data to SVG coordinates (Y starts from 0)
+  const divisor = count > 1 ? count - 1 : 1;
   const points = data.map((d, i) => ({
-    x: PL + (i / 11) * chartW,
+    x: PL + (i / divisor) * chartW,
     y: PT + chartH - (d.value / maxVal) * chartH,
     ...d,
   }));
 
   // Build polyline path
   const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  // Build area path (fill under line)
   const areaPath = `${linePath} L${points[points.length - 1].x},${PT + chartH} L${points[0].x},${PT + chartH} Z`;
 
-  // Y-axis grid lines (0, 25%, 50%, 75%, 100%)
+  // Y-axis grid lines
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
-  return (
-    <div className="relative w-full">
-      {/* Year selector */}
-      <div className="flex justify-end mb-3">
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-3 pr-8 text-sm font-medium text-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition"
-        >
-          {years.map((y) => (
-            <option key={y} value={y}>Năm {y}</option>
-          ))}
-          {!years.includes(currentYear) && (
-            <option value={currentYear}>Năm {currentYear}</option>
-          )}
-        </select>
-      </div>
+  // Show every label if <= 12 months, otherwise skip some
+  const labelEvery = count <= 12 ? 1 : count <= 24 ? 2 : 3;
+  const hitWidth = Math.max(16, Math.min(40, chartW / count));
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" style={{ minHeight: 220 }}>
+  return (
+    <div className="relative w-full overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto" style={{ minHeight: 220, minWidth: Math.max(500, count * 40) }}>
         <defs>
           <linearGradient id="line-area-grad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#818cf8" stopOpacity="0.25" />
@@ -642,14 +642,16 @@ function MonthlyLineChart({
         {/* Data points + X labels */}
         {points.map((p, i) => (
           <g key={i}>
-            {/* X-axis label */}
-            <text x={p.x} y={H - 8} textAnchor="middle" className="text-[10px] fill-slate-500 font-semibold">
-              {p.label}
-            </text>
+            {/* X-axis label (skip some if too many) */}
+            {i % labelEvery === 0 && (
+              <text x={p.x} y={H - 8} textAnchor="middle" className="text-[9px] fill-slate-500 font-semibold">
+                {p.label}
+              </text>
+            )}
 
             {/* Hover hit area */}
             <rect
-              x={p.x - 20} y={PT} width={40} height={chartH}
+              x={p.x - hitWidth / 2} y={PT} width={hitWidth} height={chartH}
               fill="transparent"
               onMouseEnter={() => setHoverIdx(i)}
               onMouseLeave={() => setHoverIdx(null)}
@@ -663,7 +665,7 @@ function MonthlyLineChart({
 
             {/* Dot */}
             <circle
-              cx={p.x} cy={p.y} r={hoverIdx === i ? 5 : 3.5}
+              cx={p.x} cy={p.y} r={hoverIdx === i ? 5 : 3}
               fill={hoverIdx === i ? "#6366f1" : "#818cf8"}
               stroke="white" strokeWidth="2"
               className="transition-all duration-150"
@@ -673,12 +675,12 @@ function MonthlyLineChart({
             {hoverIdx === i && (
               <g>
                 <rect
-                  x={p.x - 40} y={p.y - 28}
-                  width={80} height={22} rx={6}
+                  x={p.x - 44} y={p.y - 30}
+                  width={88} height={24} rx={6}
                   fill="#1e1b4b" opacity="0.92"
                 />
-                <text x={p.x} y={p.y - 13} textAnchor="middle" className="text-[10px] fill-white font-bold">
-                  {formatShortCurrency(p.value)}
+                <text x={p.x} y={p.y - 14} textAnchor="middle" className="text-[10px] fill-white font-bold">
+                  {p.label}: {formatShortCurrency(p.value)}
                 </text>
               </g>
             )}

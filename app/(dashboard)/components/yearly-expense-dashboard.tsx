@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { vietnamCurrentMonth } from "@/lib/vietnam-date";
 import { Icon, IconName } from "./icons";
+import { SixJarsWidget, type SixJarView } from "./six-jars-widget";
 
 type Category = string;
 type FamilyMember = "CK" | "VK" | "CON" | "GIA_DINH";
@@ -287,6 +289,9 @@ export function YearlyExpenseDashboard() {
   const [monthFilter, setMonthFilter] = useState<"all" | number>("all");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [memberFilter, setMemberFilter] = useState<FamilyMember | "all">("all");
+  const [jars, setJars] = useState<SixJarView[]>([]);
+  const [unassignedCategoryIds, setUnassignedCategoryIds] = useState<string[]>([]);
+  const [totalIncome, setTotalIncome] = useState(0);
 
   const availableYears = useMemo(() => {
     const y = parseInt(currentYear);
@@ -297,9 +302,11 @@ export function YearlyExpenseDashboard() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [expenseRes, catRes] = await Promise.all([
+        const [expenseRes, catRes, jarRes, incomeRes] = await Promise.all([
           fetch(`/api/expenses?year=${year}`),
           fetch("/api/categories?type=EXPENSE"),
+          fetch(`/api/jars?year=${year}`),
+          fetch(`/api/incomes?year=${year}`),
         ]);
         if (expenseRes.ok) {
           const data = await expenseRes.json();
@@ -310,6 +317,18 @@ export function YearlyExpenseDashboard() {
           if (data.categories && data.categories.length > 0) {
             setCategories(data.categories);
           }
+        }
+        if (jarRes.ok) {
+          const data = await jarRes.json();
+          setJars(data.jars || []);
+          setUnassignedCategoryIds(data.unassignedCategoryIds || []);
+        }
+        if (incomeRes.ok) {
+          const data = await incomeRes.json();
+          const incomes = Array.isArray(data.incomes) ? data.incomes : [];
+          setTotalIncome(incomes.reduce((sum: number, item: { amount?: number }) => sum + (item.amount || 0), 0));
+        } else {
+          setTotalIncome(0);
         }
       } catch (err) {
         console.error("Failed to fetch data", err);
@@ -328,9 +347,18 @@ export function YearlyExpenseDashboard() {
     [categories]
   );
 
-  const { totalExpense, averageExpense, highestMonth, monthlyData, categoryData } = useMemo(() => {
+  const elapsedMonths = useMemo(() => {
+    const current = vietnamCurrentMonth();
+    const currentY = current.slice(0, 4);
+    const currentM = Number(current.slice(5, 7));
+    if (year < currentY) return 12;
+    if (year > currentY) return 1;
+    return Math.min(Math.max(currentM, 1), 12);
+  }, [year]);
+
+  const { totalExpense, averageExpense, monthlyData, categoryData } = useMemo(() => {
     const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
-    const averageExpense = Math.round(totalExpense / 12);
+    const averageExpense = Math.round(totalExpense / elapsedMonths);
     
     const monthlyMap: Record<number, number> = {};
     for (let i = 1; i <= 12; i++) monthlyMap[i] = 0;
@@ -350,20 +378,13 @@ export function YearlyExpenseDashboard() {
       amount: monthlyMap[parseInt(k)]
     })).sort((a, b) => a.month - b.month);
 
-    let highestMonth = { month: 1, amount: 0 };
-    monthlyData.forEach(m => {
-      if (m.amount > highestMonth.amount) {
-        highestMonth = m;
-      }
-    });
-
     const categoryData = Object.keys(categoryMap).map(k => ({
       category: k,
       amount: categoryMap[k]
     })).sort((a, b) => b.amount - a.amount);
 
-    return { totalExpense, averageExpense, highestMonth, monthlyData, categoryData };
-  }, [expenses]);
+    return { totalExpense, averageExpense, monthlyData, categoryData };
+  }, [elapsedMonths, expenses]);
 
   const filteredExpenses = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -405,6 +426,23 @@ export function YearlyExpenseDashboard() {
     [filteredExpenses],
   );
 
+  const totalJarLimit = useMemo(
+    () => jars.reduce((sum, jar) => sum + jar.limitAmount, 0),
+    [jars],
+  );
+  const savingsRemaining = totalJarLimit - totalExpense;
+  const savingsPercent = totalJarLimit > 0 ? Math.round((savingsRemaining / totalJarLimit) * 100) : 0;
+
+  async function reloadJars() {
+    const jarRes = await fetch(`/api/jars?year=${year}`);
+    if (!jarRes.ok) {
+      return;
+    }
+    const data = await jarRes.json();
+    setJars(data.jars || []);
+    setUnassignedCategoryIds(data.unassignedCategoryIds || []);
+  }
+
   function handleYearChange(nextYear: string) {
     setYear(nextYear);
     setQuery("");
@@ -442,7 +480,7 @@ export function YearlyExpenseDashboard() {
   const chartMax = ticks[0];
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 bg-[#fbfbfb] p-6 dark:bg-zinc-950">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-950">Báo cáo năm {year}</h1>
@@ -463,8 +501,8 @@ export function YearlyExpenseDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-rose-50 text-rose-600">
               <Icon className="h-5 w-5" name="banknote" />
@@ -475,7 +513,7 @@ export function YearlyExpenseDashboard() {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-blue-50 text-blue-600">
               <Icon className="h-5 w-5" name="barChart" />
@@ -483,27 +521,48 @@ export function YearlyExpenseDashboard() {
             <div>
               <p className="text-sm font-medium text-slate-500">Trung bình tháng</p>
               <p className="text-2xl font-bold text-slate-950">{currency(averageExpense)}</p>
+              <p className="text-xs text-slate-500">Tổng chi ÷ {elapsedMonths} tháng</p>
             </div>
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-amber-50 text-amber-600">
-              <Icon className="h-5 w-5" name="trendingUp" />
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
+              <Icon className="h-5 w-5" name="briefcase" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-500">Tháng cao nhất (T{highestMonth.month})</p>
-              <p className="text-2xl font-bold text-slate-950">{currency(highestMonth.amount)}</p>
+              <p className="text-sm font-medium text-slate-500">Tổng thu nhập năm</p>
+              <p className="text-2xl font-bold text-slate-950">{currency(totalIncome)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "grid h-10 w-10 place-items-center rounded-lg",
+              savingsRemaining < 0 ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600",
+            )}>
+              <Icon className="h-5 w-5" name="piggyBank" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-500">Tỷ lệ tiết kiệm</p>
+              <p className="text-2xl font-bold text-slate-950">{totalJarLimit > 0 ? `${savingsPercent}%` : "—"}</p>
+              <p className="text-xs text-slate-500">
+                {totalJarLimit > 0
+                  ? savingsRemaining < 0
+                    ? `Vượt ${currency(Math.abs(savingsRemaining))}`
+                    : `Ngân sách ${currency(totalJarLimit)}`
+                  : "Chưa có hạn mức lọ"}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Bar Chart */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-950 mb-6">Biểu đồ chi tiêu 12 tháng</h2>
-          <div className="flex h-56 w-full gap-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-7">
+          <h2 className="mb-6 font-semibold text-slate-950">Biểu đồ chi tiêu 12 tháng</h2>
+          <div className="flex h-72 w-full gap-2">
             <div className="flex h-full w-10 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-[10px] font-medium text-slate-400">
               {ticks.map((t, i) => <span key={i} className="leading-none mt-1">{compactCurrency(t)}</span>)}
             </div>
@@ -537,15 +596,18 @@ export function YearlyExpenseDashboard() {
           </div>
         </div>
 
-        {/* Donut Chart */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-950 mb-6">Cơ cấu chi tiêu</h2>
-          <ExpenseDonut data={categoryData} total={totalExpense} categoryMeta={categoryMeta} />
+        <div className="lg:col-span-5">
+          <SixJarsWidget
+            categories={categories.map((category) => ({ id: category.id, label: category.label }))}
+            jars={jars}
+            onSaved={reloadJars}
+            unassignedCategoryIds={unassignedCategoryIds}
+          />
         </div>
       </div>
 
-      {/* Top Expenses */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-8">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -691,6 +753,12 @@ export function YearlyExpenseDashboard() {
               ) : null}
             </tbody>
           </table>
+        </div>
+      </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-4">
+          <h2 className="mb-6 font-semibold text-slate-950">Cơ cấu chi tiêu</h2>
+          <ExpenseDonut data={categoryData} total={totalExpense} categoryMeta={categoryMeta} />
         </div>
       </div>
 

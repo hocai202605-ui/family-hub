@@ -105,6 +105,34 @@ model Expense {
   @@map("expenses")
 }
 
+/// One of the six personal-finance jars (household-global).
+model ExpenseJar {
+  id            String               @id
+  label         String
+  targetPercent Int
+  limitAmount   Int
+  sortOrder     Int                  @default(0)
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  categories    ExpenseJarCategory[]
+
+  @@map("expense_jars")
+}
+
+/// Exclusive mapping: each expense category belongs to at most one jar.
+model ExpenseJarCategory {
+  jarId      String
+  categoryId String
+  jar        ExpenseJar @relation(fields: [jarId], references: [id], onDelete: Cascade)
+
+  @@id([jarId, categoryId])
+  @@unique([categoryId])
+  @@index([categoryId])
+  @@map("expense_jar_categories")
+}
+
 /// Monthly spending limit (VND) keyed by calendar month `YYYY-MM`.
 model MonthlyBudget {
   id        Int      @id @default(autoincrement())

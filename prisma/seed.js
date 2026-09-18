@@ -163,6 +163,42 @@ async function main() {
     });
   }
 
+  const yearlyBudgetBase = 20_000_000 * 12;
+  const defaultJars = [
+    { id: "NEC", label: "Thiết yếu", targetPercent: 55, sortOrder: 1, categoryIds: ["Food", "Utilities", "Transport"] },
+    { id: "LTSS", label: "Tiết kiệm dài hạn", targetPercent: 10, sortOrder: 2, categoryIds: [] },
+    { id: "EDU", label: "Giáo dục", targetPercent: 10, sortOrder: 3, categoryIds: [] },
+    { id: "PLAY", label: "Hưởng thụ", targetPercent: 10, sortOrder: 4, categoryIds: ["Shopping", "Entertainment"] },
+    { id: "FFA", label: "Tự do tài chính", targetPercent: 10, sortOrder: 5, categoryIds: [] },
+    { id: "GIVE", label: "Cho đi / Hiếu hỉ", targetPercent: 5, sortOrder: 6, categoryIds: [] },
+  ];
+
+  for (const jar of defaultJars) {
+    await prisma.expenseJar.upsert({
+      where: { id: jar.id },
+      create: {
+        id: jar.id,
+        label: jar.label,
+        targetPercent: jar.targetPercent,
+        limitAmount: Math.round((yearlyBudgetBase * jar.targetPercent) / 100),
+        sortOrder: jar.sortOrder,
+        createdBy: actor,
+        updatedBy: actor,
+      },
+      update: { updatedBy: actor },
+    });
+  }
+
+  const jarAssignmentCount = await prisma.expenseJarCategory.count();
+  if (jarAssignmentCount === 0) {
+    const rows = defaultJars.flatMap((jar) =>
+      jar.categoryIds.map((categoryId) => ({ jarId: jar.id, categoryId })),
+    );
+    if (rows.length > 0) {
+      await prisma.expenseJarCategory.createMany({ data: rows, skipDuplicates: true });
+    }
+  }
+
   const expenseCount = await prisma.expense.count();
   const incomeCount = await prisma.income.count();
 

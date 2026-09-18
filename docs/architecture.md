@@ -36,7 +36,7 @@ Browser
 | `app/api/travel/` | Province visits + destination flags |
 | `app/(dashboard)/components/` | Large client dashboards + shell + icons |
 | `app/api/auth/` | `login`, `logout`, `me` |
-| `app/api/expenses|incomes|investments|categories/` | CRUD + list filters |
+| `app/api/expenses|incomes|investments|categories|jars/` | CRUD + list filters; jars = 6-lọ limits + category assignment |
 | `app/api/admin/users/` | Admin user CRUD, password, menu permissions |
 | `app/api/market/gold/` | Proxy gold prices (requires investments access) |
 | `app/api/market/ccq/` | Proxy DCDS NAV + E1VFVN30 last price (requires investments access) |

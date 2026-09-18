@@ -1,0 +1,39 @@
+Hãy tái cấu trúc lại layout của Dashboard và tạo mới component `SixJarsWidget` theo yêu cầu bố cục sau:
+
+### 1. Cấu trúc Layout Grid tổng thể:
+- Container: `max-w-7xl mx-auto p-6 space-y-6 bg-[#fbfbfb] dark:bg-zinc-950`
+- **Hàng 1 (KPI Top Cards):** 4 cột (Tổng chi tiêu năm, Trung bình tháng, Tháng cao nhất, Tỷ lệ tiết kiệm/Tổng ngân sách).
+- **Hàng 2 (Biểu đồ xu hướng & Ngân sách 6 lọ):** Chia Grid `grid-cols-1 lg:grid-cols-12 gap-6`:
+  + Cột trái (`lg:col-span-7`): Biểu đồ cột chi tiêu 12 tháng (Bar Chart).
+  + Cột phải (`lg:col-span-5`): Component `SixJarsWidget` (Theo dõi tỷ lệ thực tế vs ngân sách 6 chiếc lọ tài chính).
+- **Hàng 3 (Chi tiết giao dịch & Cơ cấu danh mục):** Chia Grid `grid-cols-1 lg:grid-cols-12 gap-6`:
+  + Cột trái (`lg:col-span-7` hoặc `lg:col-span-8`): Bảng "Top khoản chi lớn nhất" (Table có tìm kiếm, bộ lọc tháng, danh mục, người chi).
+  + Cột phải (`lg:col-span-5` hoặc `lg:col-span-4`): Biểu đồ Donut "Cơ cấu chi tiêu" (Donut Chart kèm legend hiển thị danh mục và số tiền).
+
+---
+
+### 2. Yêu cầu chi tiết cho Component `SixJarsWidget`:
+Thiết kế card mang phong cách Clean, Minimalist hiện đại (bo góc `rounded-2xl`, border nhẹ `border-zinc-200/80`, nền trắng đổ bóng nhẹ `shadow-sm`).
+
+**Dữ liệu 6 lọ tài chính gồm:**
+1. **Thiết yếu (NEC - 55%):** Gồm Ăn uống, Nhà ở, Điện nước, Di chuyển...
+2. **Tiết kiệm dài hạn (LTSS - 10%):** Quỹ mua nhà, quỹ khẩn cấp, bảo hiểm...
+3. **Giáo dục (EDU - 10%):** Học tập, sách vở, khóa học...
+4. **Hưởng thụ (PLAY - 10%):** Giải trí, mua sắm, cafe & ăn vặt, làm đẹp...
+5. **Tự do tài chính (FFA - 10%):** Đầu tư vàng, cổ phiếu, chứng chỉ quỹ...
+6. **Cho đi / Hiếu hỉ (GIVE - 5%):** Hiếu hỉ & mqh, biếu ông bà...
+
+**Mỗi item chiếc lọ cần hiển thị:**
+- Header nhỏ gọn: Icon minh họa (dùng `lucide-react`), tên lọ, nhãn % mục tiêu (ví dụ: `55% Mục tiêu`).
+- Số tiền chi thực tế / Số tiền ngân sách gợi ý (hoặc % thực tế đã dùng).
+- Thanh Progress Bar mượt mà:
+  + Tự động đổi màu: Xanh dương/Xanh lá nếu nằm trong hạn mức (<= 100% ngân sách phân bổ).
+  + Đổi sang màu Đỏ/Cam kèm badge cảnh báo "Vượt hạn mức" nếu chi vượt trần.
+- Lưới hiển thị bên trong Widget: Chia thành 2 cột (`grid-cols-2 gap-3`) hoặc 1 cột cuộn gọn gàng để vừa khớp chiều cao của Biểu đồ cột 12 tháng bên cạnh.
+
+---
+
+### 3. Yêu cầu kỹ thuật:
+- Viết bằng TypeScript, Tailwind CSS.
+- Component tách rời sạch sẽ, có mock data đầy đủ để có thể chạy render ngay.
+- Responsive tốt: Trên mobile chuyển thành 1 cột (`col-span-1`), trên màn hình lớn (`lg`) tự động chia tỷ lệ 7/5 như đã chỉ định.

@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { dateFromInput, monthRange, toIncomeResponse, incomeSchema, yearRange } from "./income-utils";
-import { requireApiAccess } from "@/lib/auth";
+import { requireAnyApiAccess, requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const month = request.nextUrl.searchParams.get("month");
   const year = request.nextUrl.searchParams.get("year");
-  const auth = await requireApiAccess(request, year ? "income.yearly" : "income.monthly");
+  const auth = year
+    ? await requireAnyApiAccess(request, ["income.yearly", "income.monthly", "expenses.yearly"])
+    : await requireApiAccess(request, "income.monthly");
   if ("response" in auth) return auth.response;
 
   if (!month && !year) {

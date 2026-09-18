@@ -30,7 +30,7 @@ Transactions are **not** scoped per `User` id; they are household-wide and tagge
 
 ### Six jars (chi tiêu năm)
 
-Household-global `ExpenseJar` rows (`NEC` 55%, `LTSS` 10%, `EDU` 10%, `PLAY` 10%, `FFA` 10%, `GIVE` 5%) with a yearly `limitAmount` (VND). `ExpenseJarCategory` maps each expense category to **at most one** jar. Users assign categories and edit limits from the yearly report widget. Unassigned categories still appear in the donut, not in a jar.
+Household-global `ExpenseJar` rows (`NEC` 55%, `LTSS` 10%, `EDU` 10%, `PLAY` 10%, `FFA` 10%, `GIVE` 5%) with a yearly `limitAmount` (VND). `ExpenseJarCategory` maps each expense category to **at most one** jar. Users assign categories and edit limits from the yearly report widget. Unassigned categories still appear in the donut, not in a jar. `LTSS` spent is **not** from expense categories: for the selected year it is `SAVING` principal − `DEBT` outstanding − `DEBT_INTEREST` payments (investment rows dated in that year). `FFA` spent is gold + fund certificates (`GOLD` + `FUND_DCDS` + `FUND_ETF_VN30`) market value for rows dated in that year.
 
 ### Expense / Income
 

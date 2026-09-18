@@ -3,7 +3,7 @@ import { auditUsername } from "@/lib/audit";
 import { requireAnyApiAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { yearRange } from "@/app/api/expenses/expense-utils";
-import { ensureDefaultJars, toJarResponse } from "./jar-utils";
+import { ensureDefaultJars, FFA_JAR_ID, LTSS_JAR_ID, ffaValueForYear, ltssNetForYear, toJarResponse } from "./jar-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   await ensureDefaultJars(auditUsername(auth.user));
 
-  const [jars, expenseCategories, spentGroups] = await Promise.all([
+  const [jars, expenseCategories, spentGroups, ltssNet, ffaValue] = await Promise.all([
     prisma.expenseJar.findMany({
       include: { categories: true },
       orderBy: { sortOrder: "asc" },
@@ -39,6 +39,8 @@ export async function GET(request: NextRequest) {
       },
       _sum: { amount: true },
     }),
+    ltssNetForYear(range),
+    ffaValueForYear(range),
   ]);
 
   const spentByCategory = new Map(
@@ -47,15 +49,20 @@ export async function GET(request: NextRequest) {
   const assigned = new Set(jars.flatMap((jar) => jar.categories.map((item) => item.categoryId)));
 
   return NextResponse.json({
-    jars: jars.map((jar) =>
-      toJarResponse({
+    jars: jars.map((jar) => {
+      const fromCategories = jar.categories.reduce(
+        (sum, item) => sum + (spentByCategory.get(item.categoryId) ?? 0),
+        0,
+      );
+      const isLtss = jar.id === LTSS_JAR_ID;
+      const isFfa = jar.id === FFA_JAR_ID;
+      const spent = isLtss ? Math.max(0, ltssNet) : isFfa ? Math.max(0, ffaValue) : fromCategories;
+      return toJarResponse({
         ...jar,
-        spent: jar.categories.reduce(
-          (sum, item) => sum + (spentByCategory.get(item.categoryId) ?? 0),
-          0,
-        ),
-      }),
-    ),
+        spent,
+        spentSource: isLtss || isFfa ? "investments" : "expenses",
+      });
+    }),
     unassignedCategoryIds: expenseCategories
       .map((category) => category.id)
       .filter((id) => !assigned.has(id)),

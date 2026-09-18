@@ -119,6 +119,89 @@ export async function ensureDefaultJars(actor: string) {
   }
 }
 
+export const LTSS_JAR_ID: JarId = "LTSS";
+export const FFA_JAR_ID: JarId = "FFA";
+
+export const INVESTMENT_JAR_COPY: Record<
+  string,
+  { hint: string; dialog: string; note: string }
+> = {
+  LTSS: {
+    hint: "Sổ tiết kiệm − nợ",
+    dialog: "Đổi tên và hạn mức. Số thực tế lấy từ sổ tiết kiệm trừ nợ và trả lãi vay trong năm đang xem.",
+    note: "Số đã dùng = tiền gửi sổ tiết kiệm − (nợ + trả nợ lãi vay) theo năm báo cáo. Không gán danh mục chi.",
+  },
+  FFA: {
+    hint: "Vàng + CCQ",
+    dialog: "Đổi tên và hạn mức. Số thực tế lấy từ đầu tư vàng và chứng chỉ quỹ trong năm đang xem.",
+    note: "Số đã dùng = giá trị vàng + chứng chỉ quỹ (DCDS, ETF VN30) theo năm báo cáo. Không gán danh mục chi.",
+  },
+};
+
+function investmentPrincipal(item: { quantity: number; purchasePrice: number }) {
+  return item.purchasePrice * item.quantity;
+}
+
+function debtOutstanding(item: { quantity: number; purchasePrice: number; currentPrice: number }) {
+  const unit = item.currentPrice > 0 ? item.currentPrice : item.purchasePrice;
+  return unit * item.quantity;
+}
+
+/** SAVING deposits minus DEBT and DEBT_INTEREST in the given year. */
+export async function ltssNetForYear(range: { start: Date; end: Date }) {
+  const rows = await prisma.investment.findMany({
+    where: {
+      type: { in: ["SAVING", "DEBT", "DEBT_INTEREST"] },
+      date: { gte: range.start, lt: range.end },
+    },
+    select: {
+      type: true,
+      quantity: true,
+      purchasePrice: true,
+      currentPrice: true,
+    },
+  });
+
+  let saving = 0;
+  let debt = 0;
+  let debtInterest = 0;
+
+  for (const row of rows) {
+    if (row.type === "SAVING") {
+      saving += investmentPrincipal(row);
+    } else if (row.type === "DEBT") {
+      debt += debtOutstanding(row);
+    } else if (row.type === "DEBT_INTEREST") {
+      debtInterest += investmentPrincipal(row);
+    }
+  }
+
+  return Math.round(saving - debt - debtInterest);
+}
+
+function marketValue(item: { quantity: number; purchasePrice: number; currentPrice: number }) {
+  const unit = item.currentPrice > 0 ? item.currentPrice : item.purchasePrice;
+  return unit * item.quantity;
+}
+
+/** GOLD + fund certificates (DCDS, ETF VN30) recorded in the given year. */
+export async function ffaValueForYear(range: { start: Date; end: Date }) {
+  const rows = await prisma.investment.findMany({
+    where: {
+      type: { in: ["GOLD", "FUND_DCDS", "FUND_ETF_VN30"] },
+      date: { gte: range.start, lt: range.end },
+    },
+    select: {
+      quantity: true,
+      purchasePrice: true,
+      currentPrice: true,
+    },
+  });
+
+  const total = rows.reduce((sum, row) => sum + marketValue(row), 0);
+  return Math.round(total);
+}
+
 export function toJarResponse(jar: {
   id: string;
   label: string;
@@ -127,7 +210,12 @@ export function toJarResponse(jar: {
   sortOrder: number;
   categories: Array<{ categoryId: string }>;
   spent: number;
+  spentSource?: "expenses" | "investments";
+  syncHint?: string;
+  syncDialog?: string;
+  syncNote?: string;
 }) {
+  const copy = INVESTMENT_JAR_COPY[jar.id];
   return {
     id: jar.id,
     label: jar.label,
@@ -136,5 +224,9 @@ export function toJarResponse(jar: {
     sortOrder: jar.sortOrder,
     categoryIds: jar.categories.map((item) => item.categoryId),
     spent: jar.spent,
+    spentSource: jar.spentSource ?? "expenses",
+    syncHint: jar.syncHint ?? copy?.hint,
+    syncDialog: jar.syncDialog ?? copy?.dialog,
+    syncNote: jar.syncNote ?? copy?.note,
   };
 }

@@ -19,6 +19,10 @@ export type SixJarView = {
   limitAmount: number;
   categoryIds: string[];
   spent: number;
+  spentSource?: "expenses" | "investments";
+  syncHint?: string;
+  syncDialog?: string;
+  syncNote?: string;
 };
 
 type CategoryOption = {
@@ -240,7 +244,11 @@ export function SixJarsWidget({
       const response = await fetch(`/api/jars/${editingJar.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label, limitAmount, categoryIds: selectedIds }),
+        body: JSON.stringify(
+          editingJar.spentSource === "investments"
+            ? { label, limitAmount }
+            : { label, limitAmount, categoryIds: selectedIds },
+        ),
       });
       if (!response.ok) {
         throw new Error("Không thể lưu lọ.");
@@ -291,7 +299,12 @@ export function SixJarsWidget({
                   </span>
                   <div>
                     <p className="text-sm font-semibold leading-snug text-zinc-900">{jar.label}</p>
-                    <p className="text-[11px] font-medium text-zinc-500">{jar.targetPercent}% mục tiêu · {jar.categoryIds.length} danh mục</p>
+                    <p className="text-[11px] font-medium text-zinc-500">
+                      {jar.targetPercent}% mục tiêu
+                      {jar.spentSource === "investments"
+                        ? ` · ${jar.syncHint ?? "Đầu tư"}`
+                        : ` · ${jar.categoryIds.length} danh mục`}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -330,7 +343,9 @@ export function SixJarsWidget({
                 <div>
                   <h3 className="text-lg font-semibold text-slate-950">Sửa lọ {editingJar.label}</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    Đổi tên lọ, hạn mức năm và tích danh mục chi vào hũ này. Danh mục đang ở hũ khác sẽ được chuyển sang.
+                    {editingJar.spentSource === "investments"
+                      ? editingJar.syncDialog ?? "Đổi tên và hạn mức. Số thực tế đồng bộ từ đầu tư theo năm đang xem."
+                      : "Đổi tên lọ, hạn mức năm và tích danh mục chi vào hũ này. Danh mục đang ở hũ khác sẽ được chuyển sang."}
                   </p>
                 </div>
                 <button
@@ -366,6 +381,14 @@ export function SixJarsWidget({
                 />
                 <p className="text-xs text-slate-500">Gợi ý {editingJar.targetPercent}% ngân sách năm · hiện {currency(editingJar.limitAmount)}</p>
 
+                {editingJar.spentSource === "investments" ? (
+                  <p className="rounded-lg border border-emerald-100 bg-emerald-50/80 px-3 py-2 text-xs leading-5 text-emerald-800">
+                    {editingJar.syncNote ?? "Số thực tế đồng bộ từ đầu tư theo năm báo cáo. Không gán danh mục chi."}
+                  </p>
+                ) : null}
+
+                {editingJar.spentSource === "investments" ? null : (
+                <>
                 <p className="text-sm font-medium text-slate-700">Danh mục trong lọ</p>
                 <div className="max-h-64 space-y-1 overflow-auto rounded-lg border border-slate-100 p-2">
                   {categories.length === 0 ? (
@@ -402,6 +425,8 @@ export function SixJarsWidget({
                     })
                   )}
                 </div>
+                </>
+                )}
 
                 {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 

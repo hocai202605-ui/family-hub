@@ -176,6 +176,7 @@ export function SixJarsWidget({
   const items = jars && jars.length > 0 ? jars : MOCK_JARS;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
+  const [percentDraft, setPercentDraft] = useState("");
   const [limitDraft, setLimitDraft] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -201,6 +202,7 @@ export function SixJarsWidget({
   function openEdit(jar: SixJarView) {
     setEditingId(jar.id);
     setLabelDraft(jar.label);
+    setPercentDraft(String(jar.targetPercent));
     setLimitDraft(formatAmountInput(String(jar.limitAmount)));
     setSelectedIds(jar.categoryIds);
     setError(null);
@@ -232,6 +234,12 @@ export function SixJarsWidget({
       return;
     }
 
+    const targetPercent = Number(percentDraft.replace(/\D/g, ""));
+    if (!Number.isInteger(targetPercent) || targetPercent < 0 || targetPercent > 100) {
+      setError("Mục tiêu phải từ 0% đến 100%.");
+      return;
+    }
+
     const limitAmount = Number(parseAmountInput(limitDraft));
     if (!Number.isInteger(limitAmount) || limitAmount < 0) {
       setError("Hạn mức phải là số nguyên không âm.");
@@ -241,14 +249,14 @@ export function SixJarsWidget({
     setIsSaving(true);
     setError(null);
     try {
+      const payload =
+        editingJar.spentSource === "investments"
+          ? { label, targetPercent, limitAmount }
+          : { label, targetPercent, limitAmount, categoryIds: selectedIds };
       const response = await fetch(`/api/jars/${editingJar.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          editingJar.spentSource === "investments"
-            ? { label, limitAmount }
-            : { label, limitAmount, categoryIds: selectedIds },
-        ),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
         throw new Error("Không thể lưu lọ.");
@@ -369,6 +377,20 @@ export function SixJarsWidget({
                   value={labelDraft}
                 />
 
+                <label className="block text-sm font-medium text-slate-700" htmlFor="jar-target">
+                  Mục tiêu (%)
+                </label>
+                <input
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm tabular-nums outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+                  id="jar-target"
+                  inputMode="numeric"
+                  max={100}
+                  min={0}
+                  onChange={(event) => setPercentDraft(event.target.value.replace(/\D/g, "").slice(0, 3))}
+                  value={percentDraft}
+                />
+                <p className="text-xs text-slate-500">Hiển thị trên card lọ, từ 0 đến 100.</p>
+
                 <label className="block text-sm font-medium text-slate-700" htmlFor="jar-limit">
                   Hạn mức năm
                 </label>
@@ -379,7 +401,9 @@ export function SixJarsWidget({
                   onChange={(event) => setLimitDraft(formatAmountInput(event.target.value))}
                   value={limitDraft}
                 />
-                <p className="text-xs text-slate-500">Gợi ý {editingJar.targetPercent}% ngân sách năm · hiện {currency(editingJar.limitAmount)}</p>
+                <p className="text-xs text-slate-500">
+                  Gợi ý {percentDraft || editingJar.targetPercent}% ngân sách năm · hiện {currency(editingJar.limitAmount)}
+                </p>
 
                 {editingJar.spentSource === "investments" ? (
                   <p className="rounded-lg border border-emerald-100 bg-emerald-50/80 px-3 py-2 text-xs leading-5 text-emerald-800">

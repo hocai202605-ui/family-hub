@@ -10,14 +10,18 @@ export const jarIdSchema = z.enum(JAR_IDS);
 export const jarPatchSchema = z
   .object({
     label: z.string().trim().min(1).max(40).optional(),
+    targetPercent: z.number().int().min(0).max(100).optional(),
     limitAmount: z.number().int().nonnegative().max(1_000_000_000_000).optional(),
     categoryIds: z.array(z.string().trim().min(1)).optional(),
   })
   .refine(
     (value) =>
-      value.label !== undefined || value.limitAmount !== undefined || value.categoryIds !== undefined,
+      value.label !== undefined ||
+      value.targetPercent !== undefined ||
+      value.limitAmount !== undefined ||
+      value.categoryIds !== undefined,
     {
-      message: "Provide label, limitAmount and/or categoryIds.",
+      message: "Provide label, targetPercent, limitAmount and/or categoryIds.",
     },
   );
 

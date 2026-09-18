@@ -166,10 +166,10 @@ async function main() {
   const yearlyBudgetBase = 20_000_000 * 12;
   const defaultJars = [
     { id: "NEC", label: "Thiết yếu", targetPercent: 55, sortOrder: 1, categoryIds: ["Food", "Utilities", "Transport"] },
-    { id: "LTSS", label: "Tiết kiệm dài hạn", targetPercent: 10, sortOrder: 2, categoryIds: [] },
-    { id: "EDU", label: "Giáo dục", targetPercent: 10, sortOrder: 3, categoryIds: [] },
+    { id: "FFA", label: "Tự do tài chính", targetPercent: 10, sortOrder: 2, categoryIds: [] },
+    { id: "LTSS", label: "Tiết kiệm dài hạn", targetPercent: 10, sortOrder: 3, categoryIds: [] },
     { id: "PLAY", label: "Hưởng thụ", targetPercent: 10, sortOrder: 4, categoryIds: ["Shopping", "Entertainment"] },
-    { id: "FFA", label: "Tự do tài chính", targetPercent: 10, sortOrder: 5, categoryIds: [] },
+    { id: "EDU", label: "Giáo dục", targetPercent: 10, sortOrder: 5, categoryIds: [] },
     { id: "GIVE", label: "Cho đi / Hiếu hỉ", targetPercent: 5, sortOrder: 6, categoryIds: [] },
   ];
 

@@ -82,12 +82,14 @@ const MOCK_YEARLY_BUDGET = 20_000_000 * 12;
 
 export const MOCK_JARS: SixJarView[] = [
   { id: "NEC", label: "Thiết yếu", targetPercent: 55, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.55), categoryIds: ["Food", "Utilities", "Transport"], spent: 0 },
-  { id: "LTSS", label: "Tiết kiệm dài hạn", targetPercent: 10, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.1), categoryIds: [], spent: 0 },
-  { id: "EDU", label: "Giáo dục", targetPercent: 10, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.1), categoryIds: [], spent: 0 },
-  { id: "PLAY", label: "Hưởng thụ", targetPercent: 10, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.1), categoryIds: ["Shopping", "Entertainment"], spent: 0 },
   { id: "FFA", label: "Tự do tài chính", targetPercent: 10, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.1), categoryIds: [], spent: 0 },
+  { id: "LTSS", label: "Tiết kiệm dài hạn", targetPercent: 10, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.1), categoryIds: [], spent: 0 },
+  { id: "PLAY", label: "Hưởng thụ", targetPercent: 10, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.1), categoryIds: ["Shopping", "Entertainment"], spent: 0 },
+  { id: "EDU", label: "Giáo dục", targetPercent: 10, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.1), categoryIds: [], spent: 0 },
   { id: "GIVE", label: "Cho đi / Hiếu hỉ", targetPercent: 5, limitAmount: Math.round(MOCK_YEARLY_BUDGET * 0.05), categoryIds: [], spent: 0 },
 ];
+
+const JAR_DISPLAY_ORDER = ["NEC", "FFA", "LTSS", "PLAY", "EDU", "GIVE"];
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -173,7 +175,11 @@ export function SixJarsWidget({
   unassignedCategoryIds?: string[];
   onSaved?: () => void;
 }) {
-  const items = jars && jars.length > 0 ? jars : MOCK_JARS;
+  const items = [...(jars && jars.length > 0 ? jars : MOCK_JARS)].sort((a, b) => {
+    const left = JAR_DISPLAY_ORDER.indexOf(a.id);
+    const right = JAR_DISPLAY_ORDER.indexOf(b.id);
+    return (left === -1 ? 99 : left) - (right === -1 ? 99 : right);
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState("");
   const [percentDraft, setPercentDraft] = useState("");

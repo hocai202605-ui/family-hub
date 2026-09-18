@@ -42,15 +42,15 @@ export const DEFAULT_JARS: Array<{
     defaultCategoryIds: ["Food", "Utilities", "Transport"],
   },
   {
-    id: "LTSS",
-    label: "Tiết kiệm dài hạn",
+    id: "FFA",
+    label: "Tự do tài chính",
     targetPercent: 10,
     sortOrder: 2,
     defaultCategoryIds: [],
   },
   {
-    id: "EDU",
-    label: "Giáo dục",
+    id: "LTSS",
+    label: "Tiết kiệm dài hạn",
     targetPercent: 10,
     sortOrder: 3,
     defaultCategoryIds: [],
@@ -63,8 +63,8 @@ export const DEFAULT_JARS: Array<{
     defaultCategoryIds: ["Shopping", "Entertainment"],
   },
   {
-    id: "FFA",
-    label: "Tự do tài chính",
+    id: "EDU",
+    label: "Giáo dục",
     targetPercent: 10,
     sortOrder: 5,
     defaultCategoryIds: [],
@@ -95,7 +95,7 @@ export async function ensureDefaultJars(actor: string) {
         createdBy: actor,
         updatedBy: actor,
       },
-      update: {},
+      update: { sortOrder: jar.sortOrder },
     });
   }
 

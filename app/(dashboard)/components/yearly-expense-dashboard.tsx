@@ -186,6 +186,16 @@ function formatExpenseDateTimeLabel(date: string) {
   }).format(new Date(yearPart, month - 1, day, hour, minute));
 }
 
+function formatExpenseDateLabel(date: string) {
+  const dayPart = date.slice(0, 10);
+  const [yearPart, month, day] = dayPart.split("-").map(Number);
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(yearPart, month - 1, day));
+}
+
 function currency(value: number) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(value);
 }
@@ -237,40 +247,95 @@ function ExpenseDonut({ data, total, categoryMeta }: { data: Array<{ category: C
   let offset = 0;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[220px_1fr] lg:items-center">
-      <div className="relative mx-auto h-52 w-52">
-        <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
-          <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
-          {data.map((item) => {
-            const length = total > 0 ? (item.amount / total) * circumference : 0;
-            const meta = categoryMeta[item.category] ?? { id: item.category, label: item.category, ...fallbackCategoryMeta };
-            const segment = (
-              <circle
-                key={item.category} cx="90" cy="90" fill="none" r={radius}
-                stroke={meta.chart} strokeDasharray={`${length} ${circumference}`} strokeDashoffset={-offset} strokeLinecap="round" strokeWidth="22"
-              />
-            );
-            offset += length;
-            return segment;
-          })}
-        </svg>
-        <div className="absolute inset-0 grid place-items-center text-center">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tổng chi</p>
-            <p className="mt-0.5 text-xs font-bold text-slate-950">{compactCurrency(total)}</p>
+    <div className="flex flex-col">
+      <div className="flex items-center justify-center py-2">
+        <div className="relative h-48 w-48">
+          <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180">
+            <circle cx="90" cy="90" fill="none" r={radius} stroke="#f1f5f9" strokeWidth="22" />
+            {data.map((item) => {
+              const length = total > 0 ? (item.amount / total) * circumference : 0;
+              const meta = categoryMeta[item.category] ?? { id: item.category, label: item.category, ...fallbackCategoryMeta };
+              const segment = (
+                <circle
+                  key={item.category} cx="90" cy="90" fill="none" r={radius}
+                  stroke={meta.chart} strokeDasharray={`${length} ${circumference}`} strokeDashoffset={-offset} strokeLinecap="round" strokeWidth="22"
+                />
+              );
+              offset += length;
+              return segment;
+            })}
+          </svg>
+          <div className="absolute inset-0 grid place-items-center text-center">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Tổng chi</p>
+              <p className="mt-0.5 text-xs font-bold text-zinc-900">{compactCurrency(total)}</p>
+            </div>
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-zinc-100 pt-4">
         {data.map((item) => {
           const percent = total ? Math.round((item.amount / total) * 100) : 0;
           const meta = categoryMeta[item.category] ?? { id: item.category, label: item.category, ...fallbackCategoryMeta };
           return (
-            <div key={item.category} className="flex items-center gap-2 text-xs">
-              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: meta.chart }} />
-              <span className="truncate font-medium text-slate-700">{meta.label}</span>
-              <span className="ml-auto shrink-0 font-semibold text-slate-500">{compactCurrency(item.amount)}</span>
-              <span className="shrink-0 text-slate-400">{percent}%</span>
+            <div key={item.category} className="flex min-w-0 items-center gap-2">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: meta.chart }} />
+              <span className="truncate text-xs text-zinc-600" title={meta.label}>{meta.label}</span>
+              <span className="ml-auto shrink-0 text-xs font-semibold text-zinc-900">
+                {compactCurrency(item.amount)} · {percent}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MonthBarRow({
+  data,
+  ticks,
+  chartMax,
+}: {
+  data: Array<{ month: number; amount: number }>;
+  ticks: number[];
+  chartMax: number;
+}) {
+  return (
+    <div className="flex h-36 w-full gap-2">
+      <div className="flex h-full w-10 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-[10px] font-medium text-slate-400">
+        {ticks.map((t, i) => (
+          <span key={i} className="mt-1 leading-none">
+            {compactCurrency(t)}
+          </span>
+        ))}
+      </div>
+      <div className="relative flex flex-1 items-end justify-between gap-1 pb-6">
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between pb-[1.75rem]">
+          {ticks.map((t, i) => (
+            <div
+              key={i}
+              className={cn("w-full border-t border-slate-200", i === ticks.length - 1 ? "mb-[1px]" : "mt-1.5 border-dashed")}
+            />
+          ))}
+        </div>
+        {data.map((item) => {
+          const heightPercent = chartMax > 0 ? (item.amount / chartMax) * 100 : 0;
+          return (
+            <div key={item.month} className="group relative z-10 flex h-full w-full flex-col items-center justify-end">
+              <span className="mb-1 whitespace-nowrap text-[9px] font-bold text-slate-500">
+                {item.amount > 0 ? compactCurrency(item.amount) : ""}
+              </span>
+              <div
+                className="w-full max-w-[40px] rounded-t-md bg-rose-500 transition-all group-hover:bg-rose-600"
+                style={{ height: `${Math.max(heightPercent, item.amount > 0 ? 2 : 0.5)}%` }}
+              >
+                <div className="pointer-events-none absolute -top-10 left-1/2 z-20 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white shadow-md group-hover:block">
+                  {currency(item.amount)}
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                </div>
+              </div>
+              <span className="mt-1 text-[10px] font-medium text-slate-500">T{item.month}</span>
             </div>
           );
         })}
@@ -292,6 +357,7 @@ export function YearlyExpenseDashboard() {
   const [jars, setJars] = useState<SixJarView[]>([]);
   const [unassignedCategoryIds, setUnassignedCategoryIds] = useState<string[]>([]);
   const [totalIncome, setTotalIncome] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const availableYears = useMemo(() => {
     const y = parseInt(currentYear);
@@ -426,6 +492,45 @@ export function YearlyExpenseDashboard() {
     [filteredExpenses],
   );
 
+  const filteredExpenseIds = useMemo(() => filteredExpenses.map((item) => item.id), [filteredExpenses]);
+
+  const allVisibleSelected =
+    filteredExpenseIds.length > 0 && filteredExpenseIds.every((id) => selectedIds.includes(id));
+
+  const someVisibleSelected =
+    filteredExpenseIds.some((id) => selectedIds.includes(id)) && !allVisibleSelected;
+
+  const selectedExpenses = useMemo(
+    () => filteredExpenses.filter((item) => selectedIds.includes(item.id)),
+    [filteredExpenses, selectedIds],
+  );
+
+  const selectedTotal = useMemo(
+    () => selectedExpenses.reduce((sum, item) => sum + item.amount, 0),
+    [selectedExpenses],
+  );
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const next = current.filter((id) => filteredExpenseIds.includes(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [filteredExpenseIds]);
+
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedIds((current) => current.filter((id) => !filteredExpenseIds.includes(id)));
+      return;
+    }
+    setSelectedIds((current) => Array.from(new Set([...current, ...filteredExpenseIds])));
+  }
+
+  function toggleSelectExpense(id: number) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id],
+    );
+  }
+
   const totalJarLimit = useMemo(
     () => jars.reduce((sum, jar) => sum + jar.limitAmount, 0),
     [jars],
@@ -449,10 +554,12 @@ export function YearlyExpenseDashboard() {
     setMonthFilter("all");
     setCategoryFilter("all");
     setMemberFilter("all");
+    setSelectedIds([]);
   }
 
   function handleExportExcel() {
-    if (isLoading || filteredExpenses.length === 0) {
+    const rowsToExport = selectedExpenses.length > 0 ? selectedExpenses : filteredExpenses;
+    if (isLoading || rowsToExport.length === 0) {
       return;
     }
 
@@ -464,14 +571,14 @@ export function YearlyExpenseDashboard() {
       categoryLabel: selectedCategory?.label ?? (categoryFilter === "all" ? null : categoryFilter),
       memberLabel: memberFilter === "all" ? null : memberExportLabel(memberFilter),
       query,
-      rows: filteredExpenses.map((item) => ({
+      rows: rowsToExport.map((item) => ({
         date: item.date,
         categoryLabel: (categoryMeta[item.category] ?? { label: item.category }).label,
         member: item.member,
         note: item.note,
         amount: item.amount,
       })),
-      total: filteredTotal,
+      total: selectedExpenses.length > 0 ? selectedTotal : filteredTotal,
     });
   }
 
@@ -559,51 +666,21 @@ export function YearlyExpenseDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-7">
-          <h2 className="mb-6 font-semibold text-slate-950">Biểu đồ chi tiêu 12 tháng</h2>
-          <div className="flex h-72 w-full gap-2">
-            <div className="flex h-full w-10 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-[10px] font-medium text-slate-400">
-              {ticks.map((t, i) => <span key={i} className="leading-none mt-1">{compactCurrency(t)}</span>)}
-            </div>
-            <div className="relative flex flex-1 items-end justify-between gap-0.5 pb-6">
-              <div className="absolute inset-0 flex flex-col justify-between pb-[1.75rem] pointer-events-none">
-                {ticks.map((t, i) => (
-                  <div key={i} className={cn("w-full border-t border-slate-200", i === ticks.length - 1 ? "mb-[1px]" : "border-dashed mt-1.5")} />
-                ))}
-              </div>
-              {monthlyData.map((item) => {
-                const heightPercent = chartMax > 0 ? (item.amount / chartMax) * 100 : 0;
-                return (
-                  <div key={item.month} className="group relative flex h-full w-full flex-col items-center justify-end z-10">
-                    <span className="mb-1 text-[9px] font-bold text-slate-500 whitespace-nowrap">
-                      {item.amount > 0 ? compactCurrency(item.amount) : ""}
-                    </span>
-                    <div 
-                      className="w-full max-w-[36px] rounded-t-md bg-rose-500 transition-all group-hover:bg-rose-600"
-                      style={{ height: `${Math.max(heightPercent, item.amount > 0 ? 2 : 0.5)}%` }}
-                    >
-                      <div className="absolute -top-10 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white shadow-md group-hover:block z-20 pointer-events-none">
-                        {currency(item.amount)}
-                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-                      </div>
-                    </div>
-                    <span className="mt-1 text-[10px] font-medium text-slate-500">T{item.month}</span>
-                  </div>
-                );
-              })}
-            </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 font-semibold text-slate-950">Biểu đồ chi tiêu 12 tháng</h2>
+          <div className="flex flex-col gap-3">
+            <MonthBarRow chartMax={chartMax} data={monthlyData.slice(0, 6)} ticks={ticks} />
+            <MonthBarRow chartMax={chartMax} data={monthlyData.slice(6, 12)} ticks={ticks} />
           </div>
         </div>
 
-        <div className="lg:col-span-5">
-          <SixJarsWidget
-            categories={categories.map((category) => ({ id: category.id, label: category.label }))}
-            jars={jars}
-            onSaved={reloadJars}
-            unassignedCategoryIds={unassignedCategoryIds}
-          />
-        </div>
+        <SixJarsWidget
+          categories={categories.map((category) => ({ id: category.id, label: category.label }))}
+          jars={jars}
+          onSaved={reloadJars}
+          unassignedCategoryIds={unassignedCategoryIds}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -685,23 +762,49 @@ export function YearlyExpenseDashboard() {
               ))}
             </select>
           </div>
+
+            {selectedExpenses.length > 0 ? (
+              <div className="flex flex-col gap-1 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-rose-950">
+                  Đã chọn <span className="font-bold">{selectedExpenses.length}</span> giao dịch
+                </p>
+                <p className="text-sm font-bold text-rose-900">
+                  Tổng: {currency(selectedTotal)}
+                </p>
+              </div>
+            ) : null}
         </div>
 
         <div className="max-h-[28rem] overflow-auto">
-          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[680px] border-collapse text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 shadow-sm">
               <tr>
-                <th className="px-5 py-3 font-semibold">Ngày</th>
+                <th className="w-12 px-4 py-3">
+                  <input
+                    aria-label="Chọn tất cả"
+                    checked={allVisibleSelected}
+                    className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                    disabled={isLoading || filteredExpenseIds.length === 0}
+                    onChange={toggleSelectAllVisible}
+                    ref={(input) => {
+                      if (input) {
+                        input.indeterminate = someVisibleSelected;
+                      }
+                    }}
+                    type="checkbox"
+                  />
+                </th>
+                <th className="w-[110px] whitespace-nowrap px-5 py-3 font-semibold">Ngày</th>
                 <th className="px-5 py-3 font-semibold">Danh mục</th>
                 <th className="px-5 py-3 font-semibold">Người</th>
-                <th className="px-5 py-3 font-semibold">Ghi chú</th>
-                <th className="px-5 py-3 text-right font-semibold">Số tiền</th>
+                <th className="max-w-[200px] px-5 py-3 font-semibold">Ghi chú</th>
+                <th className="min-w-[110px] whitespace-nowrap px-5 py-3 text-right font-semibold">Số tiền</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
                 <tr>
-                  <td className="px-5 py-10 text-center text-slate-500" colSpan={5}>
+                  <td className="px-5 py-10 text-center text-slate-500" colSpan={6}>
                     Đang tải chi tiêu...
                   </td>
                 </tr>
@@ -710,10 +813,26 @@ export function YearlyExpenseDashboard() {
                 ? filteredExpenses.map((exp) => {
                     const meta = categoryMeta[exp.category] ?? { label: exp.category, ...fallbackCategoryMeta };
                     const member = memberMeta[exp.member] ?? memberMeta.GIA_DINH;
+                    const isSelected = selectedIds.includes(exp.id);
                     return (
-                      <tr key={exp.id} className="bg-white transition-colors hover:bg-slate-50/50">
-                        <td className="whitespace-nowrap px-5 py-3 text-slate-500">
-                          {formatExpenseDateTimeLabel(exp.date)}
+                      <tr
+                        key={exp.id}
+                        className={cn(
+                          "bg-white transition-colors hover:bg-slate-50/50",
+                          isSelected && "bg-rose-50/60",
+                        )}
+                      >
+                        <td className="w-12 px-4 py-3">
+                          <input
+                            aria-label={`Chọn chi tiêu ${exp.id}`}
+                            checked={isSelected}
+                            className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                            onChange={() => toggleSelectExpense(exp.id)}
+                            type="checkbox"
+                          />
+                        </td>
+                        <td className="w-[110px] whitespace-nowrap px-5 py-3 text-slate-500">
+                          {formatExpenseDateLabel(exp.date)}
                         </td>
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-2">
@@ -729,8 +848,10 @@ export function YearlyExpenseDashboard() {
                             {member.label}
                           </span>
                         </td>
-                        <td className="max-w-xs truncate px-5 py-3 text-slate-600">{exp.note}</td>
-                        <td className="whitespace-nowrap px-5 py-3 text-right font-bold text-slate-900">
+                        <td className="max-w-[200px] overflow-hidden truncate text-ellipsis whitespace-nowrap px-5 py-3 text-slate-600" title={exp.note}>
+                          {exp.note}
+                        </td>
+                        <td className="min-w-[110px] whitespace-nowrap px-5 py-3 text-right font-bold text-slate-900">
                           {currency(exp.amount)}
                         </td>
                       </tr>
@@ -739,14 +860,14 @@ export function YearlyExpenseDashboard() {
                 : null}
               {!isLoading && expenses.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-10 text-center text-slate-500" colSpan={5}>
+                  <td className="px-5 py-10 text-center text-slate-500" colSpan={6}>
                     Không có dữ liệu
                   </td>
                 </tr>
               ) : null}
               {!isLoading && expenses.length > 0 && filteredExpenses.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-10 text-center text-slate-500" colSpan={5}>
+                  <td className="px-5 py-10 text-center text-slate-500" colSpan={6}>
                     Không tìm thấy chi tiêu phù hợp.
                   </td>
                 </tr>

@@ -40,10 +40,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 
   const jar = await prisma.$transaction(async (tx) => {
-    if (parsed.data.limitAmount !== undefined) {
+    if (parsed.data.limitAmount !== undefined || parsed.data.label !== undefined) {
       await tx.expenseJar.update({
         where: { id: jarId },
-        data: { limitAmount: parsed.data.limitAmount, updatedBy: actor },
+        data: {
+          ...(parsed.data.label !== undefined ? { label: parsed.data.label } : {}),
+          ...(parsed.data.limitAmount !== undefined ? { limitAmount: parsed.data.limitAmount } : {}),
+          updatedBy: actor,
+        },
       });
     }
 

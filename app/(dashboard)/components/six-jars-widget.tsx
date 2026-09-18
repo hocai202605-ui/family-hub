@@ -35,6 +35,15 @@ const JAR_ICONS: Record<string, LucideIcon> = {
   GIVE: Gift,
 };
 
+const JAR_THEME: Record<string, { icon: string; bar: string }> = {
+  NEC: { icon: "bg-indigo-50 text-indigo-600", bar: "bg-indigo-500" },
+  LTSS: { icon: "bg-emerald-50 text-emerald-600", bar: "bg-emerald-500" },
+  EDU: { icon: "bg-amber-50 text-amber-600", bar: "bg-amber-500" },
+  PLAY: { icon: "bg-rose-50 text-rose-600", bar: "bg-rose-500" },
+  FFA: { icon: "bg-sky-50 text-sky-600", bar: "bg-sky-500" },
+  GIVE: { icon: "bg-purple-50 text-purple-600", bar: "bg-purple-500" },
+};
+
 const MOCK_YEARLY_BUDGET = 20_000_000 * 12;
 
 export const MOCK_JARS: SixJarView[] = [
@@ -79,6 +88,46 @@ function parseAmountInput(value: string) {
   return value.replace(/\D/g, "");
 }
 
+function formatMillions(value: number) {
+  const abs = Math.abs(value);
+  const v = abs / 1_000_000;
+  const formatted = v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, "");
+  return `${value < 0 ? "-" : ""}${formatted}M`;
+}
+
+function jarProgressStatus(spent: number, limitAmount: number) {
+  if (spent <= 0) {
+    return { text: "Chưa phát sinh", className: "text-xs text-zinc-400", over: false };
+  }
+
+  const ratio = limitAmount > 0 ? spent / limitAmount : 2;
+  const percent = Math.round(ratio * 100);
+  const remaining = Math.max(limitAmount - spent, 0);
+  const overSpent = Math.max(spent - limitAmount, 0);
+
+  if (percent > 100) {
+    return {
+      text: `Vượt hạn mức (+${formatMillions(overSpent)})`,
+      className: "text-xs font-medium text-rose-600",
+      over: true,
+    };
+  }
+
+  if (percent >= 80) {
+    return {
+      text: `Sắp chạm trần (${percent}%) · Còn ${formatMillions(remaining)}`,
+      className: "text-xs font-medium text-amber-600",
+      over: false,
+    };
+  }
+
+  return {
+    text: `Đã chi ${percent}% · Còn lại ${formatMillions(remaining)}`,
+    className: "text-xs text-zinc-500",
+    over: false,
+  };
+}
+
 export function SixJarsWidget({
   jars,
   categories,
@@ -92,6 +141,7 @@ export function SixJarsWidget({
 }) {
   const items = jars && jars.length > 0 ? jars : MOCK_JARS;
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [labelDraft, setLabelDraft] = useState("");
   const [limitDraft, setLimitDraft] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -116,6 +166,7 @@ export function SixJarsWidget({
 
   function openEdit(jar: SixJarView) {
     setEditingId(jar.id);
+    setLabelDraft(jar.label);
     setLimitDraft(formatAmountInput(String(jar.limitAmount)));
     setSelectedIds(jar.categoryIds);
     setError(null);
@@ -137,6 +188,16 @@ export function SixJarsWidget({
     event.preventDefault();
     if (!editingJar) return;
 
+    const label = labelDraft.trim();
+    if (!label) {
+      setError("Tên lọ không được để trống.");
+      return;
+    }
+    if (label.length > 40) {
+      setError("Tên lọ tối đa 40 ký tự.");
+      return;
+    }
+
     const limitAmount = Number(parseAmountInput(limitDraft));
     if (!Number.isInteger(limitAmount) || limitAmount < 0) {
       setError("Hạn mức phải là số nguyên không âm.");
@@ -149,7 +210,7 @@ export function SixJarsWidget({
       const response = await fetch(`/api/jars/${editingJar.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limitAmount, categoryIds: selectedIds }),
+        body: JSON.stringify({ label, limitAmount, categoryIds: selectedIds }),
       });
       if (!response.ok) {
         throw new Error("Không thể lưu lọ.");
@@ -167,59 +228,56 @@ export function SixJarsWidget({
     <div className="flex h-full flex-col rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
       <div className="mb-4">
         <h2 className="font-semibold text-slate-950">6 chiếc lọ tài chính</h2>
-        <p className="mt-1 text-xs text-slate-500">Chi thực tế so với hạn mức năm. Bấm Sửa để gán danh mục và đổi hạn mức.</p>
+        <p className="mt-1 text-xs text-slate-500">Chi thực tế so với hạn mức năm. Bấm Sửa để đổi tên lọ, hạn mức và danh mục.</p>
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
         {items.map((jar) => {
           const Icon = JAR_ICONS[jar.id] ?? Home;
+          const theme = JAR_THEME[jar.id] ?? JAR_THEME.NEC;
           const ratio = jar.limitAmount > 0 ? jar.spent / jar.limitAmount : jar.spent > 0 ? 2 : 0;
-          const percent = Math.round(ratio * 100);
-          const over = ratio > 1;
+          const status = jarProgressStatus(jar.spent, jar.limitAmount);
 
           return (
-            <div key={jar.id} className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-slate-700 ring-1 ring-zinc-200">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">{jar.label}</p>
-                    <p className="text-[11px] font-medium text-slate-500">{jar.targetPercent}% mục tiêu · {jar.categoryIds.length} danh mục</p>
-                  </div>
-                </div>
+            <div
+              key={jar.id}
+              className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-3 transition-all duration-200 hover:border-zinc-300/80 hover:shadow-md"
+            >
+              <div className="relative pr-8">
                 <button
-                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 text-[11px] font-semibold text-slate-700 outline-none transition hover:bg-zinc-50 focus:ring-2 focus:ring-rose-100"
+                  aria-label={`Sửa lọ ${jar.label}`}
+                  className="absolute right-0 top-0 rounded-lg p-1.5 text-zinc-400 outline-none transition hover:bg-zinc-100 hover:text-zinc-600"
                   onClick={() => openEdit(jar)}
                   type="button"
                 >
-                  <Pencil className="h-3 w-3" />
-                  Sửa
+                  <Pencil className="h-3.5 w-3.5" />
                 </button>
+                <div className="flex items-center gap-2">
+                  <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", theme.icon)}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold leading-snug text-zinc-900">{jar.label}</p>
+                    <p className="text-[11px] font-medium text-zinc-500">{jar.targetPercent}% mục tiêu · {jar.categoryIds.length} danh mục</p>
+                  </div>
+                </div>
               </div>
 
-              <p className="mt-3 text-sm font-semibold tabular-nums text-slate-900">
-                {compactCurrency(jar.spent)}
-                <span className="font-medium text-slate-400"> / {compactCurrency(jar.limitAmount)}</span>
+              <p className="mt-3 tabular-nums">
+                <span className="text-lg font-bold text-zinc-900">{compactCurrency(jar.spent)}</span>
+                <span className="text-sm font-medium text-zinc-400"> / {compactCurrency(jar.limitAmount)}</span>
               </p>
 
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200">
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
                 <div
-                  className={cn("h-full rounded-full transition-all duration-500", over ? "bg-rose-500" : "bg-emerald-500")}
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    status.over ? "bg-rose-500" : theme.bar,
+                  )}
                   style={{ width: `${Math.min(Math.max(ratio * 100, 0), 100)}%` }}
                 />
               </div>
-              <div className="mt-1.5 flex items-center justify-between gap-2">
-                <span className={cn("text-[11px] font-semibold", over ? "text-rose-600" : "text-slate-500")}>
-                  {percent}% đã dùng
-                </span>
-                {over ? (
-                  <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-inset ring-rose-100">
-                    Vượt hạn mức
-                  </span>
-                ) : null}
-              </div>
+              <p className={cn("mt-1.5", status.className)}>{status.text}</p>
             </div>
           );
         })}
@@ -239,7 +297,7 @@ export function SixJarsWidget({
                 <div>
                   <h3 className="text-lg font-semibold text-slate-950">Sửa lọ {editingJar.label}</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    Đặt hạn mức năm và tích các danh mục chi vào hũ này. Danh mục đang ở hũ khác sẽ được chuyển sang.
+                    Đổi tên lọ, hạn mức năm và tích danh mục chi vào hũ này. Danh mục đang ở hũ khác sẽ được chuyển sang.
                   </p>
                 </div>
                 <button
@@ -252,6 +310,17 @@ export function SixJarsWidget({
               </div>
 
               <div className="space-y-4 p-5">
+                <label className="block text-sm font-medium text-slate-700" htmlFor="jar-label">
+                  Tên lọ
+                </label>
+                <input
+                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+                  id="jar-label"
+                  maxLength={40}
+                  onChange={(event) => setLabelDraft(event.target.value)}
+                  value={labelDraft}
+                />
+
                 <label className="block text-sm font-medium text-slate-700" htmlFor="jar-limit">
                   Hạn mức năm
                 </label>

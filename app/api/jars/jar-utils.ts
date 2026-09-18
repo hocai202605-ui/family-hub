@@ -9,12 +9,17 @@ export const jarIdSchema = z.enum(JAR_IDS);
 
 export const jarPatchSchema = z
   .object({
+    label: z.string().trim().min(1).max(40).optional(),
     limitAmount: z.number().int().nonnegative().max(1_000_000_000_000).optional(),
     categoryIds: z.array(z.string().trim().min(1)).optional(),
   })
-  .refine((value) => value.limitAmount !== undefined || value.categoryIds !== undefined, {
-    message: "Provide limitAmount and/or categoryIds.",
-  });
+  .refine(
+    (value) =>
+      value.label !== undefined || value.limitAmount !== undefined || value.categoryIds !== undefined,
+    {
+      message: "Provide label, limitAmount and/or categoryIds.",
+    },
+  );
 
 const YEARLY_BUDGET_BASE = DEFAULT_MONTHLY_BUDGET * 12;
 

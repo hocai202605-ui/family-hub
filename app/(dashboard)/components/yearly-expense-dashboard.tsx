@@ -344,12 +344,24 @@ function MonthBarRow({
   );
 }
 
+function ReportLoadingOverlay({ label }: { label: string }) {
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#fffaf3]/75 backdrop-blur-[2px]">
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-rose-100 border-t-rose-600" aria-hidden />
+        <p className="text-sm font-medium text-slate-700">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 export function YearlyExpenseDashboard() {
   const currentYear = new Date().getFullYear().toString();
   const [year, setYear] = useState(currentYear);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryMeta[]>(defaultCategories);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [monthFilter, setMonthFilter] = useState<"all" | number>("all");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
@@ -365,6 +377,8 @@ export function YearlyExpenseDashboard() {
   }, [currentYear]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -374,9 +388,15 @@ export function YearlyExpenseDashboard() {
           fetch(`/api/jars?year=${year}`),
           fetch(`/api/incomes?year=${year}`),
         ]);
+        if (cancelled) {
+          return;
+        }
+
         if (expenseRes.ok) {
           const data = await expenseRes.json();
           setExpenses(data.expenses || []);
+        } else {
+          setExpenses([]);
         }
         if (catRes.ok) {
           const data = await catRes.json();
@@ -388,6 +408,9 @@ export function YearlyExpenseDashboard() {
           const data = await jarRes.json();
           setJars(data.jars || []);
           setUnassignedCategoryIds(data.unassignedCategoryIds || []);
+        } else {
+          setJars([]);
+          setUnassignedCategoryIds([]);
         }
         if (incomeRes.ok) {
           const data = await incomeRes.json();
@@ -397,12 +420,20 @@ export function YearlyExpenseDashboard() {
           setTotalIncome(0);
         }
       } catch (err) {
-        console.error("Failed to fetch data", err);
+        if (!cancelled) {
+          console.error("Failed to fetch data", err);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setHasLoaded(true);
+        }
       }
     };
     fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, [year]);
 
   const categoryMeta = useMemo(() =>
@@ -587,7 +618,7 @@ export function YearlyExpenseDashboard() {
   const chartMax = ticks[0];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 bg-[#fbfbfb] p-6 dark:bg-zinc-950">
+    <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-950">Báo cáo năm {year}</h1>
@@ -608,6 +639,11 @@ export function YearlyExpenseDashboard() {
         </div>
       </div>
 
+      <div className="relative min-h-[28rem]">
+        {isLoading ? <ReportLoadingOverlay label={`Đang tải báo cáo năm ${year}...`} /> : null}
+        {!hasLoaded ? <div className="min-h-[28rem]" /> : null}
+        {hasLoaded ? (
+      <div className={cn("flex flex-col gap-6 transition-opacity duration-300", isLoading && "pointer-events-none select-none opacity-40")}>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3">
@@ -690,9 +726,7 @@ export function YearlyExpenseDashboard() {
             <div>
               <h2 className="font-semibold text-slate-950">Top khoản chi lớn nhất</h2>
               <p className="mt-1 text-sm text-slate-500">
-                {isLoading
-                  ? "Đang tải..."
-                  : `${filteredExpenses.length} khoản${filteredExpenses.length > 0 ? ` · tổng ${currency(filteredTotal)}` : ""}`}
+                {`${filteredExpenses.length} khoản${filteredExpenses.length > 0 ? ` · tổng ${currency(filteredTotal)}` : ""}`}
               </p>
             </div>
             <button
@@ -784,7 +818,7 @@ export function YearlyExpenseDashboard() {
                     aria-label="Chọn tất cả"
                     checked={allVisibleSelected}
                     className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
-                    disabled={isLoading || filteredExpenseIds.length === 0}
+                    disabled={filteredExpenseIds.length === 0}
                     onChange={toggleSelectAllVisible}
                     ref={(input) => {
                       if (input) {
@@ -802,15 +836,7 @@ export function YearlyExpenseDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr>
-                  <td className="px-5 py-10 text-center text-slate-500" colSpan={6}>
-                    Đang tải chi tiêu...
-                  </td>
-                </tr>
-              ) : null}
-              {!isLoading
-                ? filteredExpenses.map((exp) => {
+              {filteredExpenses.map((exp) => {
                     const meta = categoryMeta[exp.category] ?? { label: exp.category, ...fallbackCategoryMeta };
                     const member = memberMeta[exp.member] ?? memberMeta.GIA_DINH;
                     const isSelected = selectedIds.includes(exp.id);
@@ -856,8 +882,7 @@ export function YearlyExpenseDashboard() {
                         </td>
                       </tr>
                     );
-                  })
-                : null}
+                  })}
               {!isLoading && expenses.length === 0 ? (
                 <tr>
                   <td className="px-5 py-10 text-center text-slate-500" colSpan={6}>
@@ -881,6 +906,9 @@ export function YearlyExpenseDashboard() {
           <h2 className="mb-6 font-semibold text-slate-950">Cơ cấu chi tiêu</h2>
           <ExpenseDonut data={categoryData} total={totalExpense} categoryMeta={categoryMeta} />
         </div>
+      </div>
+      </div>
+        ) : null}
       </div>
 
     </div>

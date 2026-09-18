@@ -35,13 +35,43 @@ const JAR_ICONS: Record<string, LucideIcon> = {
   GIVE: Gift,
 };
 
-const JAR_THEME: Record<string, { icon: string; bar: string }> = {
-  NEC: { icon: "bg-indigo-50 text-indigo-600", bar: "bg-indigo-500" },
-  LTSS: { icon: "bg-emerald-50 text-emerald-600", bar: "bg-emerald-500" },
-  EDU: { icon: "bg-amber-50 text-amber-600", bar: "bg-amber-500" },
-  PLAY: { icon: "bg-rose-50 text-rose-600", bar: "bg-rose-500" },
-  FFA: { icon: "bg-sky-50 text-sky-600", bar: "bg-sky-500" },
-  GIVE: { icon: "bg-purple-50 text-purple-600", bar: "bg-purple-500" },
+const JAR_THEME: Record<string, { icon: string; bar: string; card: string; track: string }> = {
+  NEC: {
+    icon: "bg-indigo-50 text-indigo-600",
+    bar: "bg-indigo-500",
+    card: "border-indigo-200/80 bg-indigo-50/70 hover:border-indigo-300",
+    track: "bg-indigo-100/80",
+  },
+  LTSS: {
+    icon: "bg-emerald-50 text-emerald-600",
+    bar: "bg-emerald-500",
+    card: "border-emerald-200/80 bg-emerald-50/70 hover:border-emerald-300",
+    track: "bg-emerald-100/80",
+  },
+  EDU: {
+    icon: "bg-amber-50 text-amber-600",
+    bar: "bg-amber-500",
+    card: "border-amber-200/80 bg-amber-50/70 hover:border-amber-300",
+    track: "bg-amber-100/80",
+  },
+  PLAY: {
+    icon: "bg-rose-50 text-rose-600",
+    bar: "bg-rose-500",
+    card: "border-rose-200/80 bg-rose-50/70 hover:border-rose-300",
+    track: "bg-rose-100/80",
+  },
+  FFA: {
+    icon: "bg-sky-50 text-sky-600",
+    bar: "bg-sky-500",
+    card: "border-sky-200/80 bg-sky-50/70 hover:border-sky-300",
+    track: "bg-sky-100/80",
+  },
+  GIVE: {
+    icon: "bg-purple-50 text-purple-600",
+    bar: "bg-purple-500",
+    card: "border-purple-200/80 bg-purple-50/70 hover:border-purple-300",
+    track: "bg-purple-100/80",
+  },
 };
 
 const MOCK_YEARLY_BUDGET = 20_000_000 * 12;
@@ -241,7 +271,10 @@ export function SixJarsWidget({
           return (
             <div
               key={jar.id}
-              className="rounded-xl border border-zinc-100 bg-zinc-50/60 p-3 transition-all duration-200 hover:border-zinc-300/80 hover:shadow-md"
+              className={cn(
+                "rounded-xl border p-3 transition-all duration-200 hover:shadow-md",
+                theme.card,
+              )}
             >
               <div className="relative pr-8">
                 <button
@@ -268,7 +301,7 @@ export function SixJarsWidget({
                 <span className="text-sm font-medium text-zinc-400"> / {compactCurrency(jar.limitAmount)}</span>
               </p>
 
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100">
+              <div className={cn("mt-2 h-2 overflow-hidden rounded-full", theme.track)}>
                 <div
                   className={cn(
                     "h-full rounded-full transition-all duration-500",

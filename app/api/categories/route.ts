@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const auth = type
     ? type === "INCOME"
       ? await requireApiAccess(request, "income.monthly")
-      : await requireApiAccess(request, "expenses.monthly")
+      : await requireAnyApiAccess(request, ["expenses.monthly", "expenses.yearly"])
     : await requireAnyApiAccess(request, ["income.monthly", "expenses.monthly"]);
 
   if ("response" in auth) return auth.response;

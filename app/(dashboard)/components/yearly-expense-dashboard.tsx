@@ -37,8 +37,60 @@ const defaultCategories: CategoryMeta[] = [
   { id: "Others", label: "Khác", icon: "banknote", badge: "bg-slate-100 text-slate-700 ring-slate-200", chart: "#64748b" },
 ];
 
+const familyMembers: FamilyMember[] = ["GIA_DINH", "CK", "VK", "CON"];
+
+const memberMeta: Record<FamilyMember, { label: string; role: string; badge: string; dot: string }> = {
+  CK: {
+    label: "CK",
+    role: "Chồng",
+    badge: "bg-blue-50 text-blue-700 ring-blue-100",
+    dot: "bg-blue-500",
+  },
+  VK: {
+    label: "VK",
+    role: "Vợ",
+    badge: "bg-pink-50 text-pink-700 ring-pink-100",
+    dot: "bg-pink-500",
+  },
+  CON: {
+    label: "CON",
+    role: "Con",
+    badge: "bg-lime-50 text-lime-700 ring-lime-100",
+    dot: "bg-lime-500",
+  },
+  GIA_DINH: {
+    label: "Gia đình",
+    role: "Gia đình",
+    badge: "bg-orange-50 text-orange-700 ring-orange-100",
+    dot: "bg-orange-500",
+  },
+};
+
+const monthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function inputClass() {
+  return "h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100";
+}
+
+function formatExpenseDateTimeLabel(date: string) {
+  const normalized = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(date)
+    ? date.slice(0, 16)
+    : `${date.slice(0, 10)}T00:00`;
+  const [dayPart, timePart] = normalized.split("T");
+  const [yearPart, month, day] = dayPart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(yearPart, month - 1, day, hour, minute));
 }
 
 function currency(value: number) {
@@ -140,6 +192,10 @@ export function YearlyExpenseDashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryMeta[]>(defaultCategories);
   const [isLoading, setIsLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [monthFilter, setMonthFilter] = useState<"all" | number>("all");
+  const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
+  const [memberFilter, setMemberFilter] = useState<FamilyMember | "all">("all");
 
   const availableYears = useMemo(() => {
     const y = parseInt(currentYear);
@@ -181,7 +237,7 @@ export function YearlyExpenseDashboard() {
     [categories]
   );
 
-  const { totalExpense, averageExpense, highestMonth, monthlyData, categoryData, topExpenses } = useMemo(() => {
+  const { totalExpense, averageExpense, highestMonth, monthlyData, categoryData } = useMemo(() => {
     const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
     const averageExpense = Math.round(totalExpense / 12);
     
@@ -215,10 +271,56 @@ export function YearlyExpenseDashboard() {
       amount: categoryMap[k]
     })).sort((a, b) => b.amount - a.amount);
 
-    const topExpenses = [...expenses].sort((a, b) => b.amount - a.amount).slice(0, 5);
-
-    return { totalExpense, averageExpense, highestMonth, monthlyData, categoryData, topExpenses };
+    return { totalExpense, averageExpense, highestMonth, monthlyData, categoryData };
   }, [expenses]);
+
+  const filteredExpenses = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const monthNumber = monthFilter === "all" ? null : monthFilter;
+
+    return expenses
+      .filter((item) => monthNumber === null || Number(item.date.slice(5, 7)) === monthNumber)
+      .filter((item) => categoryFilter === "all" || item.category === categoryFilter)
+      .filter((item) => memberFilter === "all" || item.member === memberFilter)
+      .filter((item) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        const meta = categoryMeta[item.category] ?? { label: item.category, ...fallbackCategoryMeta };
+        const member = memberMeta[item.member] ?? memberMeta.GIA_DINH;
+
+        return (
+          item.note.toLowerCase().includes(normalizedQuery) ||
+          meta.label.toLowerCase().includes(normalizedQuery) ||
+          member.label.toLowerCase().includes(normalizedQuery) ||
+          member.role.toLowerCase().includes(normalizedQuery)
+        );
+      })
+      .sort((a, b) => {
+        if (b.amount !== a.amount) {
+          return b.amount - a.amount;
+        }
+        const dateCmp = b.date.localeCompare(a.date);
+        if (dateCmp !== 0) {
+          return dateCmp;
+        }
+        return b.id - a.id;
+      });
+  }, [categoryFilter, categoryMeta, expenses, memberFilter, monthFilter, query]);
+
+  const filteredTotal = useMemo(
+    () => filteredExpenses.reduce((sum, item) => sum + item.amount, 0),
+    [filteredExpenses],
+  );
+
+  function handleYearChange(nextYear: string) {
+    setYear(nextYear);
+    setQuery("");
+    setMonthFilter("all");
+    setCategoryFilter("all");
+    setMemberFilter("all");
+  }
 
   const maxMonthAmount = Math.max(...monthlyData.map(d => d.amount), 1);
   const ticks = useMemo(() => calculateTicks(maxMonthAmount, 4), [maxMonthAmount]);
@@ -236,7 +338,7 @@ export function YearlyExpenseDashboard() {
           <select
             id="year-select"
             value={year}
-            onChange={(e) => setYear(e.target.value)}
+            onChange={(e) => handleYearChange(e.target.value)}
             className="h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
           >
             {availableYears.map(y => (
@@ -328,61 +430,139 @@ export function YearlyExpenseDashboard() {
       </div>
 
       {/* Top Expenses */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="font-semibold text-slate-950 mb-6">Top khoản chi lớn nhất</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="pb-3 font-medium">Ngày</th>
-                <th className="pb-3 font-medium">Danh mục</th>
-                <th className="pb-3 font-medium">Ghi chú</th>
-                <th className="pb-3 font-medium text-right">Số tiền</th>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-6">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <h2 className="font-semibold text-slate-950">Top khoản chi lớn nhất</h2>
+            <p className="text-sm text-slate-500">
+              {isLoading
+                ? "Đang tải..."
+                : `${filteredExpenses.length} khoản${filteredExpenses.length > 0 ? ` · tổng ${currency(filteredTotal)}` : ""}`}
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto]">
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <Icon className="h-4 w-4" name="search" />
+              </span>
+              <input
+                aria-label="Tìm khoản chi"
+                className={cn(inputClass(), "w-full pl-9")}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Tìm ghi chú, danh mục..."
+                type="search"
+                value={query}
+              />
+            </div>
+            <select
+              aria-label="Lọc theo tháng"
+              className={cn(inputClass(), "w-full sm:w-40")}
+              onChange={(event) =>
+                setMonthFilter(event.target.value === "all" ? "all" : Number(event.target.value))
+              }
+              value={monthFilter}
+            >
+              <option value="all">Tất cả tháng</option>
+              {monthOptions.map((month) => (
+                <option key={month} value={month}>
+                  Tháng {month}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Lọc theo danh mục"
+              className={cn(inputClass(), "w-full sm:w-44")}
+              onChange={(event) => setCategoryFilter(event.target.value as Category | "all")}
+              value={categoryFilter}
+            >
+              <option value="all">Tất cả danh mục</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Lọc theo người"
+              className={cn(inputClass(), "w-full sm:w-44")}
+              onChange={(event) => setMemberFilter(event.target.value as FamilyMember | "all")}
+              value={memberFilter}
+            >
+              <option value="all">Tất cả người</option>
+              {familyMembers.map((member) => (
+                <option key={member} value={member}>
+                  {memberMeta[member].label} - {memberMeta[member].role}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="max-h-[28rem] overflow-auto">
+          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 shadow-sm">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Ngày</th>
+                <th className="px-5 py-3 font-semibold">Danh mục</th>
+                <th className="px-5 py-3 font-semibold">Người</th>
+                <th className="px-5 py-3 font-semibold">Ghi chú</th>
+                <th className="px-5 py-3 text-right font-semibold">Số tiền</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {topExpenses.map((exp) => {
-                const meta = categoryMeta[exp.category] ?? { label: exp.category, ...fallbackCategoryMeta };
-                return (
-                  <tr key={exp.id} className="transition-colors hover:bg-slate-50/50">
-                    <td className="py-3 text-slate-500">
-                      {(() => {
-                        const normalized = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(exp.date)
-                          ? exp.date.slice(0, 16)
-                          : `${exp.date.slice(0, 10)}T00:00`;
-                        const [dayPart, timePart] = normalized.split("T");
-                        const [year, month, day] = dayPart.split("-").map(Number);
-                        const [hour, minute] = timePart.split(":").map(Number);
-                        return new Intl.DateTimeFormat("vi-VN", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hourCycle: "h23",
-                        }).format(new Date(year, month - 1, day, hour, minute));
-                      })()}
-                    </td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("grid h-6 w-6 place-items-center rounded-md ring-1 ring-inset", meta.badge)}>
-                          <Icon className="h-3.5 w-3.5" name={meta.icon} />
-                        </span>
-                        <span className="font-medium text-slate-900">{meta.label}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 text-slate-600">{exp.note}</td>
-                    <td className="py-3 text-right font-bold text-slate-900">{currency(exp.amount)}</td>
-                  </tr>
-                );
-              })}
-              {topExpenses.length === 0 && (
+              {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="py-6 text-center text-slate-500">
+                  <td className="px-5 py-10 text-center text-slate-500" colSpan={5}>
+                    Đang tải chi tiêu...
+                  </td>
+                </tr>
+              ) : null}
+              {!isLoading
+                ? filteredExpenses.map((exp) => {
+                    const meta = categoryMeta[exp.category] ?? { label: exp.category, ...fallbackCategoryMeta };
+                    const member = memberMeta[exp.member] ?? memberMeta.GIA_DINH;
+                    return (
+                      <tr key={exp.id} className="bg-white transition-colors hover:bg-slate-50/50">
+                        <td className="whitespace-nowrap px-5 py-3 text-slate-500">
+                          {formatExpenseDateTimeLabel(exp.date)}
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={cn("grid h-6 w-6 place-items-center rounded-md ring-1 ring-inset", meta.badge)}>
+                              <Icon className="h-3.5 w-3.5" name={meta.icon} />
+                            </span>
+                            <span className="font-medium text-slate-900">{meta.label}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", member.badge)}>
+                            <span className={cn("h-2 w-2 rounded-full", member.dot)} />
+                            {member.label}
+                          </span>
+                        </td>
+                        <td className="max-w-xs truncate px-5 py-3 text-slate-600">{exp.note}</td>
+                        <td className="whitespace-nowrap px-5 py-3 text-right font-bold text-slate-900">
+                          {currency(exp.amount)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                : null}
+              {!isLoading && expenses.length === 0 ? (
+                <tr>
+                  <td className="px-5 py-10 text-center text-slate-500" colSpan={5}>
                     Không có dữ liệu
                   </td>
                 </tr>
-              )}
+              ) : null}
+              {!isLoading && expenses.length > 0 && filteredExpenses.length === 0 ? (
+                <tr>
+                  <td className="px-5 py-10 text-center text-slate-500" colSpan={5}>
+                    Không tìm thấy chi tiêu phù hợp.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

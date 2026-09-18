@@ -79,7 +79,7 @@ Defined in `lib/menu.ts` as `MenuKey`:
 | `travel.details` | `/travel/details` (Coming Soon) |
 | `admin.users` | `/admin/users` (adminOnly) |
 
-API access should use the same keys (e.g. expenses list → `expenses.monthly`; note yearly income uses `income.yearly` when querying by year — expenses yearly API currently uses monthly key; fix carefully if changing).
+API access should use the same keys (e.g. monthly expenses list → `expenses.monthly`; `GET /api/expenses?year=` accepts `expenses.yearly` or `expenses.monthly`; yearly income uses `income.yearly` when querying by year).
 
 ## Money & dates
 

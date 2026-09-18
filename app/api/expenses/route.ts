@@ -2,16 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { dateFromInput, monthRange, toExpenseResponse, expenseSchema, yearRange } from "./expense-utils";
-import { requireApiAccess } from "@/lib/auth";
+import { requireAnyApiAccess, requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const auth = await requireApiAccess(request, "expenses.monthly");
-  if ("response" in auth) return auth.response;
-
   const month = request.nextUrl.searchParams.get("month");
   const year = request.nextUrl.searchParams.get("year");
+
+  const auth = year
+    ? await requireAnyApiAccess(request, ["expenses.yearly", "expenses.monthly"])
+    : await requireApiAccess(request, "expenses.monthly");
+  if ("response" in auth) return auth.response;
 
   if (!month && !year) {
     return NextResponse.json({ error: "Missing month or year query parameter." }, { status: 400 });

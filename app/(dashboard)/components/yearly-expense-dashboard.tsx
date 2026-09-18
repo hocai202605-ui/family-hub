@@ -292,7 +292,7 @@ function ExpenseDonut({ data, total, categoryMeta }: { data: Array<{ category: C
   );
 }
 
-function MonthBarRow({
+function MonthBarChart({
   data,
   ticks,
   chartMax,
@@ -302,20 +302,23 @@ function MonthBarRow({
   chartMax: number;
 }) {
   return (
-    <div className="flex h-36 w-full gap-2">
-      <div className="flex h-full w-10 shrink-0 flex-col justify-between pb-[1.75rem] text-right text-[10px] font-medium text-slate-400">
-        {ticks.map((t, i) => (
-          <span key={i} className="mt-1 leading-none">
-            {compactCurrency(t)}
+    <div className="flex h-full min-h-[360px] w-full gap-2">
+      <div className="flex h-full w-10 shrink-0 flex-col justify-between pb-6 text-right text-[10px] font-medium text-slate-400">
+        {ticks.map((tick, index) => (
+          <span key={tick} className={cn("leading-none", index === 0 ? "mt-1" : "")}>
+            {compactCurrency(tick)}
           </span>
         ))}
       </div>
-      <div className="relative flex flex-1 items-end justify-between gap-1 pb-6">
-        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between pb-[1.75rem]">
-          {ticks.map((t, i) => (
+      <div className="relative flex min-h-[360px] flex-1 items-end justify-between gap-1 pb-6">
+        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between pb-6">
+          {ticks.map((tick, index) => (
             <div
-              key={i}
-              className={cn("w-full border-t border-slate-200", i === ticks.length - 1 ? "mb-[1px]" : "mt-1.5 border-dashed")}
+              key={tick}
+              className={cn(
+                "w-full border-t border-slate-200",
+                index === ticks.length - 1 ? "mb-px" : "mt-1.5 border-dashed",
+              )}
             />
           ))}
         </div>
@@ -323,12 +326,15 @@ function MonthBarRow({
           const heightPercent = chartMax > 0 ? (item.amount / chartMax) * 100 : 0;
           return (
             <div key={item.month} className="group relative z-10 flex h-full w-full flex-col items-center justify-end">
-              <span className="mb-1 whitespace-nowrap text-[9px] font-bold text-slate-500">
+              <span className="mb-1 whitespace-nowrap text-[9px] font-semibold text-slate-500">
                 {item.amount > 0 ? compactCurrency(item.amount) : ""}
               </span>
               <div
-                className="w-full max-w-[40px] rounded-t-md bg-rose-500 transition-all group-hover:bg-rose-600"
-                style={{ height: `${Math.max(heightPercent, item.amount > 0 ? 2 : 0.5)}%` }}
+                className="w-full max-w-[24px] rounded-t bg-rose-500 transition-all group-hover:bg-rose-600"
+                style={{
+                  height: `${Math.max(heightPercent, item.amount > 0 ? 2 : 0.5)}%`,
+                  borderRadius: "4px 4px 0 0",
+                }}
               >
                 <div className="pointer-events-none absolute -top-10 left-1/2 z-20 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white shadow-md group-hover:block">
                   {currency(item.amount)}
@@ -702,25 +708,26 @@ export function YearlyExpenseDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold text-slate-950">Biểu đồ chi tiêu 12 tháng</h2>
-          <div className="flex flex-col gap-3">
-            <MonthBarRow chartMax={chartMax} data={monthlyData.slice(0, 6)} ticks={ticks} />
-            <MonthBarRow chartMax={chartMax} data={monthlyData.slice(6, 12)} ticks={ticks} />
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+        <div className="flex h-full min-h-[360px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="font-semibold text-slate-950">Biểu đồ chi tiêu 12 tháng</h2>
+          <div className="mt-4 min-h-[360px] flex-1">
+            <MonthBarChart chartMax={chartMax} data={monthlyData} ticks={ticks} />
           </div>
         </div>
 
-        <SixJarsWidget
-          categories={categories.map((category) => ({ id: category.id, label: category.label }))}
-          jars={jars}
-          onSaved={reloadJars}
-          unassignedCategoryIds={unassignedCategoryIds}
-        />
+        <div className="h-full">
+          <SixJarsWidget
+            categories={categories.map((category) => ({ id: category.id, label: category.label }))}
+            jars={jars}
+            onSaved={reloadJars}
+            unassignedCategoryIds={unassignedCategoryIds}
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-8">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+      <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -902,7 +909,7 @@ export function YearlyExpenseDashboard() {
         </div>
       </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-4">
+        <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="mb-6 font-semibold text-slate-950">Cơ cấu chi tiêu</h2>
           <ExpenseDonut data={categoryData} total={totalExpense} categoryMeta={categoryMeta} />
         </div>

@@ -255,7 +255,7 @@ export function SixJarsWidget({
   }
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
+    <div className="flex h-full flex-col justify-between rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
       <div className="mb-4">
         <h2 className="font-semibold text-slate-950">6 chiếc lọ tài chính</h2>
         <p className="mt-1 text-xs text-slate-500">Chi thực tế so với hạn mức năm. Bấm Sửa để đổi tên lọ, hạn mức và danh mục.</p>

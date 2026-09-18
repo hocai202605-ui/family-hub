@@ -7,6 +7,7 @@ export type IconName =
   | "calendar"
   | "check"
   | "chevronRight"
+  | "download"
   | "edit"
   | "flag"
   | "gift"
@@ -106,6 +107,14 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     return (
       <svg {...common}>
         <path d="m9 18 6-6-6-6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === "download") {
+    return (
+      <svg {...common}>
+        <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
       </svg>
     );
   }

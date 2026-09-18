@@ -76,6 +76,97 @@ function inputClass() {
   return "h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100";
 }
 
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function xmlText(value: string) {
+  return escapeXml(value.replace(/\r?\n/g, " ").trim());
+}
+
+function memberExportLabel(member: FamilyMember) {
+  const meta = memberMeta[member] ?? memberMeta.GIA_DINH;
+  return meta.label === meta.role ? meta.label : `${meta.label} - ${meta.role}`;
+}
+
+function stringCell(value: string, styleId?: string) {
+  const style = styleId ? ` ss:StyleID="${styleId}"` : "";
+  return `<Cell${style}><Data ss:Type="String">${xmlText(value)}</Data></Cell>`;
+}
+
+function numberCell(value: number, styleId?: string) {
+  const style = styleId ? ` ss:StyleID="${styleId}"` : "";
+  return `<Cell${style}><Data ss:Type="Number">${value}</Data></Cell>`;
+}
+
+function downloadFilteredExpensesExcel(params: {
+  year: string;
+  monthFilter: "all" | number;
+  categoryLabel: string | null;
+  memberLabel: string | null;
+  query: string;
+  rows: Array<{ date: string; categoryLabel: string; member: FamilyMember; note: string; amount: number }>;
+  total: number;
+}) {
+  const filterParts = [
+    `Năm ${params.year}`,
+    params.monthFilter === "all" ? "Tất cả tháng" : `Tháng ${params.monthFilter}`,
+    params.categoryLabel ? `Danh mục: ${params.categoryLabel}` : "Tất cả danh mục",
+    params.memberLabel ? `Người: ${params.memberLabel}` : "Tất cả người",
+  ];
+  if (params.query.trim()) {
+    filterParts.push(`Tìm: ${params.query.trim()}`);
+  }
+
+  const headerRow = ["Ngày", "Danh mục", "Người", "Ghi chú", "Số tiền"]
+    .map((label) => stringCell(label, "header"))
+    .join("");
+
+  const dataRows = params.rows
+    .map(
+      (row) =>
+        `<Row>${stringCell(formatExpenseDateTimeLabel(row.date))}${stringCell(row.categoryLabel)}${stringCell(memberExportLabel(row.member))}${stringCell(row.note)}${numberCell(row.amount, "vnd")}</Row>`,
+    )
+    .join("");
+
+  const totalRow = `<Row>${stringCell("Tổng", "header")}${stringCell("")}${stringCell("")}${stringCell("")}${numberCell(params.total, "vnd")}</Row>`;
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="header"><Font ss:Bold="1"/></Style>
+  <Style ss:ID="vnd"><NumberFormat ss:Format="#,##0"/></Style>
+ </Styles>
+ <Worksheet ss:Name="Khoan chi">
+  <Table>
+   <Row>${stringCell(`Báo cáo chi tiêu năm ${params.year}`, "header")}</Row>
+   <Row>${stringCell(filterParts.join(" · "))}</Row>
+   <Row></Row>
+   <Row>${headerRow}</Row>
+   ${dataRows}
+   ${totalRow}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+  const monthPart = params.monthFilter === "all" ? "" : `-thang-${params.monthFilter}`;
+  const blob = new Blob(["\uFEFF", xml], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `chi-tieu-${params.year}${monthPart}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function formatExpenseDateTimeLabel(date: string) {
   const normalized = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(date)
     ? date.slice(0, 16)
@@ -322,6 +413,30 @@ export function YearlyExpenseDashboard() {
     setMemberFilter("all");
   }
 
+  function handleExportExcel() {
+    if (isLoading || filteredExpenses.length === 0) {
+      return;
+    }
+
+    const selectedCategory = categoryFilter === "all" ? null : categoryMeta[categoryFilter];
+
+    downloadFilteredExpensesExcel({
+      year,
+      monthFilter,
+      categoryLabel: selectedCategory?.label ?? (categoryFilter === "all" ? null : categoryFilter),
+      memberLabel: memberFilter === "all" ? null : memberExportLabel(memberFilter),
+      query,
+      rows: filteredExpenses.map((item) => ({
+        date: item.date,
+        categoryLabel: (categoryMeta[item.category] ?? { label: item.category }).label,
+        member: item.member,
+        note: item.note,
+        amount: item.amount,
+      })),
+      total: filteredTotal,
+    });
+  }
+
   const maxMonthAmount = Math.max(...monthlyData.map(d => d.amount), 1);
   const ticks = useMemo(() => calculateTicks(maxMonthAmount, 4), [maxMonthAmount]);
   const chartMax = ticks[0];
@@ -432,13 +547,24 @@ export function YearlyExpenseDashboard() {
       {/* Top Expenses */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-100 p-6">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <h2 className="font-semibold text-slate-950">Top khoản chi lớn nhất</h2>
-            <p className="text-sm text-slate-500">
-              {isLoading
-                ? "Đang tải..."
-                : `${filteredExpenses.length} khoản${filteredExpenses.length > 0 ? ` · tổng ${currency(filteredTotal)}` : ""}`}
-            </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-slate-950">Top khoản chi lớn nhất</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {isLoading
+                  ? "Đang tải..."
+                  : `${filteredExpenses.length} khoản${filteredExpenses.length > 0 ? ` · tổng ${currency(filteredTotal)}` : ""}`}
+              </p>
+            </div>
+            <button
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition hover:bg-slate-50 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 disabled:pointer-events-none disabled:opacity-60 sm:w-auto"
+              disabled={isLoading || filteredExpenses.length === 0}
+              onClick={handleExportExcel}
+              type="button"
+            >
+              <Icon className="h-4 w-4" name="download" />
+              Xuất Excel
+            </button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto]">

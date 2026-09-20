@@ -30,7 +30,7 @@ function logHasContent(params: {
  * Year-wide totals for the calendar yearly report.
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireAnyApiAccess(request, ["calendar.yearly", "calendar"]);
+  const auth = await requireAnyApiAccess(request, ["calendar.yearly", "calendar", "calendar.events"]);
   if ("response" in auth) return auth.response;
 
   try {

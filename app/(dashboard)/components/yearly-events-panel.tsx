@@ -16,6 +16,21 @@ import { Icon } from "./icons";
 
 const COLOR_PRESETS = ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#6B7280", "#10B981", "#F43F5E", "#0EA5E9"];
 
+const MONTH_THEMES = [
+  { card: "border-rose-200 from-rose-50", head: "bg-rose-500", weekday: "text-rose-400", lunar: "text-rose-400", today: "bg-rose-100" },
+  { card: "border-orange-200 from-orange-50", head: "bg-orange-500", weekday: "text-orange-400", lunar: "text-orange-400", today: "bg-orange-100" },
+  { card: "border-amber-200 from-amber-50", head: "bg-amber-500", weekday: "text-amber-500", lunar: "text-amber-500", today: "bg-amber-100" },
+  { card: "border-lime-200 from-lime-50", head: "bg-lime-600", weekday: "text-lime-500", lunar: "text-lime-500", today: "bg-lime-100" },
+  { card: "border-emerald-200 from-emerald-50", head: "bg-emerald-600", weekday: "text-emerald-400", lunar: "text-emerald-500", today: "bg-emerald-100" },
+  { card: "border-teal-200 from-teal-50", head: "bg-teal-600", weekday: "text-teal-400", lunar: "text-teal-500", today: "bg-teal-100" },
+  { card: "border-sky-200 from-sky-50", head: "bg-sky-500", weekday: "text-sky-400", lunar: "text-sky-500", today: "bg-sky-100" },
+  { card: "border-indigo-200 from-indigo-50", head: "bg-indigo-500", weekday: "text-indigo-400", lunar: "text-indigo-400", today: "bg-indigo-100" },
+  { card: "border-violet-200 from-violet-50", head: "bg-violet-500", weekday: "text-violet-400", lunar: "text-violet-400", today: "bg-violet-100" },
+  { card: "border-fuchsia-200 from-fuchsia-50", head: "bg-fuchsia-500", weekday: "text-fuchsia-400", lunar: "text-fuchsia-400", today: "bg-fuchsia-100" },
+  { card: "border-pink-200 from-pink-50", head: "bg-pink-500", weekday: "text-pink-400", lunar: "text-pink-400", today: "bg-pink-100" },
+  { card: "border-red-200 from-red-50", head: "bg-red-500", weekday: "text-red-400", lunar: "text-red-400", today: "bg-red-100" },
+] as const;
+
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -80,6 +95,13 @@ export function YearlyEventsPanel({
   useEffect(() => {
     setLocalCategories(categories);
   }, [categories]);
+
+  useEffect(() => {
+    setMonthFilter("all");
+    setHighlightDay(null);
+    setQuery("");
+    setCategoryFilter("all");
+  }, [year]);
 
   const categoryList = localCategories.length > 0 ? localCategories : categories;
 
@@ -248,24 +270,18 @@ export function YearlyEventsPanel({
 
   return (
     <section className="flex flex-col gap-4">
-      <div>
-        <p className="text-sm font-semibold text-sky-700">Sự kiện gia đình</p>
-        <h2 className="mt-1 text-2xl font-bold text-slate-950">Sự kiện năm {year}</h2>
-        <p className="mt-1 text-sm text-slate-500">Lọc, thêm và theo dõi sự kiện trên lịch 12 tháng. Sự kiện cũ mặc định là Khác — mở card để chọn lại danh mục.</p>
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-3">
         <MiniStat label="Tổng sự kiện" value={String(kpis.total)} hint="Trong năm đang chọn" tone="sky" />
         <MiniStat label="Đã diễn ra" value={String(kpis.occurred)} hint="Ngày trước hôm nay" tone="slate" />
         <MiniStat label="Sắp tới 30 ngày" value={String(kpis.upcoming)} hint="Từ hôm nay đến 30 ngày" tone="amber" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               <select
-                className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm"
                 onChange={(event) => {
                   const value = event.target.value;
                   setMonthFilter(value === "all" ? "all" : Number(value));
@@ -281,14 +297,14 @@ export function YearlyEventsPanel({
                 ))}
               </select>
               <input
-                className="h-9 min-w-[10rem] flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Tìm tiêu đề hoặc ghi chú"
                 type="search"
                 value={query}
               />
               <button
-                className="inline-flex h-9 items-center gap-1 rounded-md bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
+                className="inline-flex h-9 w-full items-center justify-center gap-1 rounded-md bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
                 onClick={() => openCreate(highlightDay ?? undefined)}
                 type="button"
               >
@@ -325,7 +341,7 @@ export function YearlyEventsPanel({
             </div>
           </div>
 
-          <div className="mt-4 max-h-[36rem] space-y-4 overflow-y-auto pr-1">
+          <div className="mt-4 max-h-[min(70vh,52rem)] space-y-4 overflow-y-auto pr-1">
             {grouped.length === 0 ? (
               <p className="py-10 text-center text-sm text-slate-500">Không có sự kiện khớp bộ lọc.</p>
             ) : (
@@ -385,57 +401,89 @@ export function YearlyEventsPanel({
           </div>
         </div>
 
-        <div className="max-h-[44rem] space-y-3 overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2">
           {Array.from({ length: 12 }, (_, index) => {
             const month = index + 1;
             const monthKey = `${year}-${String(month).padStart(2, "0")}`;
             const cells = buildMonthCells(monthKey);
+            const theme = MONTH_THEMES[index];
             const monthActive = monthFilter === month;
             return (
               <div
-                className={cn("rounded-md border p-2", monthActive ? "border-amber-300 bg-amber-50/40" : "border-slate-100")}
+                className={cn(
+                  "rounded-xl border bg-gradient-to-b to-white p-2.5 shadow-sm",
+                  theme.card,
+                  monthActive && "ring-2 ring-slate-900/15",
+                )}
                 key={monthKey}
               >
                 <button
-                  className="mb-1 w-full text-left text-xs font-bold text-slate-800 hover:text-amber-800"
+                  className={cn(
+                    "mb-2 flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-white shadow-sm",
+                    theme.head,
+                  )}
                   onClick={() => clickMonth(month)}
                   type="button"
                 >
-                  Tháng {month}
+                  <span className="text-xs font-bold tracking-wide">Tháng {month}</span>
+                  <span className="text-[10px] font-semibold text-white/80">{year}</span>
                 </button>
-                <div className="grid grid-cols-7 gap-0.5 text-center text-[9px] font-semibold text-slate-400">
+                <div className={cn("grid grid-cols-7 gap-px text-center text-[9px] font-bold", theme.weekday)}>
                   {WEEKDAY_HEADERS.map((day) => (
-                    <div key={day}>{day}</div>
+                    <div className="py-0.5" key={day}>
+                      {day}
+                    </div>
                   ))}
                 </div>
-                <div className="mt-0.5 grid grid-cols-7 gap-0.5">
+                <div className="mt-0.5 grid grid-cols-7 gap-px">
                   {cells.map((cell) => {
                     const dayEvents = eventsByDate.get(cell.dateKey) ?? [];
                     const selected = highlightDay === cell.dateKey;
+                    const isToday = cell.dateKey === today;
+                    const hasEvents = cell.inMonth && dayEvents.length > 0;
+                    const eventColor = dayEvents[0]?.category?.color || "#0f172a";
                     return (
                       <button
                         className={cn(
-                          "relative min-h-[1.7rem] rounded px-0.5 py-0.5 text-[10px] leading-none",
-                          !cell.inMonth && "opacity-30",
-                          selected ? "bg-amber-200 font-bold" : cell.dateKey === today ? "bg-sky-50 font-semibold" : "hover:bg-slate-50",
+                          "flex min-h-[2.45rem] flex-col items-center justify-center rounded-md px-0 py-0.5 transition",
+                          !cell.inMonth && "opacity-25",
+                          cell.inMonth && !hasEvents && !selected && "hover:bg-white/70",
+                          selected && "bg-white/90 shadow-sm",
+                          isToday && !hasEvents && !selected && theme.today,
                         )}
                         key={cell.dateKey}
                         onClick={() => clickDay(cell.dateKey, cell.inMonth, month)}
-                        title={dayEvents.map((item) => item.text).join(" · ") || undefined}
+                        title={
+                          [
+                            cell.inMonth ? `Âm lịch ${cell.lunarLabel}` : "",
+                            ...dayEvents.map((item) => item.text),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || undefined
+                        }
                         type="button"
                       >
-                        {cell.solarDay}
-                        {dayEvents.length > 0 ? (
-                          <span className="mt-0.5 flex justify-center gap-0.5">
-                            {dayEvents.slice(0, 3).map((item) => (
-                              <span
-                                className="h-1 w-1 rounded-full"
-                                key={item.id}
-                                style={{ backgroundColor: item.category?.color || "#6B7280" }}
-                              />
-                            ))}
-                          </span>
-                        ) : null}
+                        <span
+                          className={cn(
+                            "grid h-[1.35rem] w-[1.35rem] place-items-center text-[11px] font-bold leading-none",
+                            hasEvents || selected || isToday ? "rounded-full" : "rounded",
+                            selected && !hasEvents && "bg-slate-900 text-white",
+                          )}
+                          style={
+                            hasEvents
+                              ? {
+                                  color: "#0f172a",
+                                  backgroundColor: `${eventColor}24`,
+                                  boxShadow: `inset 0 0 0 1.5px ${eventColor}${selected ? "ff" : "cc"}`,
+                                }
+                              : undefined
+                          }
+                        >
+                          {cell.solarDay}
+                        </span>
+                        <span className={cn("mt-0.5 text-[8px] font-medium leading-none", theme.lunar)}>
+                          {cell.inMonth ? cell.lunarLabel : ""}
+                        </span>
                       </button>
                     );
                   })}

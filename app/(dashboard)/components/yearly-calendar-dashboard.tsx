@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchGrowthYear, type GrowthYearResponse } from "@/lib/growth-api";
 import { vietnamToday } from "@/lib/vietnam-date";
 import { Icon } from "./icons";
-import { YearlyEventsPanel } from "./yearly-events-panel";
 
 type FamilyMember = "CK" | "VK" | "CON";
 type HabitColor = "amber" | "emerald" | "sky" | "violet" | "rose" | "slate";
@@ -94,9 +93,9 @@ export function YearlyCalendarDashboard({ defaultMember }: { defaultMember: Fami
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-amber-700">Lịch & Sự kiện</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Sự kiện & Báo cáo năm {year}</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Báo cáo năm {year}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Thói quen theo năm ở trên, quản lý sự kiện gia đình ở dưới.
+              Tổng hợp thói quen, nhật ký ngày và kế hoạch trong cả năm.
             </p>
             {loadError ? <p className="mt-2 text-sm font-semibold text-rose-600">{loadError}</p> : null}
             {isLoading ? <p className="mt-2 text-sm font-medium text-slate-500">Đang tải báo cáo năm…</p> : null}
@@ -250,13 +249,6 @@ export function YearlyCalendarDashboard({ defaultMember }: { defaultMember: Fami
           </table>
         </div>
       </section>
-
-      <YearlyEventsPanel
-        categories={data.categories ?? []}
-        events={data.events ?? []}
-        onChanged={() => void load()}
-        year={year}
-      />
     </div>
   );
 }

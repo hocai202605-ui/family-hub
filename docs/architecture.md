@@ -30,7 +30,7 @@ Browser
 | `app/(dashboard)/income/` | Monthly income + `yearly/` |
 | `app/(dashboard)/investments/` | Investments UI |
 | `app/(dashboard)/admin/users/` | User management (admin) |
-| `app/(dashboard)/calendar/` | Daily habits + weekly log; `yearly/` habit report + events year grid |
+| `app/(dashboard)/calendar/` | Daily habits + weekly log; `yearly/` habit report; `events/` family events |
 | `app/(dashboard)/goals|health|parenting/` | Coming-soon placeholders |
 | `app/(dashboard)/travel/` | Travel map overview; `details/` coming soon |
 | `app/api/travel/` | Province visits + destination flags |
@@ -74,7 +74,7 @@ Browser
 | Income monthly/yearly UI + API | Done |
 | Investments + gold/CCQ price proxy | Done |
 | Overview as true family summary | Partial (reuses expenses UI) |
-| Calendar (habits + daily log) | `/calendar` live API; `/calendar/yearly` habit KPIs + household events |
+| Calendar (habits + daily log) | `/calendar` live API; `/calendar/yearly` habit KPIs; `/calendar/events` household events |
 | Goals / health / parenting | Scaffold only (`ComingSoonModule`) |
 | Travel overview (`/travel`) | SVG map of 34 provinces + destination flags; household-wide |
 | Travel details (`/travel/details`) | Scaffold only (`ComingSoonModule`) |

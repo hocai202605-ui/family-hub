@@ -6,7 +6,7 @@ import { dateFromKey, toEventResponse, updateEventSchema } from "../../growth-ut
 
 export const dynamic = "force-dynamic";
 
-const CALENDAR_KEYS = ["calendar", "calendar.yearly"] as const;
+const CALENDAR_KEYS = ["calendar", "calendar.yearly", "calendar.events"] as const;
 
 type Params = { params: { id: string } };
 

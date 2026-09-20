@@ -130,6 +130,11 @@ export async function fetchGrowthYear(year: string, member: GrowthMember) {
   return parseJson<GrowthYearResponse>(response);
 }
 
+export async function fetchGrowthEventsYear(year: string) {
+  const response = await fetch(`/api/growth/events?year=${encodeURIComponent(year)}`);
+  return parseJson<{ year: string; categories: GrowthEventCategory[]; events: GrowthEvent[] }>(response);
+}
+
 export async function apiCreateHabit(body: {
   member: GrowthMember;
   month: string;

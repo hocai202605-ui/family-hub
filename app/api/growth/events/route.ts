@@ -13,7 +13,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const CALENDAR_KEYS = ["calendar", "calendar.yearly"] as const;
+const CALENDAR_KEYS = ["calendar", "calendar.yearly", "calendar.events"] as const;
 
 export async function GET(request: NextRequest) {
   const auth = await requireAnyApiAccess(request, [...CALENDAR_KEYS]);

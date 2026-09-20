@@ -2,6 +2,8 @@
 
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { vietnamCurrentMonth, vietnamToday } from "@/lib/vietnam-date";
+import { formatDisplayDate } from "@/lib/display-date";
+import { DateField } from "./date-field";
 import { Icon, IconName } from "./icons";
 
 type Category = string;
@@ -222,11 +224,7 @@ function moneyInVietnamese(value: string) {
 }
 
 function dateLabel(date: string) {
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00`));
+  return formatDisplayDate(date);
 }
 
 function isSelectedMonth(date: string, selectedMonth: string) {
@@ -1197,7 +1195,7 @@ export function IncomeDashboard({
             </div>
 
             <Field id="date" label="Ngày nhận">
-              <input className={inputClass()} id="date" onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} required type="date" value={form.date} />
+              <DateField className={inputClass()} id="date" onChange={(next) => setForm((current) => ({ ...current, date: next }))} required value={form.date} />
             </Field>
 
             <Field id="note" label="Ghi chú">

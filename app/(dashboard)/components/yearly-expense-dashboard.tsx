@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { vietnamCurrentMonth } from "@/lib/vietnam-date";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/display-date";
 import { Icon, IconName } from "./icons";
 import { SixJarsWidget, type SixJarView } from "./six-jars-widget";
 
@@ -173,27 +174,11 @@ function formatExpenseDateTimeLabel(date: string) {
   const normalized = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(date)
     ? date.slice(0, 16)
     : `${date.slice(0, 10)}T00:00`;
-  const [dayPart, timePart] = normalized.split("T");
-  const [yearPart, month, day] = dayPart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date(yearPart, month - 1, day, hour, minute));
+  return formatDisplayDateTime(normalized);
 }
 
 function formatExpenseDateLabel(date: string) {
-  const dayPart = date.slice(0, 10);
-  const [yearPart, month, day] = dayPart.split("-").map(Number);
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(yearPart, month - 1, day));
+  return formatDisplayDate(date);
 }
 
 function currency(value: number) {

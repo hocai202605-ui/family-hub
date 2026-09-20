@@ -5,6 +5,8 @@ import { MAP_VIEWBOX } from "@/lib/travel/map-view";
 import { provinceName, TRAVEL_PROVINCES } from "@/lib/travel/provinces";
 import { provincePaths } from "@/lib/travel/vietnam-34-paths";
 import { vietnamToday } from "@/lib/vietnam-date";
+import { formatDisplayDate } from "@/lib/display-date";
+import { DateField } from "./date-field";
 import { Icon } from "./icons";
 
 type Visit = {
@@ -47,9 +49,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 function dateLabel(value: string) {
-  const [y, m, d] = value.split("-");
-  if (!y || !m || !d) return value;
-  return `${d}/${m}/${y}`;
+  return formatDisplayDate(value);
 }
 
 export function TravelOverviewDashboard() {
@@ -424,11 +424,10 @@ export function TravelOverviewDashboard() {
                 <form className="mt-4 space-y-3" onSubmit={saveVisit}>
                   <label className="block text-xs font-semibold text-slate-600">
                     Ngày đã đến
-                    <input
+                    <DateField
                       className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                      onChange={(event) => setVisitDate(event.target.value)}
+                      onChange={setVisitDate}
                       required
-                      type="date"
                       value={visitDate}
                     />
                   </label>
@@ -488,11 +487,10 @@ export function TravelOverviewDashboard() {
                 </label>
                 <label className="block text-xs font-semibold text-slate-600">
                   Ngày đã đến
-                  <input
+                  <DateField
                     className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                    onChange={(event) => setFlagDate(event.target.value)}
+                    onChange={setFlagDate}
                     required
-                    type="date"
                     value={flagDate}
                   />
                 </label>

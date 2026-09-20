@@ -39,6 +39,18 @@ export function dateFromInput(date: string) {
   return new Date(`${date}T00:00:00.000Z`);
 }
 
+export function yearRange(year: string) {
+  if (!/^\d{4}$/.test(year)) {
+    return null;
+  }
+
+  const yearNumber = Number(year);
+  const start = new Date(Date.UTC(yearNumber, 0, 1));
+  const end = new Date(Date.UTC(yearNumber + 1, 0, 1));
+
+  return { start, end };
+}
+
 export function formatInvestmentDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }

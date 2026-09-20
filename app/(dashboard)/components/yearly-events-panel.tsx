@@ -12,6 +12,7 @@ import {
 import { buildMonthCells, WEEKDAY_HEADERS } from "@/lib/calendar-month";
 import { lunarFullLabelFromDateKey, lunarLabelFromDateKey } from "@/lib/lunar-date";
 import { vietnamToday } from "@/lib/vietnam-date";
+import { DateField } from "./date-field";
 import { Icon } from "./icons";
 
 const COLOR_PRESETS = ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#6B7280", "#10B981", "#F43F5E", "#0EA5E9"];
@@ -507,10 +508,9 @@ export function YearlyEventsPanel({
 
             <label className="mt-4 block text-xs font-semibold text-slate-600">
               Ngày
-              <input
+              <DateField
                 className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm"
-                onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
-                type="date"
+                onChange={(next) => setForm((current) => ({ ...current, date: next }))}
                 value={form.date}
               />
             </label>

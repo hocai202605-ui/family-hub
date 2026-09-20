@@ -3,6 +3,8 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { readMoney } from "@/app/utils/read-money";
 import { vietnamToday } from "@/lib/vietnam-date";
+import { formatDisplayDate } from "@/lib/display-date";
+import { DateField } from "./date-field";
 import { Icon, IconName } from "./icons";
 
 type AssetType =
@@ -142,6 +144,10 @@ function formatQuantity(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 6, useGrouping: false });
 }
 
+function formatQtyVi(value: number) {
+  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 4 }).format(value);
+}
+
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text.trim()) return null;
@@ -271,11 +277,7 @@ function formatShortCurrency(value: number) {
 }
 
 function dateLabel(date: string) {
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${date}T00:00:00`));
+  return formatDisplayDate(date);
 }
 
 function Card({ children, className }: { children: ReactNode; className?: string }) {
@@ -459,12 +461,14 @@ function InvestmentDonut({
   data,
   total,
 }: {
-  data: Array<{ type: AssetType; amount: number }>;
+  data: Array<{ type: AssetType; amount: number; quantity?: number }>;
   total: number;
 }) {
   const radius = 64;
   const circumference = 2 * Math.PI * radius;
   const sumOfAmounts = data.reduce((sum, item) => sum + item.amount, 0);
+  const totalQuantity = data.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
+  const allFund = data.length > 0 && data.every((item) => isFundType(item.type));
   let offset = 0;
 
   return (
@@ -497,6 +501,9 @@ function InvestmentDonut({
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tài sản ròng</p>
             <p className="mt-1 text-sm font-bold text-slate-950">{currency(total)}</p>
+            {allFund && totalQuantity > 0 ? (
+              <p className="mt-0.5 text-[11px] font-semibold text-indigo-700">{formatQtyVi(totalQuantity)} CCQ</p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -505,6 +512,14 @@ function InvestmentDonut({
         {data.map((item) => {
           const percent = sumOfAmounts ? Math.round((item.amount / sumOfAmounts) * 100) : 0;
           const meta = assetMeta[item.type];
+          const qtyHint =
+            item.quantity && item.quantity > 0
+              ? isFundType(item.type)
+                ? `${formatQtyVi(item.quantity)} CCQ`
+                : item.type === "GOLD"
+                  ? `${formatQtyVi(item.quantity)} chỉ`
+                  : null
+              : null;
           return (
             <div key={item.type}>
               <div className="flex items-center justify-between gap-3 text-sm">
@@ -514,6 +529,12 @@ function InvestmentDonut({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-slate-700">{formatShortCurrency(item.amount)}</span>
+                  {qtyHint ? (
+                    <>
+                      <span className="text-slate-400">·</span>
+                      <span className="font-semibold text-slate-600">{qtyHint}</span>
+                    </>
+                  ) : null}
                   <span className="text-slate-400">·</span>
                   <span className="text-slate-500">{percent}%</span>
                 </div>
@@ -790,6 +811,7 @@ function GoldRightPanel({ categoryAssets }: { categoryAssets: Investment[] }) {
 
   const totalCost = categoryAssets.reduce((sum, inv) => sum + inv.purchasePrice * inv.quantity, 0);
   const totalPresent = categoryAssets.reduce((sum, inv) => sum + assetPresentValue(inv), 0);
+  const totalChi = categoryAssets.reduce((sum, inv) => sum + inv.quantity, 0);
   const totalProfit = totalPresent - totalCost;
   const costPercent = totalPresent > 0 ? Math.round((totalCost / totalPresent) * 100) : 0;
   const profitPercent = totalPresent > 0 ? 100 - costPercent : 0;
@@ -840,11 +862,21 @@ function GoldRightPanel({ categoryAssets }: { categoryAssets: Investment[] }) {
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tổng giá trị</p>
                   <p className="mt-0.5 text-xs font-bold text-slate-950">{formatShortCurrency(totalPresent)}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-amber-700">{formatQtyVi(totalChi)} chỉ</p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <div className="flex items-center gap-2 font-medium text-slate-800">
+                    <span className="h-3 w-3 rounded-sm bg-amber-400" />
+                    Số chỉ
+                  </div>
+                  <span className="text-xs font-semibold text-amber-800">{formatQtyVi(totalChi)} chỉ</span>
+                </div>
+              </div>
               {/* Cost row */}
               <div>
                 <div className="flex items-center justify-between gap-2 text-sm">
@@ -2029,7 +2061,7 @@ export function InvestmentDashboard() {
           </select>
         </Field>
         <Field id="date" label="Ngày mua/bắt đầu">
-          <input className={inputClass()} id="date" onChange={(e) => setForm((c) => ({ ...c, date: e.target.value }))} required type="date" value={form.date} />
+          <DateField className={inputClass()} id="date" onChange={(next) => setForm((c) => ({ ...c, date: next }))} required value={form.date} />
         </Field>
       </div>
     );
@@ -2183,10 +2215,15 @@ export function InvestmentDashboard() {
     const categoryTotalAssets = categoryAssets.reduce((sum, inv) => sum + assetPresentValue(inv), 0);
     const categoryAssetsByType = Object.entries(
       categoryAssets.reduce((acc, inv) => {
-        acc[inv.type] = (acc[inv.type] || 0) + Math.abs(assetPresentValue(inv));
+        const current = acc[inv.type] ?? { amount: 0, quantity: 0 };
+        current.amount += Math.abs(assetPresentValue(inv));
+        current.quantity += inv.quantity;
+        acc[inv.type] = current;
         return acc;
-      }, {} as Record<string, number>)
-    ).map(([type, amount]) => ({ type: type as AssetType, amount })).sort((a, b) => b.amount - a.amount);
+      }, {} as Record<string, { amount: number; quantity: number }>),
+    )
+      .map(([type, row]) => ({ type: type as AssetType, amount: row.amount, quantity: row.quantity }))
+      .sort((a, b) => b.amount - a.amount);
 
     return (
       <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr] items-start">

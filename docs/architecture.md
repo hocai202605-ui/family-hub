@@ -28,7 +28,7 @@ Browser
 | `app/(dashboard)/overview/` | Overview (currently reuses expense dashboard) |
 | `app/(dashboard)/expenses/` | Monthly expenses + `yearly/` |
 | `app/(dashboard)/income/` | Monthly income + `yearly/` |
-| `app/(dashboard)/investments/` | Investments UI |
+| `app/(dashboard)/investments/` | Asset list; `yearly/` yearly allocation vs income |
 | `app/(dashboard)/admin/users/` | User management (admin) |
 | `app/(dashboard)/calendar/` | Daily habits + weekly log; `yearly/` habit report; `events/` family events |
 | `app/(dashboard)/goals|health|parenting/` | Coming-soon placeholders |

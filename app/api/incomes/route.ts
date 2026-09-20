@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const month = request.nextUrl.searchParams.get("month");
   const year = request.nextUrl.searchParams.get("year");
   const auth = year
-    ? await requireAnyApiAccess(request, ["income.yearly", "income.monthly", "expenses.yearly"])
+    ? await requireAnyApiAccess(request, ["income.yearly", "income.monthly", "expenses.yearly", "investments.yearly"])
     : await requireApiAccess(request, "income.monthly");
   if ("response" in auth) return auth.response;
 

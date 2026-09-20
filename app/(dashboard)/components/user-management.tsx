@@ -47,7 +47,10 @@ const menuOptions = navItems.flatMap((item) => {
 
 function formatDate(value: string | null) {
   if (!value) return "Chua dang nhap";
-  return new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function uniquePermissions(permissions: string[]) {

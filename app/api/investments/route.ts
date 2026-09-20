@@ -1,16 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auditUsername } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { dateFromInput, toInvestmentResponse, investmentSchema } from "./investment-utils";
-import { requireApiAccess } from "@/lib/auth";
+import { dateFromInput, toInvestmentResponse, investmentSchema, yearRange } from "./investment-utils";
+import { requireAnyApiAccess, requireApiAccess } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const auth = await requireApiAccess(request, "investments");
+  const year = request.nextUrl.searchParams.get("year");
+  const auth = year
+    ? await requireAnyApiAccess(request, ["investments.yearly", "investments"])
+    : await requireApiAccess(request, "investments");
   if ("response" in auth) return auth.response;
 
+  const range = year ? yearRange(year) : null;
+  if (year && !range) {
+    return NextResponse.json({ error: "Invalid year format." }, { status: 400 });
+  }
+
   const investments = await prisma.investment.findMany({
+    where: range
+      ? {
+          date: {
+            gte: range.start,
+            lt: range.end,
+          },
+        }
+      : undefined,
     orderBy: [{ date: "desc" }, { id: "desc" }],
   });
 

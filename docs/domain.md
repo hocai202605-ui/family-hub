@@ -74,7 +74,8 @@ Defined in `lib/menu.ts` as `MenuKey`:
 | `expenses.yearly` | `/expenses/yearly` |
 | `income.monthly` | `/income` |
 | `income.yearly` | `/income/yearly` |
-| `investments` | `/investments` |
+| `investments` | `/investments` (danh mục tài sản) |
+| `investments.yearly` | `/investments/yearly` (báo cáo năm: cơ cấu vốn tháng + % thu nhập) |
 | `calendar` | `/calendar` (lịch hằng ngày: thói quen + nhật ký + sự kiện tháng) |
 | `calendar.yearly` | `/calendar/yearly` (báo cáo thói quen / nhật ký / kế hoạch theo năm) |
 | `calendar.events` | `/calendar/events` (sự kiện gia đình, lịch 12 tháng) |
@@ -85,7 +86,7 @@ Defined in `lib/menu.ts` as `MenuKey`:
 | `travel.details` | `/travel/details` (Coming Soon) |
 | `admin.users` | `/admin/users` (adminOnly) |
 
-API access should use the same keys (e.g. monthly expenses list → `expenses.monthly`; `GET /api/expenses?year=` accepts `expenses.yearly` or `expenses.monthly`; `GET /api/incomes?year=` accepts `income.yearly`, `income.monthly`, or `expenses.yearly` so the yearly expense report can show total income). Growth events/categories accept `calendar`, `calendar.yearly`, or `calendar.events`. Event categories live in `GrowthEventCategory` (not finance `Category`); existing events backfill to system category `other` (Khác).
+API access should use the same keys (e.g. monthly expenses list → `expenses.monthly`; `GET /api/expenses?year=` accepts `expenses.yearly` or `expenses.monthly`; `GET /api/incomes?year=` accepts `income.yearly`, `income.monthly`, `expenses.yearly`, or `investments.yearly` so yearly reports can show total income). `GET /api/investments?year=` accepts `investments.yearly` or `investments`. Growth events/categories accept `calendar`, `calendar.yearly`, or `calendar.events`. Event categories live in `GrowthEventCategory` (not finance `Category`); existing events backfill to system category `other` (Khác).
 
 ## Money & dates
 

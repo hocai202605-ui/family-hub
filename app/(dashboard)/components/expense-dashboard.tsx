@@ -2,6 +2,8 @@
 
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { vietnamCurrentMonth, vietnamNowDateTime } from "@/lib/vietnam-date";
+import { formatDisplayDateTime } from "@/lib/display-date";
+import { DateTimeField } from "./date-field";
 import { Icon, IconName } from "./icons";
 
 type Category = string;
@@ -265,19 +267,7 @@ function moneyInVietnamese(value: string) {
 }
 
 function dateLabel(date: string) {
-  const normalized = toDateTimeLocalValue(date);
-  const [dayPart, timePart] = normalized.split("T");
-  const [year, month, day] = dayPart.split("-").map(Number);
-  const [hour, minute] = (timePart ?? "00:00").split(":").map(Number);
-
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date(year, month - 1, day, hour, minute));
+  return formatDisplayDateTime(toDateTimeLocalValue(date));
 }
 
 function isSelectedMonth(date: string, selectedMonth: string) {
@@ -1443,12 +1433,11 @@ export function ExpenseDashboard({
 
               <div className="grid gap-2 text-sm font-medium text-slate-700">
                 <span className="flex h-5 items-center">Ngày phát sinh</span>
-                <input
+                <DateTimeField
                   className={cn(inputClass(), "w-full min-w-0")}
                   id="date"
-                  onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+                  onChange={(next) => setForm((current) => ({ ...current, date: next }))}
                   required
-                  type="datetime-local"
                   value={form.date}
                 />
               </div>

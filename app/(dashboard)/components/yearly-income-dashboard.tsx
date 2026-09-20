@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatDisplayDate } from "@/lib/display-date";
 import { Icon, IconName } from "./icons";
 
 type Category = string;
@@ -459,7 +460,7 @@ export function YearlyIncomeDashboard() {
                 return (
                   <tr key={inc.id} className="transition-colors hover:bg-slate-50/50">
                     <td className="py-3 text-slate-500">
-                      {new Intl.DateTimeFormat("vi-VN").format(new Date(inc.date))}
+                      {formatDisplayDate(inc.date)}
                     </td>
                     <td className="py-3">
                       <div className="flex items-center gap-2">

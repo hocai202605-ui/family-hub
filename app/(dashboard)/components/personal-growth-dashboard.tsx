@@ -21,6 +21,7 @@ import { addDays, buildMonthCells, mondayOf, toDateKey } from "@/lib/calendar-mo
 import { lunarFullLabelFromDateKey } from "@/lib/lunar-date";
 import { holidaysByDateInMonth, holidaysOnDate } from "@/lib/vietnam-holidays";
 import { vietnamCurrentMonth, vietnamToday } from "@/lib/vietnam-date";
+import { formatDisplayDate } from "@/lib/display-date";
 import { Icon } from "./icons";
 
 export type FamilyMember = "CK" | "VK" | "CON";
@@ -171,14 +172,8 @@ function formatMonthLabel(monthKey: string) {
 }
 
 function formatWeekRange(weekStart: string) {
-  const start = parseDateKey(weekStart);
-  const end = addDays(start, 6);
-  const fmt = new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  return `${fmt.format(start)} – ${fmt.format(end)}`;
+  const end = addDays(parseDateKey(weekStart), 6);
+  return `${formatDisplayDate(weekStart)} – ${formatDisplayDate(toDateKey(end))}`;
 }
 
 /** Week index within month (1-based). Uses first day of the week that falls in the month. */
@@ -1210,7 +1205,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
     if (!text) return;
     askConfirm({
       title: "Thêm sự kiện",
-      message: `Thêm sự kiện "${text}" vào ngày ${calendarDay}?`,
+      message: `Thêm sự kiện "${text}" vào ngày ${formatDisplayDate(calendarDay)}?`,
       confirmLabel: "Thêm",
       successMessage: "Đã thêm sự kiện.",
       action: async () => {
@@ -1363,7 +1358,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                                   {daysLeftLabel(notice.daysLeft)}
                                 </p>
                                 <p className="mt-1 text-sm font-bold text-slate-900">{notice.text}</p>
-                                <p className="mt-0.5 text-xs font-medium text-slate-600">{notice.date}</p>
+                                <p className="mt-0.5 text-xs font-medium text-slate-600">{formatDisplayDate(notice.date)}</p>
                               </button>
                               <button
                                 aria-label="Đánh dấu đã đọc"
@@ -1870,7 +1865,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                           ) : null}
                         </p>
                         <p className="truncate text-xs text-slate-500">
-                          {day.date} · Top 5: {topDone}/{topFilled || 0} · Việc vặt: {notesDone}/
+                          {formatDisplayDate(day.date)} · Top 5: {topDone}/{topFilled || 0} · Việc vặt: {notesDone}/
                           {view.tickNotes.length}
                           {(view.reflection ?? "").trim() ? " · Đã có reflection" : ""}
                           {dirty ? " · Chưa lưu" : ""}
@@ -2222,7 +2217,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Chi tiết ngày</p>
-                <h3 className="mt-1 text-lg font-bold text-slate-950">{calendarDay}</h3>
+                <h3 className="mt-1 text-lg font-bold text-slate-950">{calendarDay ? formatDisplayDate(calendarDay) : ""}</h3>
                 <p className="mt-1 text-xs text-slate-500">{lunarFullLabelFromDateKey(calendarDay)}</p>
               </div>
               <button

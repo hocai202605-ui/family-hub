@@ -228,11 +228,11 @@ export function YearlyInvestmentDashboard() {
         />
       </section>
 
-      <section className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+        <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-slate-950">Cơ cấu vốn 12 tháng</h2>
           <p className="mt-1 text-xs text-slate-500">Click cột để xem chi tiết tháng. Màu = loại tài sản.</p>
-          <div className="mt-4 flex h-48 gap-2">
+          <div className="mt-3 flex min-h-[15.5rem] flex-1 gap-2">
             <div className="flex w-9 shrink-0 flex-col justify-between pb-5 text-right text-[10px] text-slate-400">
               <span>{compact(maxInvested)}</span>
               <span>{compact(maxInvested / 2)}</span>
@@ -285,7 +285,7 @@ export function YearlyInvestmentDashboard() {
               })}
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
             {ASSET_ORDER.map((key) => (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600" key={key}>
                 <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: assetMeta[key].chart }} />

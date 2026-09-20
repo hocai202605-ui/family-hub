@@ -276,55 +276,47 @@ export function InvestmentYearTargets({
   }
 
   return (
-    <div className="flex h-full flex-col justify-between rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm">
-      <div className="mb-4">
+    <div className="flex h-full flex-col rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm">
+      <div className="mb-2.5">
         <h2 className="font-semibold text-slate-950">Mục tiêu đầu tư năm {year}</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Thực tế so với hạn mức năm. Bấm Sửa để đổi mục tiêu. Số thực tế đồng bộ từ danh mục đầu tư.
-        </p>
+        <p className="mt-0.5 text-xs text-slate-500">Thực tế / hạn mức năm. Bấm bút chì để sửa.</p>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
         {byType.map((row) => {
           const ratio = row.targetValue > 0 ? row.actual / row.targetValue : row.actual > 0 ? 2 : 0;
           const status = progressStatus(row.actual, row.targetValue, row.unit, row.pct);
           return (
             <div
-              className={cn("rounded-xl border p-3 transition-all duration-200 hover:shadow-md", row.meta.card)}
+              className={cn("rounded-xl border px-2.5 py-2 transition-all duration-200 hover:shadow-md", row.meta.card)}
               key={row.type}
             >
-              <div className="relative pr-8">
+              <div className="relative pr-7">
                 <button
                   aria-label={`Sửa mục tiêu ${row.meta.label}`}
-                  className="absolute right-0 top-0 rounded-lg p-1.5 text-zinc-400 outline-none transition hover:bg-zinc-100 hover:text-zinc-600"
+                  className="absolute right-0 top-0 rounded-md p-1 text-zinc-400 outline-none transition hover:bg-zinc-100 hover:text-zinc-600"
                   onClick={() => openEdit(row.type)}
                   type="button"
                 >
                   <Icon className="h-3.5 w-3.5" name="edit" />
                 </button>
                 <div className="flex items-center gap-2">
-                  <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", row.meta.iconWrap)}>
-                    <Icon className="h-4 w-4" name={row.meta.icon} />
+                  <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-md", row.meta.iconWrap)}>
+                    <Icon className="h-3.5 w-3.5" name={row.meta.icon} />
                   </span>
-                  <div>
-                    <p className="text-sm font-semibold leading-snug text-zinc-900">{row.meta.label}</p>
-                    <p className="text-[11px] font-medium text-zinc-500">
-                      {row.pct != null ? `${row.pct}% mục tiêu` : "Chưa đặt hạn mức"}
-                      {row.unit === "CHI" ? " · chỉ" : row.unit === "CCQ" ? " · CCQ" : ""}
-                    </p>
-                  </div>
+                  <p className="text-[13px] font-semibold leading-tight text-zinc-900">{row.meta.label}</p>
                 </div>
               </div>
 
-              <p className="mt-3 tabular-nums">
-                <span className="text-lg font-bold text-zinc-900">{formatActual(row.actual, row.unit)}</span>
-                <span className="text-sm font-medium text-zinc-400">
+              <p className="mt-1.5 tabular-nums">
+                <span className="text-base font-bold text-zinc-900">{formatActual(row.actual, row.unit)}</span>
+                <span className="text-xs font-medium text-zinc-400">
                   {" "}
                   / {row.targetValue > 0 ? formatActual(row.targetValue, row.unit) : "—"}
                 </span>
               </p>
 
-              <div className={cn("mt-2 h-2 overflow-hidden rounded-full", row.meta.track)}>
+              <div className={cn("mt-1.5 h-1.5 overflow-hidden rounded-full", row.meta.track)}>
                 <div
                   className={cn(
                     "h-full rounded-full transition-all duration-500",
@@ -333,7 +325,7 @@ export function InvestmentYearTargets({
                   style={{ width: `${Math.min(Math.max(ratio * 100, 0), 100)}%` }}
                 />
               </div>
-              <p className={cn("mt-1.5", status.className)}>{status.text}</p>
+              <p className={cn("mt-1", status.className)}>{status.text}</p>
             </div>
           );
         })}

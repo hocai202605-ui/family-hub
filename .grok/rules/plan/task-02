@@ -1,0 +1,56 @@
+# Yêu Cầu Tính Năng: Xây Dựng Màn Hình "Sự Kiện & Báo Cáo Năm"
+
+## 1. Bối Cảnh & Tái Cấu Trúc Menu (Sidebar)
+Chuyển đổi menu đơn **Lịch hằng ngày** thành menu cha dạng collapsible:
+* **Lịch & Sự kiện** (Menu cha)
+  * **Lịch hằng ngày:** Giữ nguyên giao diện theo dõi thói quen + widget lịch tháng hiện tại.
+  * **Sự kiện & Báo cáo năm:** Màn hình tổng quan mới để theo dõi kế hoạch toàn bộ 12 tháng[cite: 2].
+
+---
+
+## 2. Thiết Kế Giao Diện & Trải Nghiệm Người Dùng (UX/UI)
+
+### 2.1. Thanh Thống Kê & Chọn Năm (Top Bar)
+* **Dropdown chọn năm:** Mặc định chọn năm hiện tại[cite: 2].
+* **Thẻ chỉ số (KPI Cards):**
+  * Tổng số sự kiện trong năm[cite: 2].
+  * Số sự kiện đã diễn ra[cite: 2].
+  * Số sự kiện sắp tới (trong vòng 30 ngày tới).
+
+### 2.2. Bố Cục Chính (Split View 50% - 50%)
+
+#### A. Cột Trái (50%): Quản Lý & Grid Sự Kiện
+* **Thanh công cụ (Filter Bar):**
+  * **Lọc theo tháng:** Chọn `Tất cả` hoặc từng tháng `T1` – `T12`.
+  * **Lọc theo danh mục:** Hiển thị dạng Chip/Tag có màu đại diện (hỗ trợ cả danh mục hệ thống và danh mục tự tạo)[cite: 2].
+  * **Tìm kiếm:** Input search theo tiêu đề hoặc ghi chú[cite: 2].
+  * **Nút bấm:** `+ Thêm sự kiện`[cite: 2].
+* **Khu vực hiển thị danh sách (Grid Cards):**
+  * Gom nhóm danh sách sự kiện theo từng tháng[cite: 2].
+  * Thông tin hiển thị trên mỗi Card[cite: 2]:
+    * Badge ngày: Ngày Dương lịch, hiển thị thêm ngày Âm lịch nếu có[cite: 2].
+    * Tag danh mục với màu sắc tương ứng[cite: 2].
+    * Tiêu đề sự kiện và Ghi chú / Dự trù chi phí (nếu có)[cite: 2].
+    * Trạng thái: `Đã diễn ra` (Completed) / `Dự kiến` (Planned)[cite: 2].
+
+#### B. Cột Phải (50%): Lịch Tổng Quan 12 Tháng
+* Hiển thị lưới gồm 12 block mini calendar từ Tháng 1 đến Tháng 12 tràn dọc xuống (hỗ trợ scroll độc lập hoặc scroll theo trang)[cite: 2].
+* Mỗi ngày có sự kiện sẽ hiển thị dấu chấm (dot badge) mang mã màu của danh mục sự kiện đó[cite: 2].
+* **Tương tác liên kết (Two-way interaction):**
+  * Click vào một tháng hoặc một ngày cụ thể bên phải sẽ kích hoạt bộ lọc danh sách sự kiện ở cột trái tương ứng.
+  * Hover vào ngày có chấm tròn hiển thị tooltip vắn tắt tên các sự kiện diễn ra.
+
+---
+
+## 3. Quản Lý Danh Mục Tùy Biến (Custom Category)
+* Cho phép người dùng tự định nghĩa danh mục mới trực tiếp khi tạo sự kiện, không cố định cứng enum.
+* **Danh mục mặc định:**
+  * Cưới / Hỉ (`#EF4444`)[cite: 2]
+  * Giỗ chạp / Lễ tết (`#8B5CF6`)[cite: 2]
+  * Sinh nhật / Kỷ niệm (`#F59E0B`)[cite: 2]
+  * Bảo dưỡng định kỳ (`#3B82F6`)[cite: 2]
+  * Khác (`#6B7280`)[cite: 2]
+* **Flow thêm danh mục mới trong Form:**
+  * Trường chọn Danh mục dùng Creatable Select (hoặc nút `+ Thêm danh mục mới`).
+  * Modal/Pop-over cho phép nhập: *Tên danh mục* + *Chọn màu hiển thị (Color Picker hoặc Preset)*.
+  * Sau khi lưu, danh mục mới ngay lập tức được chọn cho sự kiện hiện tại và xuất hiện trên thanh bộ lọc (Filter Bar) ở cả 2 màn hình.

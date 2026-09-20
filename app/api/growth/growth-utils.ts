@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const familyMemberSchema = z.enum(["CK", "VK", "CON"]);
 export const monthKeySchema = z.string().regex(/^\d{4}-\d{2}$/);
+export const yearKeySchema = z.string().regex(/^\d{4}$/);
 export const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const planScopeSchema = z.enum(["week", "month"]);
 export const habitColorSchema = z.enum(["amber", "emerald", "sky", "violet", "rose", "slate"]);
@@ -14,6 +15,22 @@ export const top5TaskSchema = z.object({
 
 export function dateFromKey(date: string) {
   return new Date(`${date}T00:00:00.000Z`);
+}
+
+export function yearRange(year: string) {
+  if (!/^\d{4}$/.test(year)) {
+    return null;
+  }
+
+  const yearNumber = Number(year);
+  const start = new Date(Date.UTC(yearNumber, 0, 1));
+  const end = new Date(Date.UTC(yearNumber + 1, 0, 1));
+
+  return { start, end };
+}
+
+export function daysInUtcMonth(year: number, month: number) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 export function formatDateKey(date: Date) {

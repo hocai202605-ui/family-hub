@@ -8,6 +8,7 @@ export type MenuKey =
   | "income.yearly"
   | "investments"
   | "calendar"
+  | "calendar.yearly"
   | "goals"
   | "health"
   | "parenting"
@@ -52,10 +53,14 @@ export const navItems: NavItem[] = [
   { href: "/investments", label: "Đầu tư", description: "Tài sản và lợi nhuận", icon: "barChart", menuKey: "investments" },
   {
     href: "/calendar",
-    label: "Lịch hằng ngày",
-    description: "Thói quen và nhật ký ngày",
+    label: "Lịch & Sự kiện",
+    description: "Báo cáo năm, thói quen và nhật ký",
     icon: "calendar",
     menuKey: "calendar",
+    children: [
+      { href: "/calendar/yearly", label: "Báo cáo năm", description: "Thói quen và sự kiện theo năm", icon: "barChart", menuKey: "calendar.yearly" },
+      { href: "/calendar", label: "Thói quen & Nhật ký ngày", description: "Theo dõi tuần và ghi chép ngày", icon: "check", menuKey: "calendar" },
+    ],
   },
   { href: "/goals", label: "Mục tiêu", description: "Kế hoạch dài hạn", icon: "target", menuKey: "goals" },
   { href: "/health", label: "Sức khỏe", description: "Thói quen chăm sóc", icon: "heart", menuKey: "health" },
@@ -119,6 +124,7 @@ export function menuKeyForPath(pathname: string): MenuKey | null {
   if (pathname === "/income/yearly") return "income.yearly";
   if (pathname === "/investments") return "investments";
   if (pathname === "/calendar") return "calendar";
+  if (pathname === "/calendar/yearly") return "calendar.yearly";
   if (pathname === "/goals") return "goals";
   if (pathname === "/health") return "health";
   if (pathname === "/parenting") return "parenting";

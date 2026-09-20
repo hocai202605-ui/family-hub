@@ -1272,8 +1272,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
       <header className="rounded-lg border border-amber-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-amber-700">Lịch hằng ngày</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Thói quen & nhật ký ngày</h1>
+            <p className="text-sm font-semibold text-amber-700">Lịch & Sự kiện</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Thói quen & Nhật ký ngày</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Chọn tháng / tuần để theo dõi thói quen, nhật ký ngày và kế hoạch. Nhập / tích xong rồi bấm Lưu từng khối.
             </p>

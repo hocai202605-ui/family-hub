@@ -53,6 +53,40 @@ export type GrowthMonthResponse = {
   events: Array<{ id: string; date: string; text: string }>;
 };
 
+export type GrowthYearMonthRow = {
+  month: number;
+  monthKey: string;
+  habitDone: number;
+  habitTotal: number;
+  eventCount: number;
+  logDays: number;
+  planDone: number;
+  planTotal: number;
+};
+
+export type GrowthYearHabitRow = {
+  name: string;
+  color: string;
+  done: number;
+  total: number;
+};
+
+export type GrowthYearResponse = {
+  member: GrowthMember;
+  year: string;
+  months: GrowthYearMonthRow[];
+  habits: GrowthYearHabitRow[];
+  events: Array<{ id: string; date: string; text: string }>;
+  summary: {
+    habitDone: number;
+    habitTotal: number;
+    eventCount: number;
+    logDays: number;
+    planDone: number;
+    planTotal: number;
+  };
+};
+
 async function parseJson<T>(response: Response): Promise<T> {
   const data = (await response.json().catch(() => ({}))) as T & { error?: string };
   if (!response.ok) {
@@ -66,6 +100,13 @@ export async function fetchGrowthMonth(month: string, member: GrowthMember) {
     `/api/growth?month=${encodeURIComponent(month)}&member=${encodeURIComponent(member)}`,
   );
   return parseJson<GrowthMonthResponse>(response);
+}
+
+export async function fetchGrowthYear(year: string, member: GrowthMember) {
+  const response = await fetch(
+    `/api/growth/yearly?year=${encodeURIComponent(year)}&member=${encodeURIComponent(member)}`,
+  );
+  return parseJson<GrowthYearResponse>(response);
 }
 
 export async function apiCreateHabit(body: {

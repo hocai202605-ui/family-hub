@@ -39,6 +39,40 @@ export function dateFromInput(date: string) {
   return new Date(`${date}T00:00:00.000Z`);
 }
 
+export const TARGET_ASSET_TYPES = [
+  "GOLD",
+  "STOCK",
+  "SAVING",
+  "REAL_ESTATE",
+  "CRYPTO",
+  "OTHER",
+  "FUND_DCDS",
+  "FUND_ETF_VN30",
+] as const;
+
+export type TargetAssetType = (typeof TARGET_ASSET_TYPES)[number];
+export type TargetUnit = "VND" | "CHI" | "CCQ";
+
+export const targetAssetTypeSchema = z.enum(TARGET_ASSET_TYPES);
+
+export function targetUnitForType(type: TargetAssetType): TargetUnit {
+  if (type === "GOLD") return "CHI";
+  if (type === "FUND_DCDS" || type === "FUND_ETF_VN30") return "CCQ";
+  return "VND";
+}
+
+export const upsertTargetsSchema = z.object({
+  year: z.string().regex(/^\d{4}$/),
+  items: z
+    .array(
+      z.object({
+        type: targetAssetTypeSchema,
+        targetValue: z.number().finite().nonnegative(),
+      }),
+    )
+    .min(1),
+});
+
 export function yearRange(year: string) {
   if (!/^\d{4}$/.test(year)) {
     return null;

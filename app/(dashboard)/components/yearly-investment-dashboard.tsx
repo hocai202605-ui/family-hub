@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { vietnamToday } from "@/lib/vietnam-date";
 import { Icon } from "./icons";
+import { actualForType, InvestmentYearTargets, type TargetRow } from "./investment-year-targets";
 
 type AssetKey = "GOLD" | "STOCK" | "SAVING" | "FUND_DCDS" | "FUND_ETF_VN30" | "REAL_ESTATE" | "CRYPTO" | "OTHER";
 
@@ -21,7 +22,6 @@ const assetMeta: Record<AssetKey, { label: string; short: string; chart: string 
 
 type MonthRow = {
   month: number;
-  income: number;
   byType: Partial<Record<AssetKey, number>>;
 };
 
@@ -29,11 +29,6 @@ type InvestmentRow = {
   type: string;
   quantity: number;
   purchasePrice: number;
-  date: string;
-};
-
-type IncomeRow = {
-  amount: number;
   date: string;
 };
 
@@ -69,17 +64,12 @@ function investedTotal(row: MonthRow) {
   return ASSET_ORDER.reduce((sum, key) => sum + (row.byType[key] ?? 0), 0);
 }
 
-function pctOfIncome(invested: number, income: number) {
-  if (income <= 0) return null;
-  return Math.round((invested / income) * 1000) / 10;
-}
-
 export function YearlyInvestmentDashboard() {
   const currentYear = vietnamToday().slice(0, 4);
   const currentMonth = Number(vietnamToday().slice(5, 7));
   const [year, setYear] = useState(currentYear);
   const [investments, setInvestments] = useState<InvestmentRow[]>([]);
-  const [incomes, setIncomes] = useState<IncomeRow[]>([]);
+  const [targets, setTargets] = useState<TargetRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -89,52 +79,41 @@ export function YearlyInvestmentDashboard() {
     return [y - 2, y - 1, y, y + 1].map(String);
   }, [currentYear]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const [investmentRes, incomeRes] = await Promise.all([
-          fetch(`/api/investments?year=${encodeURIComponent(year)}`),
-          fetch(`/api/incomes?year=${encodeURIComponent(year)}`),
-        ]);
-        if (cancelled) return;
-
-        if (!investmentRes.ok) {
-          throw new Error("Không tải được danh mục đầu tư.");
-        }
-        const investmentData = (await investmentRes.json()) as { investments?: InvestmentRow[] };
-        setInvestments(Array.isArray(investmentData.investments) ? investmentData.investments : []);
-
-        if (incomeRes.ok) {
-          const incomeData = (await incomeRes.json()) as { incomes?: IncomeRow[] };
-          setIncomes(Array.isArray(incomeData.incomes) ? incomeData.incomes : []);
-        } else {
-          setIncomes([]);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setInvestments([]);
-          setIncomes([]);
-          setLoadError(error instanceof Error ? error.message : "Không tải được báo cáo năm.");
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const [investmentRes, targetRes] = await Promise.all([
+        fetch(`/api/investments?year=${encodeURIComponent(year)}`),
+        fetch(`/api/investments/targets?year=${encodeURIComponent(year)}`),
+      ]);
+      if (!investmentRes.ok) {
+        throw new Error("Không tải được danh mục đầu tư.");
       }
+      const investmentData = (await investmentRes.json()) as { investments?: InvestmentRow[] };
+      setInvestments(Array.isArray(investmentData.investments) ? investmentData.investments : []);
+      if (targetRes.ok) {
+        const targetData = (await targetRes.json()) as { targets?: TargetRow[] };
+        setTargets(Array.isArray(targetData.targets) ? targetData.targets : []);
+      } else {
+        setTargets([]);
+      }
+    } catch (error) {
+      setInvestments([]);
+      setTargets([]);
+      setLoadError(error instanceof Error ? error.message : "Không tải được báo cáo năm.");
+    } finally {
+      setIsLoading(false);
     }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
   }, [year]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const months = useMemo(() => {
     const rows: MonthRow[] = Array.from({ length: 12 }, (_, index) => ({
       month: index + 1,
-      income: 0,
       byType: {},
     }));
 
@@ -148,16 +127,8 @@ export function YearlyInvestmentDashboard() {
       row.byType[key] = (row.byType[key] ?? 0) + amount;
     }
 
-    for (const item of incomes) {
-      const month = monthFromDate(item.date);
-      if (!month) continue;
-      const amount = Number(item.amount) || 0;
-      if (amount <= 0) continue;
-      rows[month - 1].income += amount;
-    }
-
     return rows;
-  }, [investments, incomes]);
+  }, [investments]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -170,25 +141,42 @@ export function YearlyInvestmentDashboard() {
   }, [year, isLoading, currentYear, currentMonth, months]);
 
   const yearInvested = months.reduce((sum, row) => sum + investedTotal(row), 0);
-  const percents = months
-    .map((row) => pctOfIncome(investedTotal(row), row.income))
-    .filter((value): value is number => value != null);
-  const avgPct = percents.length ? Math.round((percents.reduce((a, b) => a + b, 0) / percents.length) * 10) / 10 : 0;
-  const peak = months.reduce(
-    (best, row) => (investedTotal(row) > investedTotal(best) ? row : best),
-    months[0],
-  );
+
+  const targetStats = useMemo(() => {
+    const scored = targets
+      .filter((row) => row.targetValue > 0)
+      .map((row) => {
+        const actual = actualForType(investments, row.type);
+        const pct = (actual / row.targetValue) * 100;
+        return { type: row.type, pct };
+      });
+    const reached = scored.filter((row) => row.pct >= 100).length;
+    const slowest = scored.length
+      ? scored.reduce((best, row) => (row.pct < best.pct ? row : best))
+      : null;
+    return { reached, total: scored.length, slowest };
+  }, [targets, investments]);
 
   const selected = months[selectedMonth - 1];
   const selectedInvested = investedTotal(selected);
-  const selectedPct = pctOfIncome(selectedInvested, selected.income);
   const selectedSlices = ASSET_ORDER.map((key) => ({
     key,
     amount: selected.byType[key] ?? 0,
   })).filter((item) => item.amount > 0);
 
   const maxInvested = Math.max(...months.map(investedTotal), 1);
-  const maxPct = Math.max(...percents, 20);
+  const largestType = (row: MonthRow) => {
+    let best: AssetKey | null = null;
+    let max = 0;
+    for (const key of ASSET_ORDER) {
+      const amount = row.byType[key] ?? 0;
+      if (amount > max) {
+        max = amount;
+        best = key;
+      }
+    }
+    return best;
+  };
 
   return (
     <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
@@ -198,7 +186,7 @@ export function YearlyInvestmentDashboard() {
             <p className="text-sm font-semibold text-amber-700">Đầu tư</p>
             <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Báo cáo năm {year}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Cơ cấu vốn bỏ vào từng tháng (DCDS, ETF, sổ TK, vàng…) và tỷ lệ so với thu nhập tháng đó.
+              Cơ cấu vốn từng tháng và tiến độ mục tiêu năm (thực tế / hạn mức), giống 6 lọ tài chính.
             </p>
             {loadError ? <p className="mt-2 text-sm font-semibold text-rose-600">{loadError}</p> : null}
             {isLoading ? <p className="mt-2 text-sm font-medium text-slate-500">Đang tải báo cáo năm…</p> : null}
@@ -222,15 +210,30 @@ export function YearlyInvestmentDashboard() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <Kpi icon="wallet" label="Tổng vốn đầu tư năm" value={currency(yearInvested)} hint="Không gồm nợ / cho vay" />
-        <Kpi icon="barChart" label="TB % thu nhập / tháng" value={`${avgPct}%`} hint="Các tháng có thu nhập > 0" />
-        <Kpi icon="sparkles" label={`Tháng đầu tư nhiều nhất (T${peak.month})`} value={compact(investedTotal(peak))} hint={currency(investedTotal(peak))} />
+        <Kpi
+          icon="check"
+          label="Loại đã đạt mục tiêu"
+          value={targetStats.total ? `${targetStats.reached}/${targetStats.total}` : "—"}
+          hint="Các loại đã đặt hạn mức năm"
+        />
+        <Kpi
+          icon="target"
+          label="Loại chậm nhất"
+          value={
+            targetStats.slowest
+              ? `${assetMeta[targetStats.slowest.type].short} ${Math.round(targetStats.slowest.pct * 10) / 10}%`
+              : "—"
+          }
+          hint="Thấp nhất so với mục tiêu"
+        />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+        <div className="flex h-full min-h-[360px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-semibold text-slate-950">Cơ cấu vốn 12 tháng</h2>
           <p className="mt-1 text-xs text-slate-500">Click cột để xem chi tiết tháng. Màu = loại tài sản.</p>
-          <div className="mt-5 flex h-64 gap-2">
+          <div className="mt-4 min-h-[280px] flex-1">
+          <div className="flex h-64 gap-2">
             <div className="flex w-8 shrink-0 flex-col justify-between pb-6 text-right text-[10px] text-slate-400">
               <span>{compact(maxInvested)}</span>
               <span>{compact(maxInvested / 2)}</span>
@@ -289,60 +292,18 @@ export function YearlyInvestmentDashboard() {
               </span>
             ))}
           </div>
+          </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold text-slate-950">Đầu tư / thu nhập theo tháng</h2>
-          <p className="mt-1 text-xs text-slate-500">Vốn bỏ vào tháng đó so với tổng thu nhập cùng tháng.</p>
-          <div className="mt-5 flex h-64 gap-2">
-            <div className="flex w-8 shrink-0 flex-col justify-between pb-6 text-right text-[10px] text-slate-400">
-              <span>{Math.ceil(maxPct)}%</span>
-              <span>{Math.round(maxPct / 2)}%</span>
-              <span>0</span>
-            </div>
-            <div className="relative flex flex-1 items-end justify-between gap-1 pb-6">
-              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between pb-6">
-                <div className="border-t border-slate-200" />
-                <div className="border-t border-dashed border-slate-200" />
-                <div className="mb-px border-t border-slate-200" />
-              </div>
-              {months.map((row) => {
-                const total = investedTotal(row);
-                const pct = pctOfIncome(total, row.income);
-                const height = pct != null ? (pct / maxPct) * 100 : 0;
-                const active = selectedMonth === row.month;
-                return (
-                  <button
-                    className="relative z-10 flex h-full w-full flex-col items-center justify-end"
-                    key={row.month}
-                    onClick={() => setSelectedMonth(row.month)}
-                    title={pct == null ? `T${row.month}: không có thu nhập` : `T${row.month}: ${compact(total)} / ${compact(row.income)} = ${pct}%`}
-                    type="button"
-                  >
-                    <span className="mb-1 text-[9px] font-semibold text-slate-500">{pct != null && pct > 0 ? `${pct}%` : ""}</span>
-                    <div
-                      className={cn("w-full max-w-[28px] rounded-t bg-emerald-500", active && "bg-emerald-700")}
-                      style={{ height: `${Math.max(height, pct && pct > 0 ? 4 : 1)}%` }}
-                    />
-                    <span className={cn("mt-1 text-[10px] font-medium", active ? "font-bold text-slate-900" : "text-slate-500")}>
-                      T{row.month}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        <div className="h-full">
+          <InvestmentYearTargets investments={investments} onSaved={() => void load()} targets={targets} year={year} />
         </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-slate-950">Tháng {selectedMonth}: {currency(selectedInvested)}</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            {selectedPct == null
-              ? "Tháng này chưa có thu nhập để tính tỷ lệ."
-              : `Chiếm ${selectedPct}% thu nhập tháng (${currency(selected.income)}).`}
-          </p>
+          <p className="mt-1 text-sm text-slate-600">Cơ cấu vốn bỏ vào trong tháng này.</p>
           {selectedInvested <= 0 ? (
             <p className="py-10 text-center text-sm text-slate-500">Không bỏ vốn đầu tư trong tháng này.</p>
           ) : (
@@ -380,15 +341,14 @@ export function YearlyInvestmentDashboard() {
             <thead>
               <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500">
                 <th className="pb-2 font-semibold">Tháng</th>
-                <th className="pb-2 text-right font-semibold">Đầu tư</th>
-                <th className="pb-2 text-right font-semibold">Thu nhập</th>
-                <th className="pb-2 text-right font-semibold">%</th>
+                <th className="pb-2 text-right font-semibold">Vốn</th>
+                <th className="pb-2 text-right font-semibold">Loại lớn nhất</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {months.map((row) => {
                 const total = investedTotal(row);
-                const pct = pctOfIncome(total, row.income);
+                const top = largestType(row);
                 const active = selectedMonth === row.month;
                 return (
                   <tr
@@ -398,8 +358,7 @@ export function YearlyInvestmentDashboard() {
                   >
                     <td className="py-2 font-medium text-slate-800">T{row.month}</td>
                     <td className="py-2 text-right text-slate-700">{total ? compact(total) : "—"}</td>
-                    <td className="py-2 text-right text-slate-700">{row.income ? compact(row.income) : "—"}</td>
-                    <td className="py-2 text-right font-semibold text-slate-800">{pct == null ? "—" : `${pct}%`}</td>
+                    <td className="py-2 text-right text-slate-700">{top && total ? assetMeta[top].short : "—"}</td>
                   </tr>
                 );
               })}
@@ -411,7 +370,7 @@ export function YearlyInvestmentDashboard() {
   );
 }
 
-function Kpi({ icon, label, value, hint }: { icon: "wallet" | "barChart" | "sparkles"; label: string; value: string; hint: string }) {
+function Kpi({ icon, label, value, hint }: { icon: "wallet" | "check" | "target"; label: string; value: string; hint: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">

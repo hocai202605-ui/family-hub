@@ -183,6 +183,22 @@ model Investment {
   @@map("investments")
 }
 
+/// Yearly investment goal per asset type (household-global).
+model InvestmentYearTarget {
+  id          String    @id @default(cuid())
+  year        String
+  type        AssetType
+  targetValue Float
+  createdBy   String
+  updatedBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([year, type])
+  @@index([year])
+  @@map("investment_year_targets")
+}
+
 // --- Personal growth / daily calendar (menuKey: calendar) ---
 
 /// Habit definition for a member within a calendar month (YYYY-MM).

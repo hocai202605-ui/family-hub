@@ -228,19 +228,18 @@ export function YearlyInvestmentDashboard() {
         />
       </section>
 
-      <section className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
-        <div className="flex h-full min-h-[360px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-slate-950">Cơ cấu vốn 12 tháng</h2>
           <p className="mt-1 text-xs text-slate-500">Click cột để xem chi tiết tháng. Màu = loại tài sản.</p>
-          <div className="mt-4 min-h-[280px] flex-1">
-          <div className="flex h-64 gap-2">
-            <div className="flex w-8 shrink-0 flex-col justify-between pb-6 text-right text-[10px] text-slate-400">
+          <div className="mt-4 flex h-48 gap-2">
+            <div className="flex w-9 shrink-0 flex-col justify-between pb-5 text-right text-[10px] text-slate-400">
               <span>{compact(maxInvested)}</span>
               <span>{compact(maxInvested / 2)}</span>
               <span>0</span>
             </div>
-            <div className="relative flex flex-1 items-end justify-between gap-1 pb-6">
-              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between pb-6">
+            <div className="relative flex flex-1 items-end gap-1.5 pb-5">
+              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between pb-5">
                 <div className="border-t border-slate-200" />
                 <div className="border-t border-dashed border-slate-200" />
                 <div className="mb-px border-t border-slate-200" />
@@ -251,18 +250,20 @@ export function YearlyInvestmentDashboard() {
                 const active = selectedMonth === row.month;
                 return (
                   <button
-                    className="group relative z-10 flex h-full w-full flex-col items-center justify-end"
+                    className="group relative z-10 flex h-full min-w-0 flex-1 flex-col items-center justify-end"
                     key={row.month}
                     onClick={() => setSelectedMonth(row.month)}
                     type="button"
                   >
-                    <span className="mb-1 text-[9px] font-semibold text-slate-500">{total > 0 ? compact(total) : ""}</span>
+                    <span className="mb-0.5 text-[9px] font-semibold leading-none text-slate-500">
+                      {total > 0 ? compact(total) : ""}
+                    </span>
                     <div
                       className={cn(
-                        "flex w-full max-w-[28px] flex-col-reverse overflow-hidden rounded-t",
+                        "flex w-full max-w-[36px] flex-col-reverse overflow-hidden rounded-t",
                         active && "ring-2 ring-slate-900 ring-offset-1",
                       )}
-                      style={{ height: `${Math.max(height, total > 0 ? 6 : 1)}%` }}
+                      style={{ height: `${Math.max(height, total > 0 ? 8 : 1)}%` }}
                     >
                       {ASSET_ORDER.map((key) => {
                         const amount = row.byType[key] ?? 0;
@@ -284,7 +285,7 @@ export function YearlyInvestmentDashboard() {
               })}
             </div>
           </div>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5">
             {ASSET_ORDER.map((key) => (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600" key={key}>
                 <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: assetMeta[key].chart }} />
@@ -292,12 +293,9 @@ export function YearlyInvestmentDashboard() {
               </span>
             ))}
           </div>
-          </div>
         </div>
 
-        <div className="h-full">
-          <InvestmentYearTargets investments={investments} onSaved={() => void load()} targets={targets} year={year} />
-        </div>
+        <InvestmentYearTargets investments={investments} onSaved={() => void load()} targets={targets} year={year} />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">

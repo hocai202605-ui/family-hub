@@ -17,18 +17,18 @@ import { Icon } from "./icons";
 const COLOR_PRESETS = ["#EF4444", "#8B5CF6", "#F59E0B", "#3B82F6", "#6B7280", "#10B981", "#F43F5E", "#0EA5E9"];
 
 const MONTH_THEMES = [
-  { card: "border-rose-200 from-rose-50", head: "bg-rose-500", weekday: "text-rose-400", lunar: "text-rose-400", today: "bg-rose-100" },
-  { card: "border-orange-200 from-orange-50", head: "bg-orange-500", weekday: "text-orange-400", lunar: "text-orange-400", today: "bg-orange-100" },
-  { card: "border-amber-200 from-amber-50", head: "bg-amber-500", weekday: "text-amber-500", lunar: "text-amber-500", today: "bg-amber-100" },
-  { card: "border-lime-200 from-lime-50", head: "bg-lime-600", weekday: "text-lime-500", lunar: "text-lime-500", today: "bg-lime-100" },
-  { card: "border-emerald-200 from-emerald-50", head: "bg-emerald-600", weekday: "text-emerald-400", lunar: "text-emerald-500", today: "bg-emerald-100" },
-  { card: "border-teal-200 from-teal-50", head: "bg-teal-600", weekday: "text-teal-400", lunar: "text-teal-500", today: "bg-teal-100" },
-  { card: "border-sky-200 from-sky-50", head: "bg-sky-500", weekday: "text-sky-400", lunar: "text-sky-500", today: "bg-sky-100" },
-  { card: "border-indigo-200 from-indigo-50", head: "bg-indigo-500", weekday: "text-indigo-400", lunar: "text-indigo-400", today: "bg-indigo-100" },
-  { card: "border-violet-200 from-violet-50", head: "bg-violet-500", weekday: "text-violet-400", lunar: "text-violet-400", today: "bg-violet-100" },
-  { card: "border-fuchsia-200 from-fuchsia-50", head: "bg-fuchsia-500", weekday: "text-fuchsia-400", lunar: "text-fuchsia-400", today: "bg-fuchsia-100" },
-  { card: "border-pink-200 from-pink-50", head: "bg-pink-500", weekday: "text-pink-400", lunar: "text-pink-400", today: "bg-pink-100" },
-  { card: "border-red-200 from-red-50", head: "bg-red-500", weekday: "text-red-400", lunar: "text-red-400", today: "bg-red-100" },
+  { card: "border-rose-100 from-rose-50/70", head: "text-rose-700", weekday: "text-rose-300", lunar: "text-rose-300", today: "bg-rose-100/80" },
+  { card: "border-orange-100 from-orange-50/70", head: "text-orange-700", weekday: "text-orange-300", lunar: "text-orange-300", today: "bg-orange-100/80" },
+  { card: "border-amber-100 from-amber-50/70", head: "text-amber-700", weekday: "text-amber-300", lunar: "text-amber-400", today: "bg-amber-100/80" },
+  { card: "border-lime-100 from-lime-50/70", head: "text-lime-800", weekday: "text-lime-400", lunar: "text-lime-500", today: "bg-lime-100/80" },
+  { card: "border-emerald-100 from-emerald-50/70", head: "text-emerald-800", weekday: "text-emerald-300", lunar: "text-emerald-400", today: "bg-emerald-100/80" },
+  { card: "border-teal-100 from-teal-50/70", head: "text-teal-800", weekday: "text-teal-300", lunar: "text-teal-400", today: "bg-teal-100/80" },
+  { card: "border-sky-100 from-sky-50/70", head: "text-sky-800", weekday: "text-sky-300", lunar: "text-sky-400", today: "bg-sky-100/80" },
+  { card: "border-indigo-100 from-indigo-50/70", head: "text-indigo-800", weekday: "text-indigo-300", lunar: "text-indigo-400", today: "bg-indigo-100/80" },
+  { card: "border-violet-100 from-violet-50/70", head: "text-violet-800", weekday: "text-violet-300", lunar: "text-violet-400", today: "bg-violet-100/80" },
+  { card: "border-fuchsia-100 from-fuchsia-50/70", head: "text-fuchsia-800", weekday: "text-fuchsia-300", lunar: "text-fuchsia-400", today: "bg-fuchsia-100/80" },
+  { card: "border-pink-100 from-pink-50/70", head: "text-pink-800", weekday: "text-pink-300", lunar: "text-pink-400", today: "bg-pink-100/80" },
+  { card: "border-red-100 from-red-50/70", head: "text-red-800", weekday: "text-red-300", lunar: "text-red-400", today: "bg-red-100/80" },
 ] as const;
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -105,14 +105,16 @@ export function YearlyEventsPanel({
 
   const categoryList = localCategories.length > 0 ? localCategories : categories;
 
-  const upcomingEnd = addDaysKey(today, 30);
+  const upcoming7End = addDaysKey(today, 7);
+  const upcoming30End = addDaysKey(today, 30);
 
   const kpis = useMemo(() => {
     const inYear = events.filter((event) => event.date.startsWith(year));
     const occurred = inYear.filter((event) => event.date < today).length;
-    const upcoming = inYear.filter((event) => event.date >= today && event.date <= upcomingEnd).length;
-    return { total: inYear.length, occurred, upcoming };
-  }, [events, year, today, upcomingEnd]);
+    const upcoming7 = inYear.filter((event) => event.date >= today && event.date <= upcoming7End).length;
+    const upcoming30 = inYear.filter((event) => event.date >= today && event.date <= upcoming30End).length;
+    return { total: inYear.length, occurred, upcoming7, upcoming30 };
+  }, [events, year, today, upcoming7End, upcoming30End]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -270,13 +272,14 @@ export function YearlyEventsPanel({
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MiniStat label="Tổng sự kiện" value={String(kpis.total)} hint="Trong năm đang chọn" tone="sky" />
         <MiniStat label="Đã diễn ra" value={String(kpis.occurred)} hint="Ngày trước hôm nay" tone="slate" />
-        <MiniStat label="Sắp tới 30 ngày" value={String(kpis.upcoming)} hint="Từ hôm nay đến 30 ngày" tone="amber" />
+        <MiniStat label="Sắp tới 7 ngày" value={String(kpis.upcoming7)} hint="Từ hôm nay đến 7 ngày" tone="rose" />
+        <MiniStat label="Sắp tới 30 ngày" value={String(kpis.upcoming30)} hint="Từ hôm nay đến 30 ngày" tone="amber" />
       </div>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,3fr)]">
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2">
             <div className="flex flex-col gap-2">
@@ -401,97 +404,88 @@ export function YearlyEventsPanel({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2">
-          {Array.from({ length: 12 }, (_, index) => {
-            const month = index + 1;
-            const monthKey = `${year}-${String(month).padStart(2, "0")}`;
-            const cells = buildMonthCells(monthKey);
-            const theme = MONTH_THEMES[index];
-            const monthActive = monthFilter === month;
-            return (
-              <div
-                className={cn(
-                  "rounded-xl border bg-gradient-to-b to-white p-2.5 shadow-sm",
-                  theme.card,
-                  monthActive && "ring-2 ring-slate-900/15",
-                )}
-                key={monthKey}
-              >
-                <button
+        {[0, 1].map((column) => (
+          <div className="flex flex-col gap-3" key={column}>
+            {Array.from({ length: 6 }, (_, index) => {
+              const month = column * 6 + index + 1;
+              const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+              const cells = buildMonthCells(monthKey);
+              const theme = MONTH_THEMES[month - 1];
+              const monthActive = monthFilter === month;
+              return (
+                <div
                   className={cn(
-                    "mb-2 flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-white shadow-sm",
-                    theme.head,
+                    "rounded-xl border bg-gradient-to-b to-white p-2.5 shadow-sm",
+                    theme.card,
+                    monthActive && "ring-2 ring-rose-200",
                   )}
-                  onClick={() => clickMonth(month)}
-                  type="button"
+                  key={monthKey}
                 >
-                  <span className="text-xs font-bold tracking-wide">Tháng {month}</span>
-                  <span className="text-[10px] font-semibold text-white/80">{year}</span>
-                </button>
-                <div className={cn("grid grid-cols-7 gap-px text-center text-[9px] font-bold", theme.weekday)}>
-                  {WEEKDAY_HEADERS.map((day) => (
-                    <div className="py-0.5" key={day}>
-                      {day}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-0.5 grid grid-cols-7 gap-px">
-                  {cells.map((cell) => {
-                    const dayEvents = eventsByDate.get(cell.dateKey) ?? [];
-                    const selected = highlightDay === cell.dateKey;
-                    const isToday = cell.dateKey === today;
-                    const hasEvents = cell.inMonth && dayEvents.length > 0;
-                    const eventColor = dayEvents[0]?.category?.color || "#0f172a";
-                    return (
-                      <button
-                        className={cn(
-                          "flex min-h-[2.45rem] flex-col items-center justify-center rounded-md px-0 py-0.5 transition",
-                          !cell.inMonth && "opacity-25",
-                          cell.inMonth && !hasEvents && !selected && "hover:bg-white/70",
-                          selected && "bg-white/90 shadow-sm",
-                          isToday && !hasEvents && !selected && theme.today,
-                        )}
-                        key={cell.dateKey}
-                        onClick={() => clickDay(cell.dateKey, cell.inMonth, month)}
-                        title={
-                          [
-                            cell.inMonth ? `Âm lịch ${cell.lunarLabel}` : "",
-                            ...dayEvents.map((item) => item.text),
-                          ]
-                            .filter(Boolean)
-                            .join(" · ") || undefined
-                        }
-                        type="button"
-                      >
-                        <span
+                  <button
+                    className={cn("mb-1.5 flex w-full items-center justify-between px-1 text-left", theme.head)}
+                    onClick={() => clickMonth(month)}
+                    type="button"
+                  >
+                    <span className="text-xs font-semibold tracking-wide">Tháng {month}</span>
+                    <span className="text-[10px] font-medium opacity-70">{year}</span>
+                  </button>
+                  <div className={cn("grid grid-cols-7 gap-px text-center text-[9px] font-bold", theme.weekday)}>
+                    {WEEKDAY_HEADERS.map((day) => (
+                      <div className="py-0.5" key={day}>
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-0.5 grid grid-cols-7 gap-px">
+                    {cells.map((cell) => {
+                      const dayEvents = eventsByDate.get(cell.dateKey) ?? [];
+                      const selected = highlightDay === cell.dateKey;
+                      const isToday = cell.dateKey === today;
+                      const hasEvents = cell.inMonth && dayEvents.length > 0;
+                      return (
+                        <button
                           className={cn(
-                            "grid h-[1.35rem] w-[1.35rem] place-items-center text-[11px] font-bold leading-none",
-                            hasEvents || selected || isToday ? "rounded-full" : "rounded",
-                            selected && !hasEvents && "bg-slate-900 text-white",
+                            "flex min-h-[2.45rem] flex-col items-center justify-center rounded-md px-0 py-0.5 transition",
+                            !cell.inMonth && "opacity-25",
+                            cell.inMonth && !hasEvents && !selected && "hover:bg-white/70",
+                            selected && "bg-white/90",
+                            isToday && !hasEvents && !selected && theme.today,
                           )}
-                          style={
-                            hasEvents
-                              ? {
-                                  color: "#0f172a",
-                                  backgroundColor: `${eventColor}24`,
-                                  boxShadow: `inset 0 0 0 1.5px ${eventColor}${selected ? "ff" : "cc"}`,
-                                }
-                              : undefined
+                          key={cell.dateKey}
+                          onClick={() => clickDay(cell.dateKey, cell.inMonth, month)}
+                          title={
+                            [
+                              cell.inMonth ? `Âm lịch ${cell.lunarLabel}` : "",
+                              ...dayEvents.map((item) => item.text),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || undefined
                           }
+                          type="button"
                         >
-                          {cell.solarDay}
-                        </span>
-                        <span className={cn("mt-0.5 text-[8px] font-medium leading-none", theme.lunar)}>
-                          {cell.inMonth ? cell.lunarLabel : ""}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          <span
+                            className={cn(
+                              "grid h-[1.4rem] w-[1.4rem] place-items-center text-[11px] font-bold leading-none",
+                              hasEvents || selected || isToday ? "rounded-full" : "rounded",
+                              selected && !hasEvents && "bg-slate-800 text-white",
+                              hasEvents && "bg-rose-50 font-extrabold text-rose-700 ring-2 ring-rose-500",
+                              hasEvents && selected && "ring-[3px] ring-rose-600",
+                            )}
+                          >
+                            {cell.solarDay}
+                          </span>
+                          <span className={cn("mt-0.5 text-[8px] font-medium leading-none", theme.lunar)}>
+                            {cell.inMonth ? cell.lunarLabel : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       {formOpen ? (
@@ -635,12 +629,13 @@ function MiniStat({
   label: string;
   value: string;
   hint: string;
-  tone: "sky" | "slate" | "amber";
+  tone: "sky" | "slate" | "amber" | "rose";
 }) {
   const toneClass = {
     sky: "bg-sky-50 text-sky-700",
     slate: "bg-slate-100 text-slate-700",
     amber: "bg-amber-50 text-amber-800",
+    rose: "bg-rose-50 text-rose-700",
   }[tone];
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

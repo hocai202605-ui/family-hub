@@ -7,6 +7,8 @@ import {
   familyMemberSchema,
   formatDateKey,
   normalizeTop5,
+  toEventCategoryResponse,
+  toEventResponse,
   yearKeySchema,
   yearRange,
 } from "../growth-utils";
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
     const currentMonth = Number(todayKey.slice(5, 7));
     const currentDay = Number(todayKey.slice(8, 10));
 
-    const [habits, planItems, dailyLogs, events] = await Promise.all([
+    const [habits, planItems, dailyLogs, events, categories] = await Promise.all([
       prisma.growthHabit.findMany({
         where: { member, month: { gte: `${year}-01`, lte: `${year}-12` } },
         include: { checks: true },
@@ -74,8 +76,12 @@ export async function GET(request: NextRequest) {
         orderBy: { date: "asc" },
       }),
       prisma.growthCalendarEvent.findMany({
-        where: { member, date: { gte: range.start, lt: range.end } },
+        where: { date: { gte: range.start, lt: range.end } },
+        include: { category: true },
         orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      }),
+      prisma.growthEventCategory.findMany({
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       }),
     ]);
 
@@ -172,11 +178,8 @@ export async function GET(request: NextRequest) {
       year,
       months,
       habits: Array.from(habitByName.values()).sort((a, b) => b.done - a.done || a.name.localeCompare(b.name, "vi")),
-      events: events.map((event) => ({
-        id: event.id,
-        date: formatDateKey(event.date),
-        text: event.text,
-      })),
+      categories: categories.map(toEventCategoryResponse),
+      events: events.map(toEventResponse),
       summary,
     });
   } catch (error) {

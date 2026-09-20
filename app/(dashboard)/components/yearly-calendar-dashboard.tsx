@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchGrowthYear, type GrowthYearResponse } from "@/lib/growth-api";
 import { vietnamToday } from "@/lib/vietnam-date";
 import { Icon } from "./icons";
+import { YearlyEventsPanel } from "./yearly-events-panel";
 
 type FamilyMember = "CK" | "VK" | "CON";
 type HabitColor = "amber" | "emerald" | "sky" | "violet" | "rose" | "slate";
@@ -28,6 +29,7 @@ const emptyYear: GrowthYearResponse = {
   year: "",
   months: [],
   habits: [],
+  categories: [],
   events: [],
   summary: { habitDone: 0, habitTotal: 0, eventCount: 0, logDays: 0, planDone: 0, planTotal: 0 },
 };
@@ -39,11 +41,6 @@ function cn(...classes: Array<string | false | null | undefined>) {
 function percent(done: number, total: number) {
   if (total <= 0) return 0;
   return Math.round((done / total) * 100);
-}
-
-function formatDay(dateKey: string) {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
 }
 
 export function YearlyCalendarDashboard({ defaultMember }: { defaultMember: FamilyMember }) {
@@ -59,30 +56,23 @@ export function YearlyCalendarDashboard({ defaultMember }: { defaultMember: Fami
     return [y - 2, y - 1, y, y + 1].map(String);
   }, [currentYear]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const next = await fetchGrowthYear(year, member);
-        if (!cancelled) setData(next);
-      } catch (error) {
-        if (!cancelled) {
-          setData({ ...emptyYear, year, member });
-          setLoadError(error instanceof Error ? error.message : "Không tải được báo cáo năm.");
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const next = await fetchGrowthYear(year, member);
+      setData({ ...next, categories: next.categories ?? [], events: next.events ?? [] });
+    } catch (error) {
+      setData({ ...emptyYear, year, member });
+      setLoadError(error instanceof Error ? error.message : "Không tải được báo cáo năm.");
+    } finally {
+      setIsLoading(false);
     }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
   }, [year, member]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const months = data.months.length === 12 ? data.months : Array.from({ length: 12 }, (_, index) => ({
     month: index + 1,
@@ -98,25 +88,15 @@ export function YearlyCalendarDashboard({ defaultMember }: { defaultMember: Fami
   const habitPercent = percent(data.summary.habitDone, data.summary.habitTotal);
   const planPercent = percent(data.summary.planDone, data.summary.planTotal);
 
-  const eventsByMonth = useMemo(() => {
-    const groups: Array<{ month: number; items: GrowthYearResponse["events"] }> = [];
-    for (let month = 1; month <= 12; month += 1) {
-      const prefix = `${year}-${String(month).padStart(2, "0")}`;
-      const items = data.events.filter((event) => event.date.startsWith(prefix));
-      if (items.length > 0) groups.push({ month, items });
-    }
-    return groups;
-  }, [data.events, year]);
-
   return (
     <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
       <header className="rounded-lg border border-amber-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-amber-700">Lịch & Sự kiện</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Báo cáo năm {year}</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Sự kiện & Báo cáo năm {year}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Tổng hợp thói quen, nhật ký ngày, kế hoạch và sự kiện trong cả năm.
+              Thói quen theo năm ở trên, quản lý sự kiện gia đình ở dưới.
             </p>
             {loadError ? <p className="mt-2 text-sm font-semibold text-rose-600">{loadError}</p> : null}
             {isLoading ? <p className="mt-2 text-sm font-medium text-slate-500">Đang tải báo cáo năm…</p> : null}
@@ -243,58 +223,40 @@ export function YearlyCalendarDashboard({ defaultMember }: { defaultMember: Fami
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2 lg:items-start">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold text-slate-950">Nhật ký & kế hoạch theo tháng</h2>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[22rem] text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500">
-                  <th className="pb-2 font-semibold">Tháng</th>
-                  <th className="pb-2 text-right font-semibold">Nhật ký</th>
-                  <th className="pb-2 text-right font-semibold">Sự kiện</th>
-                  <th className="pb-2 text-right font-semibold">Kế hoạch</th>
+      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="font-semibold text-slate-950">Nhật ký & kế hoạch theo tháng</h2>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[22rem] text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs font-semibold text-slate-500">
+                <th className="pb-2 font-semibold">Tháng</th>
+                <th className="pb-2 text-right font-semibold">Nhật ký</th>
+                <th className="pb-2 text-right font-semibold">Sự kiện</th>
+                <th className="pb-2 text-right font-semibold">Kế hoạch</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {months.map((row) => (
+                <tr className="text-slate-700" key={row.month}>
+                  <td className="py-2 font-medium">Tháng {row.month}</td>
+                  <td className="py-2 text-right">{row.logDays}</td>
+                  <td className="py-2 text-right">{row.eventCount}</td>
+                  <td className="py-2 text-right">
+                    {row.planTotal > 0 ? `${row.planDone}/${row.planTotal}` : "—"}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {months.map((row) => (
-                  <tr className="text-slate-700" key={row.month}>
-                    <td className="py-2 font-medium">Tháng {row.month}</td>
-                    <td className="py-2 text-right">{row.logDays}</td>
-                    <td className="py-2 text-right">{row.eventCount}</td>
-                    <td className="py-2 text-right">
-                      {row.planTotal > 0 ? `${row.planDone}/${row.planTotal}` : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold text-slate-950">Sự kiện trong năm</h2>
-          {eventsByMonth.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">Chưa có sự kiện nào trong năm này.</p>
-          ) : (
-            <div className="mt-4 max-h-[28rem] space-y-4 overflow-y-auto pr-1">
-              {eventsByMonth.map((group) => (
-                <div key={group.month}>
-                  <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Tháng {group.month}</p>
-                  <ul className="mt-2 space-y-1.5">
-                    {group.items.map((event) => (
-                      <li className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2" key={event.id}>
-                        <p className="text-sm font-semibold text-slate-900">{event.text}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">{formatDay(event.date)}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
               ))}
-            </div>
-          )}
+            </tbody>
+          </table>
         </div>
       </section>
+
+      <YearlyEventsPanel
+        categories={data.categories ?? []}
+        events={data.events ?? []}
+        onChanged={() => void load()}
+        year={year}
+      />
     </div>
   );
 }

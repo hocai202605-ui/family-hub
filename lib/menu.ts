@@ -54,12 +54,12 @@ export const navItems: NavItem[] = [
   {
     href: "/calendar",
     label: "Lịch & Sự kiện",
-    description: "Báo cáo năm, thói quen và nhật ký",
+    description: "Sự kiện, thói quen và nhật ký",
     icon: "calendar",
     menuKey: "calendar",
     children: [
-      { href: "/calendar/yearly", label: "Báo cáo năm", description: "Thói quen và sự kiện theo năm", icon: "barChart", menuKey: "calendar.yearly" },
-      { href: "/calendar", label: "Thói quen & Nhật ký ngày", description: "Theo dõi tuần và ghi chép ngày", icon: "check", menuKey: "calendar" },
+      { href: "/calendar/yearly", label: "Sự kiện & Báo cáo năm", description: "Thói quen năm và quản lý sự kiện", icon: "barChart", menuKey: "calendar.yearly" },
+      { href: "/calendar", label: "Lịch hằng ngày", description: "Thói quen, nhật ký và lịch tháng", icon: "check", menuKey: "calendar" },
     ],
   },
   { href: "/goals", label: "Mục tiêu", description: "Kế hoạch dài hạn", icon: "target", menuKey: "goals" },

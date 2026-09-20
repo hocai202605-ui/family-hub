@@ -17,7 +17,8 @@ import {
   apiUpsertDailyLog,
   fetchGrowthMonth,
 } from "@/lib/growth-api";
-import { lunarFullLabelFromDateKey, lunarLabelFromDateKey } from "@/lib/lunar-date";
+import { addDays, buildMonthCells, mondayOf, toDateKey } from "@/lib/calendar-month";
+import { lunarFullLabelFromDateKey } from "@/lib/lunar-date";
 import { holidaysByDateInMonth, holidaysOnDate } from "@/lib/vietnam-holidays";
 import { vietnamCurrentMonth, vietnamToday } from "@/lib/vietnam-date";
 import { Icon } from "./icons";
@@ -30,6 +31,10 @@ type CalendarEvent = {
   id: string;
   date: string;
   text: string;
+  note?: string;
+  budgetAmount?: number | null;
+  categoryId?: string;
+  category?: { id: string; label: string; color: string } | null;
 };
 
 type UpcomingNotice = {
@@ -146,10 +151,6 @@ function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
-function toDateKey(d: Date) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
 function parseDateKey(key: string) {
   return new Date(`${key}T12:00:00`);
 }
@@ -167,21 +168,6 @@ function shiftMonth(monthKey: string, delta: number) {
 function formatMonthLabel(monthKey: string) {
   const [y, m] = monthKey.split("-").map(Number);
   return `Tháng ${m}/${y}`;
-}
-
-/** Monday of the ISO-style week containing date (Mon–Sun). */
-function mondayOf(date: Date) {
-  const d = new Date(date);
-  const day = d.getDay(); // 0 Sun … 6 Sat
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
-function addDays(date: Date, days: number) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
 }
 
 function formatWeekRange(weekStart: string) {
@@ -366,30 +352,6 @@ function daysBetween(fromKey: string, toKey: string) {
   return Math.round((to - from) / (24 * 60 * 60 * 1000));
 }
 
-function buildMonthCells(monthKey: string) {
-  const [y, m] = monthKey.split("-").map(Number);
-  const first = new Date(y, m - 1, 1, 12, 0, 0);
-  const start = mondayOf(first);
-  const cells: Array<{ dateKey: string; inMonth: boolean; solarDay: number; lunarLabel: string }> = [];
-  let cursor = new Date(start);
-  for (let i = 0; i < 42; i += 1) {
-    const dateKey = toDateKey(cursor);
-    cells.push({
-      dateKey,
-      inMonth: cursor.getMonth() === m - 1 && cursor.getFullYear() === y,
-      solarDay: cursor.getDate(),
-      lunarLabel: lunarLabelFromDateKey(dateKey),
-    });
-    cursor = addDays(cursor, 1);
-  }
-  // Drop trailing week if entirely outside month
-  const lastWeek = cells.slice(35);
-  if (lastWeek.every((cell) => !cell.inMonth)) {
-    return cells.slice(0, 35);
-  }
-  return cells;
-}
-
 function ensureSevenChecks(checks: boolean[]): boolean[] {
   const next = checks.slice(0, 7);
   while (next.length < 7) next.push(false);
@@ -513,6 +475,8 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
   const [draftPlan, setDraftPlan] = useState("");
   const [calendarDay, setCalendarDay] = useState<string | null>(null);
   const [draftEvent, setDraftEvent] = useState("");
+  const [draftEventCategoryId, setDraftEventCategoryId] = useState("other");
+  const [eventCategories, setEventCategories] = useState<Array<{ id: string; label: string; color: string }>>([]);
   const [notices, setNotices] = useState<UpcomingNotice[]>([]);
   const [noticeDismissed, setNoticeDismissed] = useState<Record<string, boolean>>({});
   const [bellOpen, setBellOpen] = useState(false);
@@ -537,6 +501,21 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
     tone?: "danger" | "default";
     onConfirm: () => void | Promise<void>;
   } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/growth/event-categories")
+      .then((response) => response.json())
+      .then((payload: { categories?: Array<{ id: string; label: string; color: string }> }) => {
+        if (!cancelled && Array.isArray(payload.categories)) {
+          setEventCategories(payload.categories);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const reloadMonth = useCallback(
     async (monthKey: string) => {
@@ -1218,6 +1197,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
   function openCalendarDay(dateKey: string) {
     setCalendarDay(dateKey);
     setDraftEvent("");
+    setDraftEventCategoryId(eventCategories.find((item) => item.id === "other")?.id ?? eventCategories[0]?.id ?? "other");
     const monday = toDateKey(mondayOf(parseDateKey(dateKey)));
     if (monthMondays.includes(monday)) {
       setSelectedWeekStart(monday);
@@ -1234,7 +1214,12 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
       confirmLabel: "Thêm",
       successMessage: "Đã thêm sự kiện.",
       action: async () => {
-        await apiCreateEvent({ member, date: calendarDay, text });
+        await apiCreateEvent({
+          member: "GIA_DINH",
+          date: calendarDay,
+          text,
+          categoryId: draftEventCategoryId || "other",
+        });
         setDraftEvent("");
         await reloadMonth(selectedMonth);
       },
@@ -1273,7 +1258,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-amber-700">Lịch & Sự kiện</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Thói quen & Nhật ký ngày</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-normal text-slate-950">Lịch hằng ngày</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Chọn tháng / tuần để theo dõi thói quen, nhật ký ngày và kế hoạch. Nhập / tích xong rồi bấm Lưu từng khối.
             </p>
@@ -1758,11 +1743,9 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                       {isHoliday ? <span className="h-1 w-1 rounded-full bg-rose-500" /> : null}
                       {events.slice(0, isHoliday ? 2 : 3).map((event) => (
                         <span
-                          className={cn(
-                            "h-1 w-1 rounded-full",
-                            isUpcoming ? "bg-orange-500" : "bg-rose-500",
-                          )}
+                          className="h-1 w-1 rounded-full"
                           key={event.id}
+                          style={{ backgroundColor: event.category?.color || (isUpcoming ? "#f97316" : "#f43f5e") }}
                         />
                       ))}
                     </span>
@@ -2295,6 +2278,14 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                         key={event.id}
                       >
                         <div className="min-w-0 flex-1">
+                          {event.category ? (
+                            <span
+                              className="mb-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                              style={{ backgroundColor: event.category.color }}
+                            >
+                              {event.category.label}
+                            </span>
+                          ) : null}
                           <p className="text-sm font-bold text-slate-900">{event.text}</p>
                           {isRemainingThisMonth ? (
                             <p
@@ -2330,6 +2321,19 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
               </ul>
 
               <div className="mt-3 flex flex-col gap-2">
+                {eventCategories.length > 0 ? (
+                  <select
+                    className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none ring-amber-200 focus:ring-2"
+                    onChange={(event) => setDraftEventCategoryId(event.target.value)}
+                    value={draftEventCategoryId}
+                  >
+                    {eventCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
                 <input
                   className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none ring-amber-200 placeholder:text-slate-400 focus:ring-2"
                   onChange={(event) => setDraftEvent(event.target.value)}
@@ -2339,7 +2343,7 @@ export function PersonalGrowthDashboard({ defaultMember }: { defaultMember: Fami
                       addCalendarEvent();
                     }
                   }}
-                  placeholder="Thêm ghi chú (vd: Về quê, Đám cưới…)"
+                  placeholder="Thêm sự kiện (vd: Về quê, Đám cưới…)"
                   type="text"
                   value={draftEvent}
                 />

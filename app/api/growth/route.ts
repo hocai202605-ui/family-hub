@@ -10,6 +10,7 @@ import {
   mondaysInMonthKeys,
   monthKeySchema,
   normalizeTop5,
+  toEventResponse,
 } from "./growth-utils";
 
 export const dynamic = "force-dynamic";
@@ -93,9 +94,9 @@ export async function GET(request: NextRequest) {
     }),
     prisma.growthCalendarEvent.findMany({
       where: {
-        member,
         date: { gte: monthStart, lt: monthEnd },
       },
+      include: { category: true },
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     }),
   ]);
@@ -189,11 +190,7 @@ export async function GET(request: NextRequest) {
         weeks,
       },
     },
-    events: events.map((event) => ({
-      id: event.id,
-      date: formatDateKey(event.date),
-      text: event.text,
-    })),
+    events: events.map(toEventResponse),
   });
   } catch (error) {
     console.error("[GET /api/growth]", error);

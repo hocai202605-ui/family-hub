@@ -1,4 +1,24 @@
 export type GrowthMember = "CK" | "VK" | "CON";
+export type GrowthEventMember = GrowthMember | "GIA_DINH";
+
+export type GrowthEventCategory = {
+  id: string;
+  label: string;
+  color: string;
+  isSystem: boolean;
+  sortOrder: number;
+};
+
+export type GrowthEvent = {
+  id: string;
+  date: string;
+  text: string;
+  note: string;
+  budgetAmount: number | null;
+  member: GrowthEventMember;
+  categoryId: string;
+  category: GrowthEventCategory | null;
+};
 
 export type GrowthHabitDef = {
   id: string;
@@ -50,7 +70,7 @@ export type GrowthMonthResponse = {
   month: string;
   habits: GrowthHabitDef[];
   months: Record<string, GrowthMonthData>;
-  events: Array<{ id: string; date: string; text: string }>;
+  events: GrowthEvent[];
 };
 
 export type GrowthYearMonthRow = {
@@ -76,7 +96,8 @@ export type GrowthYearResponse = {
   year: string;
   months: GrowthYearMonthRow[];
   habits: GrowthYearHabitRow[];
-  events: Array<{ id: string; date: string; text: string }>;
+  categories: GrowthEventCategory[];
+  events: GrowthEvent[];
   summary: {
     habitDone: number;
     habitTotal: number;
@@ -231,19 +252,50 @@ export async function apiDeleteTickNote(id: string) {
 }
 
 export async function apiCreateEvent(body: {
-  member: GrowthMember;
+  member?: GrowthEventMember;
   date: string;
   text: string;
+  note?: string;
+  budgetAmount?: number | null;
+  categoryId?: string;
 }) {
   const response = await fetch("/api/growth/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return parseJson<{ event: { id: string; date: string; text: string } }>(response);
+  return parseJson<{ event: GrowthEvent }>(response);
+}
+
+export async function apiUpdateEvent(
+  id: string,
+  body: {
+    date?: string;
+    text?: string;
+    note?: string;
+    budgetAmount?: number | null;
+    categoryId?: string;
+    member?: GrowthEventMember;
+  },
+) {
+  const response = await fetch(`/api/growth/events/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseJson<{ event: GrowthEvent }>(response);
 }
 
 export async function apiDeleteEvent(id: string) {
   const response = await fetch(`/api/growth/events/${id}`, { method: "DELETE" });
   return parseJson<{ ok: boolean }>(response);
+}
+
+export async function apiCreateEventCategory(body: { label: string; color: string }) {
+  const response = await fetch("/api/growth/event-categories", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseJson<{ category: GrowthEventCategory }>(response);
 }

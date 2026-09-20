@@ -163,6 +163,28 @@ async function main() {
     });
   }
 
+  const eventCategories = [
+    { id: "wedding", label: "Cưới / Hỉ", color: "#EF4444", isSystem: true, sortOrder: 1 },
+    { id: "memorial", label: "Giỗ chạp / Lễ tết", color: "#8B5CF6", isSystem: true, sortOrder: 2 },
+    { id: "birthday", label: "Sinh nhật / Kỷ niệm", color: "#F59E0B", isSystem: true, sortOrder: 3 },
+    { id: "maintenance", label: "Bảo dưỡng định kỳ", color: "#3B82F6", isSystem: true, sortOrder: 4 },
+    { id: "other", label: "Khác", color: "#6B7280", isSystem: true, sortOrder: 5 },
+  ];
+
+  for (const category of eventCategories) {
+    await prisma.growthEventCategory.upsert({
+      where: { id: category.id },
+      create: { ...category, createdBy: actor, updatedBy: actor },
+      update: {
+        label: category.label,
+        color: category.color,
+        isSystem: true,
+        sortOrder: category.sortOrder,
+        updatedBy: actor,
+      },
+    });
+  }
+
   const yearlyBudgetBase = 20_000_000 * 12;
   const defaultJars = [
     { id: "NEC", label: "Thiết yếu", targetPercent: 55, sortOrder: 1, categoryIds: ["Food", "Utilities", "Transport"] },

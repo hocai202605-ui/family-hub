@@ -145,8 +145,75 @@ export const updateTickNoteSchema = z.object({
   isCompleted: z.boolean().optional(),
 });
 
+export const DEFAULT_EVENT_CATEGORY_ID = "other";
+
+export const eventMemberSchema = z.enum(["CK", "VK", "CON", "GIA_DINH"]);
+export const hexColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+
 export const createEventSchema = z.object({
-  member: familyMemberSchema,
+  member: eventMemberSchema.optional(),
   date: dateKeySchema,
   text: z.string().trim().min(1).max(500),
+  note: z.string().max(2000).optional(),
+  budgetAmount: z.number().int().nonnegative().nullable().optional(),
+  categoryId: z.string().min(1).optional(),
 });
+
+export const updateEventSchema = z.object({
+  date: dateKeySchema.optional(),
+  text: z.string().trim().min(1).max(500).optional(),
+  note: z.string().max(2000).optional(),
+  budgetAmount: z.number().int().nonnegative().nullable().optional(),
+  categoryId: z.string().min(1).optional(),
+  member: eventMemberSchema.optional(),
+});
+
+export const createEventCategorySchema = z.object({
+  label: z.string().trim().min(1).max(40),
+  color: hexColorSchema,
+});
+
+export const updateEventCategorySchema = z.object({
+  label: z.string().trim().min(1).max(40).optional(),
+  color: hexColorSchema.optional(),
+});
+
+export type EventCategoryRow = {
+  id: string;
+  label: string;
+  color: string;
+  isSystem: boolean;
+  sortOrder: number;
+};
+
+export function toEventCategoryResponse(row: EventCategoryRow) {
+  return {
+    id: row.id,
+    label: row.label,
+    color: row.color,
+    isSystem: row.isSystem,
+    sortOrder: row.sortOrder,
+  };
+}
+
+export function toEventResponse(event: {
+  id: string;
+  member: "CK" | "VK" | "CON" | "GIA_DINH";
+  date: Date;
+  text: string;
+  note: string;
+  budgetAmount: number | null;
+  categoryId: string;
+  category?: EventCategoryRow | null;
+}) {
+  return {
+    id: event.id,
+    date: formatDateKey(event.date),
+    text: event.text,
+    note: event.note,
+    budgetAmount: event.budgetAmount,
+    member: event.member,
+    categoryId: event.categoryId,
+    category: event.category ? toEventCategoryResponse(event.category) : null,
+  };
+}

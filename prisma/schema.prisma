@@ -275,17 +275,39 @@ model GrowthTickNote {
   @@map("growth_tick_notes")
 }
 
-model GrowthCalendarEvent {
-  id        String       @id @default(cuid())
-  member    FamilyMember
-  date      DateTime     @db.Date
-  text      String
+/// Household-global event category (system defaults + user-created).
+model GrowthEventCategory {
+  id        String                @id @default(cuid())
+  label     String                @unique
+  color     String
+  isSystem  Boolean               @default(false)
+  sortOrder Int                   @default(0)
   createdBy String
   updatedBy String
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  events    GrowthCalendarEvent[]
+
+  @@map("growth_event_categories")
+}
+
+model GrowthCalendarEvent {
+  id           String              @id @default(cuid())
+  member       FamilyMember
+  date         DateTime            @db.Date
+  text         String
+  note         String              @default("")
+  budgetAmount Int?
+  categoryId   String
+  createdBy    String
+  updatedBy    String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  category     GrowthEventCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   @@index([member, date])
+  @@index([date])
+  @@index([categoryId])
   @@map("growth_calendar_events")
 }
 

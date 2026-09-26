@@ -1686,17 +1686,15 @@ export function InvestmentDashboard() {
 
   function renderOtherTable() {
     return (
-      <table className="w-full min-w-[800px] border-collapse text-left text-xs">
+      <table className="w-full min-w-[650px] border-collapse text-left text-xs">
         <thead className="bg-slate-50 uppercase tracking-wide text-slate-500">
           <tr>
             <th className="w-10 px-3 py-3">{selectAllCheckbox()}</th>
             <th className="px-3 py-3 font-semibold">Tên</th>
             <th className="px-3 py-3 font-semibold">Loại</th>
             <th className="px-3 py-3 font-semibold">Ngày mua</th>
-            <th className="px-3 py-3 text-right font-semibold">SL</th>
-            <th className="px-3 py-3 text-right font-semibold">Giá mua</th>
+            <th className="px-3 py-3 text-right font-semibold">Giá đầu tư</th>
             <th className="px-3 py-3 text-right font-semibold">Giá HT</th>
-            <th className="px-3 py-3 text-right font-semibold">Tổng vốn</th>
             <th className="px-3 py-3 text-right font-semibold">Lãi/Lỗ</th>
             <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
           </tr>
@@ -1710,10 +1708,8 @@ export function InvestmentDashboard() {
               <>
                 <td className="px-3 py-3"><Badge className={cn("text-[10px] px-1.5 py-0.5", meta.badge)}>{meta.label}</Badge></td>
                 <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-700">{dateLabel(inv.date)}</td>
-                <td className="px-3 py-3 text-right font-medium">{formatQuantity(inv.quantity)}</td>
                 <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
                 <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
-                <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice * inv.quantity)}</td>
                 <td className="px-3 py-3 text-right">{pnlCell(pnl, pnlPct)}</td>
               </>
             );
@@ -2006,11 +2002,7 @@ export function InvestmentDashboard() {
           </Field>
         </div>
 
-        <Field id="quantity" label="Số lượng">
-          <input className={inputClass()} id="quantity" inputMode="decimal" onChange={(e) => setForm((c) => ({ ...c, quantity: canonicalizeQuantityInput(e.target.value) }))} required value={form.quantity} />
-        </Field>
-
-        {priceFields("Giá mua (trên 1 đơn vị)", "Giá hiện tại (không bắt buộc)")}
+        {priceFields("Giá đầu tư", "Giá hiện tại (không bắt buộc)")}
         {memberDateFields()}
         {noteField()}
         {formButtons()}

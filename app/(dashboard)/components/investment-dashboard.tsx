@@ -130,6 +130,10 @@ function assetPresentValue(item: Investment) {
     const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
     return item.purchasePrice * item.quantity + pnl;
   }
+  // For OTHER / REAL_ESTATE: currentPrice=0 means asset is worth 0 (total loss)
+  if (item.type === "OTHER" || item.type === "REAL_ESTATE") {
+    return item.currentPrice * item.quantity;
+  }
   return effectiveUnitPrice(item) * item.quantity;
 }
 
@@ -1702,14 +1706,14 @@ export function InvestmentDashboard() {
         <tbody className="divide-y divide-slate-100">
           {tableBody(tabInvestments, (inv) => {
             const meta = assetMeta[inv.type];
-            const pnl = computePnl(inv);
+            const pnl = (inv.currentPrice - inv.purchasePrice) * inv.quantity;
             const pnlPct = inv.purchasePrice > 0 ? (pnl / (inv.purchasePrice * inv.quantity)) * 100 : 0;
             return (
               <>
                 <td className="px-3 py-3"><Badge className={cn("text-[10px] px-1.5 py-0.5", meta.badge)}>{meta.label}</Badge></td>
                 <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-700">{dateLabel(inv.date)}</td>
                 <td className="px-3 py-3 text-right text-slate-500">{currency(inv.purchasePrice)}</td>
-                <td className="px-3 py-3 text-right font-bold text-slate-900">{inv.currentPrice > 0 ? currency(inv.currentPrice) : "—"}</td>
+                <td className="px-3 py-3 text-right font-bold text-slate-900">{currency(inv.currentPrice)}</td>
                 <td className="px-3 py-3 text-right">{pnlCell(pnl, pnlPct)}</td>
               </>
             );

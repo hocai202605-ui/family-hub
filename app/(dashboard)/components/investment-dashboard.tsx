@@ -1151,6 +1151,10 @@ export function InvestmentDashboard() {
     if (item.type === "SAVING" && item.interestRate && item.term) {
       return sum + ((item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term));
     }
+    // For OTHER / REAL_ESTATE: currentPrice=0 means total loss
+    if (item.type === "OTHER" || item.type === "REAL_ESTATE") {
+      return sum + (item.currentPrice - item.purchasePrice) * item.quantity;
+    }
     return sum + (effectiveUnitPrice(item) - item.purchasePrice) * item.quantity;
   }, 0), [investments]);
 
@@ -1163,6 +1167,10 @@ export function InvestmentDashboard() {
         if (item.type === "SAVING" && item.interestRate && item.term) {
           const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
           return sum + (item.purchasePrice * item.quantity) + pnl;
+        }
+        // For OTHER / REAL_ESTATE: use currentPrice directly
+        if (item.type === "OTHER" || item.type === "REAL_ESTATE") {
+          return sum + item.currentPrice * item.quantity;
         }
         return sum + (effectiveUnitPrice(item) * item.quantity);
       }, 0);

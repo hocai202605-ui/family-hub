@@ -18,7 +18,10 @@ type AssetType =
   | "OTHER"
   | "FUND_DCDS"
   | "FUND_ETF_VN30"
-  | "DEBT_INTEREST";
+  | "DEBT_INTEREST"
+  | "OVERDRAFT_REPAY"
+  | "CAKE_BONUS"
+  | "COMMISSION";
 type FamilyMember = "CK" | "VK" | "CON";
 
 type TabKey = "overview" | "gold" | "stock" | "saving" | "fund" | "crypto" | "debt" | "other";
@@ -35,6 +38,9 @@ const ASSET_TYPES: AssetType[] = [
   "DEBT_INTEREST",
   "LOAN",
   "OTHER",
+  "OVERDRAFT_REPAY",
+  "CAKE_BONUS",
+  "COMMISSION",
 ];
 
 const TAB_ASSET_MAP: Record<Exclude<TabKey, "overview">, AssetType[]> = {
@@ -44,7 +50,7 @@ const TAB_ASSET_MAP: Record<Exclude<TabKey, "overview">, AssetType[]> = {
   fund: ["FUND_DCDS", "FUND_ETF_VN30"],
   crypto: ["CRYPTO"],
   debt: ["DEBT", "DEBT_INTEREST", "LOAN"],
-  other: ["REAL_ESTATE", "OTHER"],
+  other: ["REAL_ESTATE", "OTHER", "OVERDRAFT_REPAY", "CAKE_BONUS", "COMMISSION"],
 };
 
 const ZERO_PNL_TYPES: AssetType[] = ["DEBT", "LOAN", "DEBT_INTEREST"];
@@ -130,9 +136,9 @@ function assetPresentValue(item: Investment) {
     const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
     return item.purchasePrice * item.quantity + pnl;
   }
-  // For OTHER / REAL_ESTATE: currentPrice=0 means asset is worth 0 (total loss)
-  if (item.type === "OTHER" || item.type === "REAL_ESTATE") {
-    return item.currentPrice * item.quantity;
+  // For OTHER / REAL_ESTATE / OVERDRAFT_REPAY / CAKE_BONUS / COMMISSION: net value = currentPrice - purchasePrice
+  if (item.type === "OTHER" || item.type === "REAL_ESTATE" || item.type === "OVERDRAFT_REPAY" || item.type === "CAKE_BONUS" || item.type === "COMMISSION") {
+    return (item.currentPrice - item.purchasePrice) * item.quantity;
   }
   return effectiveUnitPrice(item) * item.quantity;
 }
@@ -228,6 +234,9 @@ const assetMeta: Record<AssetType, { label: string; icon: IconName; chart: strin
   DEBT_INTEREST: { label: "Trả nợ lãi vay", icon: "trendingDown", chart: "#be123c", badge: "bg-rose-50 text-rose-800 ring-rose-100" },
   LOAN: { label: "Cho vay", icon: "trendingUp", chart: "#0ea5e9", badge: "bg-sky-50 text-sky-700 ring-sky-100" },
   OTHER: { label: "Khác", icon: "target", chart: "#64748b", badge: "bg-slate-50 text-slate-700 ring-slate-100" },
+  OVERDRAFT_REPAY: { label: "Trả nợ Thấu Chi", icon: "trendingDown", chart: "#dc2626", badge: "bg-red-50 text-red-700 ring-red-100" },
+  CAKE_BONUS: { label: "Thưởng CAKE", icon: "sparkles", chart: "#f59e0b", badge: "bg-amber-50 text-amber-700 ring-amber-100" },
+  COMMISSION: { label: "Hoa hồng", icon: "banknote", chart: "#22c55e", badge: "bg-green-50 text-green-700 ring-green-100" },
 };
 
 const familyMembers: FamilyMember[] = ["CK", "VK", "CON"];
@@ -1151,8 +1160,8 @@ export function InvestmentDashboard() {
     if (item.type === "SAVING" && item.interestRate && item.term) {
       return sum + ((item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term));
     }
-    // For OTHER / REAL_ESTATE: currentPrice=0 means total loss
-    if (item.type === "OTHER" || item.type === "REAL_ESTATE") {
+    // For OTHER / REAL_ESTATE / OVERDRAFT_REPAY / CAKE_BONUS / COMMISSION: use currentPrice directly
+    if (item.type === "OTHER" || item.type === "REAL_ESTATE" || item.type === "OVERDRAFT_REPAY" || item.type === "CAKE_BONUS" || item.type === "COMMISSION") {
       return sum + (item.currentPrice - item.purchasePrice) * item.quantity;
     }
     return sum + (effectiveUnitPrice(item) - item.purchasePrice) * item.quantity;
@@ -1168,8 +1177,8 @@ export function InvestmentDashboard() {
           const pnl = (item.purchasePrice * item.quantity) * (item.interestRate / 100) / 12 * Number(item.term);
           return sum + (item.purchasePrice * item.quantity) + pnl;
         }
-        // For OTHER / REAL_ESTATE: use currentPrice directly
-        if (item.type === "OTHER" || item.type === "REAL_ESTATE") {
+        // For OTHER / REAL_ESTATE / OVERDRAFT_REPAY / CAKE_BONUS: use currentPrice directly
+        if (item.type === "OTHER" || item.type === "REAL_ESTATE" || item.type === "OVERDRAFT_REPAY" || item.type === "CAKE_BONUS" || item.type === "COMMISSION") {
           return sum + item.currentPrice * item.quantity;
         }
         return sum + (effectiveUnitPrice(item) * item.quantity);
@@ -2006,6 +2015,9 @@ export function InvestmentDashboard() {
             >
               <option value="REAL_ESTATE">{assetMeta.REAL_ESTATE.label}</option>
               <option value="CRYPTO">{assetMeta.CRYPTO.label}</option>
+              <option value="OVERDRAFT_REPAY">{assetMeta.OVERDRAFT_REPAY.label}</option>
+              <option value="CAKE_BONUS">{assetMeta.CAKE_BONUS.label}</option>
+              <option value="COMMISSION">{assetMeta.COMMISSION.label}</option>
               <option value="OTHER">{assetMeta.OTHER.label}</option>
             </select>
           </Field>

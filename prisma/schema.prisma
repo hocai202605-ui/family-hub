@@ -25,6 +25,9 @@ enum AssetType {
   FUND_DCDS
   FUND_ETF_VN30
   DEBT_INTEREST
+  OVERDRAFT_REPAY
+  CAKE_BONUS
+  COMMISSION
 }
 
 enum FamilyMember {

@@ -60,6 +60,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ stockSymbol: toStockSymbolResponse(stockSymbol) }, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Stock symbol already exists." }, { status: 409 });
+    const existing = await prisma.stockSymbol.findUnique({
+      where: { symbol },
+    });
+
+    if (existing) {
+      return NextResponse.json({ stockSymbol: toStockSymbolResponse(existing) });
+    }
+
+    return NextResponse.json({ error: "Cannot save stock symbol." }, { status: 500 });
   }
 }

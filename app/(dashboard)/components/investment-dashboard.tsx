@@ -1492,7 +1492,9 @@ export function InvestmentDashboard() {
             .sort((a, b) => a.symbol.localeCompare(b.symbol));
         }
 
-        return [...current, saved].sort((a, b) => a.symbol.localeCompare(b.symbol));
+        const exists = current.some((item) => item.id === saved.id || item.symbol === saved.symbol);
+        return (exists ? current.map((item) => (item.id === saved.id || item.symbol === saved.symbol ? saved : item)) : [...current, saved])
+          .sort((a, b) => a.symbol.localeCompare(b.symbol));
       });
 
       if (previous) {

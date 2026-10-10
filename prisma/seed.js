@@ -123,6 +123,36 @@ const incomes = [
 
 const stockSymbols = ["MBB", "HPG", "TCB", "BID", "CTG"];
 
+const goals = [
+  {
+    title: "Xe hơi đầu tiên - VinFast VF3",
+    goalType: "CAR",
+    targetYear: 2028,
+    targetAmount: 250_000_000,
+    currentAmount: 0,
+    note: "Chiếc xe đầu tiên của gia đình.",
+    sortOrder: 1,
+  },
+  {
+    title: "Nhà 2N1K OCP1",
+    goalType: "HOME",
+    targetYear: 2030,
+    targetAmount: 2_800_000_000,
+    currentAmount: 1_000_000_000,
+    note: "Căn hộ 2 ngủ 1 khách khu Ocean Park 1.",
+    sortOrder: 2,
+  },
+  {
+    title: "Xe thứ hai - Geely Coolray Flagship",
+    goalType: "CAR",
+    targetYear: 2032,
+    targetAmount: 650_000_000,
+    currentAmount: 0,
+    note: "Nâng cấp chiếc xe thứ hai khi tài chính vững hơn.",
+    sortOrder: 3,
+  },
+];
+
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
@@ -171,6 +201,18 @@ async function main() {
       create: { symbol, createdBy: actor, updatedBy: actor },
       update: { updatedBy: actor },
     });
+  }
+
+  const goalCount = await prisma.goal.count();
+  if (goalCount === 0) {
+    await prisma.goal.createMany({
+      data: goals.map((goal) => ({
+        ...goal,
+        createdBy: actor,
+        updatedBy: actor,
+      })),
+    });
+    console.log(`Seeded ${goals.length} goals.`);
   }
 
   const eventCategories = [

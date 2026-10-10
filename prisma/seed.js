@@ -121,6 +121,8 @@ const incomes = [
   { amount: 4500000, category: "Freelance", member: "VK", note: "Freelance", date: "2026-07-03" },
 ];
 
+const stockSymbols = ["MBB", "HPG", "TCB", "BID", "CTG"];
+
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
@@ -160,6 +162,14 @@ async function main() {
       where: { id: category.id },
       create: { ...category, createdBy: actor, updatedBy: actor },
       update: { ...category, updatedBy: actor },
+    });
+  }
+
+  for (const symbol of stockSymbols) {
+    await prisma.stockSymbol.upsert({
+      where: { symbol },
+      create: { symbol, createdBy: actor, updatedBy: actor },
+      update: { updatedBy: actor },
     });
   }
 

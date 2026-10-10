@@ -186,6 +186,18 @@ model Investment {
   @@map("investments")
 }
 
+/// Household-global stock symbol options for investment entry dropdowns.
+model StockSymbol {
+  id        Int      @id @default(autoincrement())
+  symbol    String   @unique
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("stock_symbols")
+}
+
 /// Yearly investment goal per asset type (household-global).
 model InvestmentYearTarget {
   id          String    @id @default(cuid())

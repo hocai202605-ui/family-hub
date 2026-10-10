@@ -158,6 +158,10 @@ function formatQtyVi(value: number) {
   return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 4 }).format(value);
 }
 
+function normalizeStockSymbol(value: string) {
+  return value.trim().toUpperCase();
+}
+
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text.trim()) return null;
@@ -180,6 +184,11 @@ type Investment = {
   member: FamilyMember;
   note: string;
   date: string;
+};
+
+type StockSymbol = {
+  id: number;
+  symbol: string;
 };
 
 type InvestmentForm = {
@@ -1096,14 +1105,20 @@ function InvestmentCard({
 
 export function InvestmentDashboard() {
   const [investments, setInvestments] = useState<Investment[]>([]);
+  const [stockSymbols, setStockSymbols] = useState<StockSymbol[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [query, setQuery] = useState("");
   const [form, setForm] = useState<InvestmentForm>(createEmptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isStockSymbolDialogOpen, setIsStockSymbolDialogOpen] = useState(false);
+  const [stockSymbolDraft, setStockSymbolDraft] = useState("");
+  const [editingStockSymbolId, setEditingStockSymbolId] = useState<number | null>(null);
+  const [stockSymbolError, setStockSymbolError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Investment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isStockSymbolSaving, setIsStockSymbolSaving] = useState(false);
   const [isFetchingGold, setIsFetchingGold] = useState(false);
   const [isFetchingCcq, setIsFetchingCcq] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1137,6 +1152,26 @@ export function InvestmentDashboard() {
     }
 
     void loadInvestments();
+    return () => { isActive = false; };
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadStockSymbols() {
+      try {
+        const response = await fetch("/api/investments/stock-symbols");
+        if (!response.ok) throw new Error("Không thể tải danh sách mã cổ phiếu.");
+        const data = (await response.json()) as { stockSymbols: StockSymbol[] };
+        if (isActive) setStockSymbols(data.stockSymbols);
+      } catch (loadError) {
+        if (isActive) {
+          setStockSymbolError(loadError instanceof Error ? loadError.message : "Không thể tải danh sách mã cổ phiếu.");
+        }
+      }
+    }
+
+    void loadStockSymbols();
     return () => { isActive = false; };
   }, []);
 
@@ -1219,6 +1254,25 @@ export function InvestmentDashboard() {
   }, [activeTab, investments, query]);
 
   const tabInvestmentIds = useMemo(() => tabInvestments.map((item) => item.id), [tabInvestments]);
+
+  const stockSymbolOptions = useMemo(() => {
+    const symbols = new Map<string, StockSymbol>();
+
+    stockSymbols.forEach((item) => {
+      symbols.set(item.symbol, item);
+    });
+
+    investments
+      .filter((item) => item.type === "STOCK")
+      .forEach((item) => {
+        const symbol = normalizeStockSymbol(item.name);
+        if (symbol && !symbols.has(symbol)) {
+          symbols.set(symbol, { id: 0, symbol });
+        }
+      });
+
+    return Array.from(symbols.values()).sort((a, b) => a.symbol.localeCompare(b.symbol));
+  }, [investments, stockSymbols]);
 
   const allVisibleSelected =
     tabInvestmentIds.length > 0 && tabInvestmentIds.every((id) => selectedIds.includes(id));
@@ -1378,6 +1432,113 @@ export function InvestmentDashboard() {
   }
 
   // ─── Market price fetch ───────────────────────────────────────────────────
+
+  function openStockSymbolDialog() {
+    setStockSymbolDraft("");
+    setEditingStockSymbolId(null);
+    setStockSymbolError(null);
+    setIsStockSymbolDialogOpen(true);
+  }
+
+  function closeStockSymbolDialog() {
+    if (isStockSymbolSaving) return;
+    setIsStockSymbolDialogOpen(false);
+    setStockSymbolDraft("");
+    setEditingStockSymbolId(null);
+    setStockSymbolError(null);
+  }
+
+  function startEditStockSymbol(stockSymbol: StockSymbol) {
+    if (stockSymbol.id === 0) return;
+    setStockSymbolDraft(stockSymbol.symbol);
+    setEditingStockSymbolId(stockSymbol.id);
+    setStockSymbolError(null);
+  }
+
+  async function handleStockSymbolSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const symbol = normalizeStockSymbol(stockSymbolDraft);
+
+    if (!symbol || isStockSymbolSaving) return;
+
+    setIsStockSymbolSaving(true);
+    setStockSymbolError(null);
+
+    try {
+      const response = await fetch(
+        editingStockSymbolId ? `/api/investments/stock-symbols/${editingStockSymbolId}` : "/api/investments/stock-symbols",
+        {
+          body: JSON.stringify({ symbol }),
+          headers: { "Content-Type": "application/json" },
+          method: editingStockSymbolId ? "PATCH" : "POST",
+        },
+      );
+
+      if (!response.ok) {
+        const data = await readJsonResponse(response);
+        throw new Error(typeof data?.error === "string" ? data.error : "Không thể lưu mã cổ phiếu.");
+      }
+
+      const data = (await response.json()) as { stockSymbol: StockSymbol };
+      const saved = data.stockSymbol;
+      const previous = editingStockSymbolId
+        ? stockSymbols.find((item) => item.id === editingStockSymbolId)?.symbol
+        : null;
+
+      setStockSymbols((current) => {
+        if (editingStockSymbolId) {
+          return current
+            .map((item) => (item.id === saved.id ? saved : item))
+            .sort((a, b) => a.symbol.localeCompare(b.symbol));
+        }
+
+        return [...current, saved].sort((a, b) => a.symbol.localeCompare(b.symbol));
+      });
+
+      if (previous) {
+        if (form.type === "STOCK" && form.name === previous) {
+          setForm((current) => ({ ...current, name: saved.symbol }));
+        }
+        setInvestments((current) =>
+          current.map((item) => (item.type === "STOCK" && item.name === previous ? { ...item, name: saved.symbol } : item)),
+        );
+      } else if (form.type === "STOCK" && !form.name) {
+        setForm((current) => ({ ...current, name: saved.symbol }));
+      }
+
+      setStockSymbolDraft("");
+      setEditingStockSymbolId(null);
+    } catch (submitError) {
+      setStockSymbolError(submitError instanceof Error ? submitError.message : "Không thể lưu mã cổ phiếu.");
+    } finally {
+      setIsStockSymbolSaving(false);
+    }
+  }
+
+  async function deleteStockSymbol(stockSymbol: StockSymbol) {
+    if (stockSymbol.id === 0 || isStockSymbolSaving) return;
+
+    setIsStockSymbolSaving(true);
+    setStockSymbolError(null);
+
+    try {
+      const response = await fetch(`/api/investments/stock-symbols/${stockSymbol.id}`, { method: "DELETE" });
+
+      if (!response.ok) {
+        const data = await readJsonResponse(response);
+        throw new Error(typeof data?.error === "string" ? data.error : "Không thể xóa mã cổ phiếu.");
+      }
+
+      setStockSymbols((current) => current.filter((item) => item.id !== stockSymbol.id));
+      if (form.type === "STOCK" && form.name === stockSymbol.symbol) {
+        setForm((current) => ({ ...current, name: "" }));
+      }
+    } catch (deleteError) {
+      setStockSymbolError(deleteError instanceof Error ? deleteError.message : "Không thể xóa mã cổ phiếu.");
+    } finally {
+      setIsStockSymbolSaving(false);
+    }
+  }
 
   async function fetchGoldPrice() {
     setIsFetchingGold(true);
@@ -1866,8 +2027,27 @@ export function InvestmentDashboard() {
   function renderStockForm() {
     return (
       <form className="grid gap-4" onSubmit={handleSubmit}>
-        <Field id="name" label="Mã cổ phiếu (VD: FPT, VNM, VIC)">
-          <input className={inputClass()} id="name" onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))} required type="text" value={form.name} />
+        <Field id="name" label="Mã cổ phiếu">
+          <div className="flex gap-2">
+            <select
+              className={cn(inputClass(), "min-w-0 flex-1")}
+              id="name"
+              onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
+              required
+              value={form.name}
+            >
+              <option value="">Chọn mã</option>
+              {stockSymbolOptions.map((stockSymbol) => (
+                <option key={`${stockSymbol.id}-${stockSymbol.symbol}`} value={stockSymbol.symbol}>
+                  {stockSymbol.symbol}
+                </option>
+              ))}
+            </select>
+            <Button className="shrink-0 px-3" onClick={openStockSymbolDialog} variant="secondary">
+              <Icon className="h-4 w-4" name="edit" />
+              Mã
+            </Button>
+          </div>
         </Field>
 
         <Field id="quantity" label="Số lượng cổ phiếu">
@@ -2432,6 +2612,72 @@ export function InvestmentDashboard() {
       {/* Form dialog */}
       <Dialog description={formDescription()} onClose={closeFormDialog} open={isFormOpen} title={formTitle()}>
         {renderForm()}
+      </Dialog>
+
+      <Dialog description="Quản lý danh sách mã dùng trong dropdown chứng khoán." onClose={closeStockSymbolDialog} open={isStockSymbolDialogOpen} title="Quản lý mã cổ phiếu">
+        <div className="grid gap-4">
+          <form className="grid gap-3" onSubmit={handleStockSymbolSubmit}>
+            <Field id="stock-symbol" label="Mã cổ phiếu">
+              <input
+                className={inputClass()}
+                id="stock-symbol"
+                maxLength={16}
+                onChange={(event) => setStockSymbolDraft(normalizeStockSymbol(event.target.value))}
+                placeholder="VD: MBB"
+                required
+                value={stockSymbolDraft}
+              />
+            </Field>
+            {stockSymbolError ? <p className="text-sm font-medium text-rose-600">{stockSymbolError}</p> : null}
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              {editingStockSymbolId ? (
+                <Button
+                  className="w-full sm:w-fit"
+                  disabled={isStockSymbolSaving}
+                  onClick={() => {
+                    setEditingStockSymbolId(null);
+                    setStockSymbolDraft("");
+                    setStockSymbolError(null);
+                  }}
+                  variant="secondary"
+                >
+                  Hủy sửa
+                </Button>
+              ) : null}
+              <Button className="w-full sm:w-fit" disabled={isStockSymbolSaving} type="submit">
+                {isStockSymbolSaving ? "Đang lưu..." : editingStockSymbolId ? "Lưu mã" : "Thêm mã"}
+              </Button>
+            </div>
+          </form>
+
+          <div className="max-h-64 overflow-auto rounded-lg border border-slate-200">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-3 font-semibold">Mã</th>
+                  <th className="px-3 py-3 text-right font-semibold">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {stockSymbolOptions.map((stockSymbol) => (
+                  <tr key={`${stockSymbol.id}-${stockSymbol.symbol}`}>
+                    <td className="px-3 py-3 font-bold text-slate-900">{stockSymbol.symbol}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex justify-end gap-2">
+                        <IconButton label="Sửa mã" onClick={() => startEditStockSymbol(stockSymbol)}>
+                          <Icon className="h-3.5 w-3.5" name="edit" />
+                        </IconButton>
+                        <IconButton label="Xóa mã" onClick={() => deleteStockSymbol(stockSymbol)} tone="danger">
+                          <Icon className="h-3.5 w-3.5" name="trash" />
+                        </IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </Dialog>
 
       {/* Delete confirmation dialog */}

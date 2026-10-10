@@ -274,6 +274,10 @@ function isSelectedMonth(date: string, selectedMonth: string) {
   return date.slice(0, 7) === selectedMonth;
 }
 
+function isSelectedDate(date: string, selectedDate: string) {
+  return date.slice(0, 10) === selectedDate;
+}
+
 function monthLabel(monthValue: string) {
   const [year, month] = monthValue.split("-").map(Number);
 
@@ -281,6 +285,16 @@ function monthLabel(monthValue: string) {
     month: "2-digit",
     year: "numeric",
   }).format(new Date(year, month - 1, 1));
+}
+
+function monthDateBounds(monthValue: string) {
+  const [year, month] = monthValue.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+
+  return {
+    min: `${monthValue}-01`,
+    max: `${monthValue}-${String(lastDay).padStart(2, "0")}`,
+  };
 }
 
 function Card({ children, className }: { children: ReactNode; className?: string }) {
@@ -567,6 +581,7 @@ export function ExpenseDashboard({
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
   const [memberFilter, setMemberFilter] = useState<FamilyMember | "all">("all");
+  const [dateFilter, setDateFilter] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [form, setForm] = useState<ExpenseForm>(() => createEmptyForm(defaultMember));
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -696,12 +711,17 @@ export function ExpenseDashboard({
     () => expenses.filter((item) => isSelectedMonth(item.date, selectedMonth)),
     [selectedMonth, expenses],
   );
+
+  useEffect(() => {
+    setDateFilter((current) => (current && current.slice(0, 7) !== selectedMonth ? "" : current));
+  }, [selectedMonth]);
   
   const totalExpense = useMemo(() => monthlyExpenses.reduce((sum, item) => sum + item.amount, 0), [monthlyExpenses]);
   const remainingBudget = monthlyBudget - totalExpense;
   const budgetUsedPercent =
     monthlyBudget > 0 ? Math.round((totalExpense / monthlyBudget) * 100) : totalExpense > 0 ? 100 : 0;
   const budgetDraftInWords = useMemo(() => moneyInVietnamese(budgetDraft), [budgetDraft]);
+  const dateFilterBounds = useMemo(() => monthDateBounds(selectedMonth), [selectedMonth]);
 
   const expenseByMember = useMemo(
     () =>
@@ -736,6 +756,7 @@ export function ExpenseDashboard({
     return monthlyExpenses
       .filter((item) => categoryFilter === "all" || item.category === categoryFilter)
       .filter((item) => memberFilter === "all" || item.member === memberFilter)
+      .filter((item) => !dateFilter || isSelectedDate(item.date, dateFilter))
       .filter((item) => {
         if (!normalizedQuery) {
           return true;
@@ -749,7 +770,7 @@ export function ExpenseDashboard({
         );
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [categoryFilter, memberFilter, monthlyExpenses, query, getCategoryMeta]);
+  }, [categoryFilter, dateFilter, memberFilter, monthlyExpenses, query, getCategoryMeta]);
 
   const filteredExpenseIds = useMemo(() => filteredExpenses.map((item) => item.id), [filteredExpenses]);
 
@@ -1131,13 +1152,22 @@ export function ExpenseDashboard({
               })}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto]">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto]">
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                   <Icon className="h-4 w-4" name="search" />
                 </span>
                 <input className={cn(inputClass(), "w-full pl-9")} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm ghi chú, danh mục..." type="search" value={query} />
               </div>
+              <input
+                aria-label="Lọc theo ngày"
+                className={cn(inputClass(), "w-full sm:w-40")}
+                max={dateFilterBounds.max}
+                min={dateFilterBounds.min}
+                onChange={(event) => setDateFilter(event.target.value)}
+                type="date"
+                value={dateFilter}
+              />
               <select className={cn(inputClass(), "w-full sm:w-40")} onChange={(event) => setCategoryFilter(event.target.value as Category | "all")} value={categoryFilter}>
                 <option value="all">Tất cả danh mục</option>
                 {categories.map((category) => (

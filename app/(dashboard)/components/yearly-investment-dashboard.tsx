@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { vietnamToday } from "@/lib/vietnam-date";
 import { Icon } from "./icons";
 import { actualForType, InvestmentYearTargets, type TargetRow } from "./investment-year-targets";
@@ -75,29 +75,6 @@ function compactVnd(value: number) {
   return String(Math.round(value));
 }
 
-function formatVndInput(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return "";
-  return new Intl.NumberFormat("vi-VN").format(Number(digits));
-}
-
-function parseVndInput(value: string) {
-  const trimmed = value.trim().toLowerCase().replace(/\s/g, "");
-  if (!trimmed) return 0;
-
-  const suffixMatch = trimmed.match(/^([0-9]+(?:[.,][0-9]+)?)(m|tr|triệu|b|ty|tỷ)$/);
-  if (suffixMatch) {
-    const amount = Number(suffixMatch[1].replace(",", "."));
-    const multiplier = suffixMatch[2] === "b" || suffixMatch[2] === "ty" || suffixMatch[2] === "tỷ" ? 1_000_000_000 : 1_000_000;
-    return Number.isFinite(amount) && amount > 0 ? Math.round(amount * multiplier) : 0;
-  }
-
-  const digits = trimmed.replace(/\D/g, "");
-  if (!digits) return 0;
-  const amount = Number(digits);
-  return amount > 0 && amount < 1000 ? amount * 1_000_000 : amount;
-}
-
 function investedTotal(row: MonthRow) {
   return ASSET_ORDER.reduce((sum, key) => sum + (row.byType[key] ?? 0), 0);
 }
@@ -108,14 +85,9 @@ export function YearlyInvestmentDashboard() {
   const [year, setYear] = useState(currentYear);
   const [investments, setInvestments] = useState<InvestmentRow[]>([]);
   const [targets, setTargets] = useState<TargetRow[]>([]);
-  const [totalTargetAmount, setTotalTargetAmount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [editingTotalTarget, setEditingTotalTarget] = useState(false);
-  const [totalTargetDraft, setTotalTargetDraft] = useState("");
-  const [isSavingTotalTarget, setIsSavingTotalTarget] = useState(false);
-  const [totalTargetError, setTotalTargetError] = useState<string | null>(null);
 
   const availableYears = useMemo(() => {
     const y = Number(currentYear);
@@ -136,17 +108,14 @@ export function YearlyInvestmentDashboard() {
       const investmentData = (await investmentRes.json()) as { investments?: InvestmentRow[] };
       setInvestments(Array.isArray(investmentData.investments) ? investmentData.investments : []);
       if (targetRes.ok) {
-        const targetData = (await targetRes.json()) as { targets?: TargetRow[]; totalTargetAmount?: number };
+        const targetData = (await targetRes.json()) as { targets?: TargetRow[] };
         setTargets(Array.isArray(targetData.targets) ? targetData.targets : []);
-        setTotalTargetAmount(Number(targetData.totalTargetAmount) || 0);
       } else {
         setTargets([]);
-        setTotalTargetAmount(0);
       }
     } catch (error) {
       setInvestments([]);
       setTargets([]);
-      setTotalTargetAmount(0);
       setLoadError(error instanceof Error ? error.message : "Không tải được báo cáo năm.");
     } finally {
       setIsLoading(false);
@@ -187,6 +156,7 @@ export function YearlyInvestmentDashboard() {
   }, [year, isLoading, currentYear, currentMonth, months]);
 
   const yearInvested = months.reduce((sum, row) => sum + investedTotal(row), 0);
+  const totalTargetAmount = targets.reduce((sum, row) => sum + row.targetValue, 0);
 
   const targetStats = useMemo(() => {
     const scored = targets
@@ -223,36 +193,6 @@ export function YearlyInvestmentDashboard() {
     }
     return best;
   };
-
-  function openTotalTargetEdit() {
-    setEditingTotalTarget(true);
-    setTotalTargetError(null);
-    setTotalTargetDraft(totalTargetAmount > 0 ? formatVndInput(String(totalTargetAmount)) : "");
-  }
-
-  async function saveTotalTarget(event: FormEvent) {
-    event.preventDefault();
-    const parsed = parseVndInput(totalTargetDraft);
-    setIsSavingTotalTarget(true);
-    setTotalTargetError(null);
-    try {
-      const response = await fetch("/api/investments/targets", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year, totalTargetAmount: parsed }),
-      });
-      if (!response.ok) {
-        throw new Error("Không lưu được tổng vốn dự kiến.");
-      }
-      setTotalTargetAmount(parsed);
-      setEditingTotalTarget(false);
-      void load();
-    } catch (error) {
-      setTotalTargetError(error instanceof Error ? error.message : "Không lưu được tổng vốn dự kiến.");
-    } finally {
-      setIsSavingTotalTarget(false);
-    }
-  }
 
   return (
     <div className="flex w-full flex-col gap-6 px-2.5 py-4 sm:py-5">
@@ -296,8 +236,7 @@ export function YearlyInvestmentDashboard() {
           icon="target"
           label="Tổng vốn dự kiến"
           value={totalTargetAmount > 0 ? compactVnd(totalTargetAmount) : "—"}
-          hint="Bấm bút chì để chỉnh"
-          onEdit={openTotalTargetEdit}
+          hint="Tổng mục tiêu các danh mục"
         />
       </section>
 
@@ -437,62 +376,6 @@ export function YearlyInvestmentDashboard() {
           </table>
         </div>
       </section>
-
-      {editingTotalTarget ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4 py-6" role="presentation">
-          <div
-            aria-modal="true"
-            className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
-            role="dialog"
-          >
-            <form onSubmit={saveTotalTarget}>
-              <div className="flex items-start justify-between gap-4 border-b border-amber-100 bg-gradient-to-r from-amber-50/90 via-white to-emerald-50/60 p-5">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-950">Sửa tổng vốn dự kiến</h3>
-                  <p className="mt-1 text-sm text-slate-500">Đặt mục tiêu tổng vốn đầu tư cho năm {year}.</p>
-                </div>
-                <button
-                  className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-600"
-                  onClick={() => setEditingTotalTarget(false)}
-                  type="button"
-                >
-                  <Icon className="h-4 w-4" name="x" />
-                </button>
-              </div>
-              <div className="space-y-4 p-5">
-                <label className="block text-sm font-medium text-slate-700" htmlFor="total-target-amount">
-                  Tổng vốn dự kiến (VND)
-                </label>
-                <input
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm tabular-nums outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
-                  id="total-target-amount"
-                  inputMode="numeric"
-                  onChange={(event) => setTotalTargetDraft(formatVndInput(event.target.value))}
-                  placeholder="400.000.000"
-                  value={totalTargetDraft}
-                />
-                {totalTargetError ? <p className="text-sm font-semibold text-rose-600">{totalTargetError}</p> : null}
-                <div className="flex justify-end gap-2 pt-1">
-                  <button
-                    className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
-                    onClick={() => setEditingTotalTarget(false)}
-                    type="button"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                    disabled={isSavingTotalTarget}
-                    type="submit"
-                  >
-                    {isSavingTotalTarget ? "Đang lưu..." : "Lưu"}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -502,26 +385,14 @@ function Kpi({
   label,
   value,
   hint,
-  onEdit,
 }: {
   icon: "wallet" | "check" | "target";
   label: string;
   value: string;
   hint: string;
-  onEdit?: () => void;
 }) {
   return (
-    <div className="relative rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      {onEdit ? (
-        <button
-          aria-label={`Sửa ${label}`}
-          className="absolute right-3 top-3 rounded-md p-1.5 text-slate-400 outline-none transition hover:bg-slate-100 hover:text-slate-700"
-          onClick={onEdit}
-          type="button"
-        >
-          <Icon className="h-4 w-4" name="edit" />
-        </button>
-      ) : null}
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
           <Icon className="h-5 w-5" name={icon} />

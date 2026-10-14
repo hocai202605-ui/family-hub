@@ -65,7 +65,6 @@ export function targetUnitForType(type: TargetAssetType): TargetUnit {
 
 export const upsertTargetsSchema = z.object({
   year: z.string().regex(/^\d{4}$/),
-  totalTargetAmount: z.number().int().nonnegative().optional(),
   items: z
     .array(
       z.object({
@@ -73,9 +72,7 @@ export const upsertTargetsSchema = z.object({
         targetValue: z.number().int().nonnegative(),
       }),
     )
-    .optional(),
-}).refine((value) => value.totalTargetAmount !== undefined || (value.items !== undefined && value.items.length > 0), {
-  message: "Provide totalTargetAmount and/or at least one target item.",
+    .min(1),
 });
 
 export function yearRange(year: string) {

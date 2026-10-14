@@ -33,8 +33,8 @@ const TARGET_ORDER: TargetAssetType[] = [
   "FUND_DCDS",
   "FUND_ETF_VN30",
   "STOCK",
-  "REAL_ESTATE",
   "CRYPTO",
+  "REAL_ESTATE",
   "OTHER",
 ];
 
@@ -207,6 +207,7 @@ export function InvestmentYearTargets({
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const totalTargetAmount = targets.reduce((sum, row) => sum + row.targetValue, 0);
 
   const byType = useMemo(() => {
     const map = new Map(targets.map((row) => [row.type, row]));
@@ -304,6 +305,16 @@ export function InvestmentYearTargets({
                   {" "}
                   / {row.targetValue > 0 ? formatActual(row.targetValue) : "—"}
                 </span>
+                {row.targetValue > 0 && totalTargetAmount > 0 ? (
+                  <span
+                    className="ml-1.5 inline-block text-xs font-medium text-zinc-500"
+                    title="Tỷ trọng mục tiêu so với tổng vốn dự kiến"
+                  >
+                    ({new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(
+                      (row.targetValue / totalTargetAmount) * 100,
+                    )}%)
+                  </span>
+                ) : null}
               </p>
 
               <div className={cn("mt-1.5 h-1.5 overflow-hidden rounded-full", row.meta.track)}>

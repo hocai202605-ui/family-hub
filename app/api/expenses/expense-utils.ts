@@ -47,6 +47,7 @@ export function toExpenseResponse(expense: {
   member: "CK" | "VK" | "CON" | "GIA_DINH";
   note: string;
   date: Date;
+  createdBy: string | null;
 }) {
   return {
     id: expense.id,
@@ -56,6 +57,7 @@ export function toExpenseResponse(expense: {
     member: expense.member,
     note: expense.note,
     date: formatExpenseDateTime(expense.date),
+    createdBy: expense.createdBy ?? "",
   };
 }
 

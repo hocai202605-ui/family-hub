@@ -23,6 +23,7 @@ type Expense = {
   member: FamilyMember;
   note: string;
   date: string;
+  createdBy: string;
 };
 
 type ExpenseForm = {
@@ -1222,20 +1223,21 @@ export function ExpenseDashboard({
                   <th className="px-5 py-4 font-semibold">Người</th>
                   <th className="px-5 py-4 font-semibold">Ghi chú</th>
                   <th className="px-5 py-4 text-right font-semibold">Số tiền</th>
+                  <th className="px-5 py-4 font-semibold">Người tạo</th>
                   <th className="px-5 py-4 text-right font-semibold">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={7}>
+                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={8}>
                       Đang tải chi tiêu...
                     </td>
                   </tr>
                 ) : null}
                 {!isLoading && error ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-rose-600" colSpan={7}>
+                    <td className="px-5 py-10 text-center text-sm text-rose-600" colSpan={8}>
                       {error}
                     </td>
                   </tr>
@@ -1285,6 +1287,9 @@ export function ExpenseDashboard({
                       <td className="whitespace-nowrap px-5 py-4 text-right font-bold text-slate-950">
                         -{currency(expense.amount)}
                       </td>
+                      <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-600">
+                        {expense.createdBy || "—"}
+                      </td>
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
                           <IconButton label="Edit expense" onClick={() => openEditDialog(expense)}>
@@ -1301,7 +1306,7 @@ export function ExpenseDashboard({
                   : null}
                 {!isLoading && !error && filteredExpenses.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={7}>
+                    <td className="px-5 py-10 text-center text-sm text-slate-500" colSpan={8}>
                       Không tìm thấy chi tiêu phù hợp.
                     </td>
                   </tr>

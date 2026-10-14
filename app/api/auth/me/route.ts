@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
       name: user.name,
       role: user.role,
       permissions: user.permissions,
+      sessionExpiresAt: user.sessionExpiresAt,
     },
     navItems: filterNavItems(user.role, user.permissions),
   });

@@ -20,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         name: user.name,
         email: user.email,
         role: user.role,
+        sessionExpiresAt: user.sessionExpiresAt,
       }}
     >
       {children}

@@ -25,10 +25,14 @@ export async function GET(request: NextRequest) {
   const rows = await prisma.investmentYearTarget.findMany({
     where: { year: year! },
   });
+  const plan = await prisma.investmentYearPlan.findUnique({
+    where: { year: year! },
+  });
   const byType = new Map(rows.map((row) => [row.type, row.targetValue]));
 
   return NextResponse.json({
     year,
+    totalTargetAmount: plan?.totalTargetAmount ?? 0,
     targets: TARGET_ASSET_TYPES.map((type) => ({
       type,
       targetValue: byType.get(type) ?? 0,
@@ -47,30 +51,55 @@ export async function PUT(request: NextRequest) {
   }
 
   const username = auditUsername(auth.user);
-  const { year, items } = parsed.data;
+  const { year, items = [], totalTargetAmount } = parsed.data;
 
-  const saved = await prisma.$transaction(
-    items.map((item) =>
-      prisma.investmentYearTarget.upsert({
-        where: { year_type: { year, type: item.type } },
-        create: {
-          year,
-          type: item.type,
-          targetValue: item.targetValue,
-          createdBy: username,
-          updatedBy: username,
-        },
-        update: {
-          targetValue: item.targetValue,
-          updatedBy: username,
-        },
-      }),
-    ),
+  await prisma.$transaction(
+    [
+      ...(totalTargetAmount !== undefined
+        ? [
+            prisma.investmentYearPlan.upsert({
+              where: { year },
+              create: {
+                year,
+                totalTargetAmount,
+                createdBy: username,
+                updatedBy: username,
+              },
+              update: {
+                totalTargetAmount,
+                updatedBy: username,
+              },
+            }),
+          ]
+        : []),
+      ...items.map((item) =>
+        prisma.investmentYearTarget.upsert({
+          where: { year_type: { year, type: item.type } },
+          create: {
+            year,
+            type: item.type,
+            targetValue: item.targetValue,
+            createdBy: username,
+            updatedBy: username,
+          },
+          update: {
+            targetValue: item.targetValue,
+            updatedBy: username,
+          },
+        }),
+      ),
+    ],
   );
+
+  const [targetRows, planRow] = await Promise.all([
+    prisma.investmentYearTarget.findMany({ where: { year } }),
+    prisma.investmentYearPlan.findUnique({ where: { year } }),
+  ]);
 
   return NextResponse.json({
     year,
-    targets: saved.map((row) => ({
+    totalTargetAmount: planRow?.totalTargetAmount ?? 0,
+    targets: targetRows.map((row) => ({
       type: row.type,
       targetValue: row.targetValue,
       unit: targetUnitForType(row.type as (typeof TARGET_ASSET_TYPES)[number]),

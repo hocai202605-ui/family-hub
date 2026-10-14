@@ -7,6 +7,7 @@ Source of truth: `lib/auth.ts`, `docs/security.md`.
 - Server pages under the dashboard: `await requirePageAccess("<menuKey>")`.
 - API route handlers: `requireApiAccess(request, menuKey)`, `requireAnyApiAccess`, or `requireAdminApiAccess` **before** Prisma or external calls.
 - Cookie name: `family_session` (`SESSION_COOKIE`). Do not invent a second session cookie.
+- Session TTL: 1 hour after login. Keep token `exp`, cookie `maxAge`, and dashboard auto-logout behavior aligned.
 - Passwords: only via `hashPassword` / `verifyPassword`. Never store plaintext.
 - Production: rely on `AUTH_SECRET` (or `NEXTAUTH_SECRET`). Do not introduce new hard-coded secrets.
 

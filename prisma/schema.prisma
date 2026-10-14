@@ -234,6 +234,18 @@ model InvestmentYearTarget {
   @@map("investment_year_targets")
 }
 
+/// Yearly investment plan settings (household-global).
+model InvestmentYearPlan {
+  year              String   @id
+  totalTargetAmount Int      @default(0)
+  createdBy         String
+  updatedBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("investment_year_plans")
+}
+
 // --- Personal growth / daily calendar (menuKey: calendar) ---
 
 /// Habit definition for a member within a calendar month (YYYY-MM).

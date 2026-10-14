@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type { NavItem } from "@/lib/menu";
 import { Icon } from "./icons";
 
@@ -10,6 +10,7 @@ type ShellUser = {
   name: string;
   email: string;
   role: "ADMIN" | "USER";
+  sessionExpiresAt: number;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -32,7 +33,17 @@ function hasActiveChild(pathname: string, item: NavItem) {
   return Boolean(item.children?.some((child) => isChildActive(pathname, child.href) || isActive(pathname, child.href)));
 }
 
-function SidebarContent({ navItems, onNavigate, user }: { navItems: NavItem[]; onNavigate?: () => void; user: ShellUser }) {
+function SidebarContent({
+  navItems,
+  onLogout,
+  onNavigate,
+  user,
+}: {
+  navItems: NavItem[];
+  onLogout: () => void;
+  onNavigate?: () => void;
+  user: ShellUser;
+}) {
   const pathname = usePathname();
 
   const autoExpanded = useMemo(() => {
@@ -62,11 +73,6 @@ function SidebarContent({ navItems, onNavigate, user }: { navItems: NavItem[]; o
       else next.add(menuKey);
       return next;
     });
-  }
-
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
   }
 
   return (
@@ -179,7 +185,7 @@ function SidebarContent({ navItems, onNavigate, user }: { navItems: NavItem[]; o
             </span>
             <button
               className="inline-flex h-9 items-center gap-2 rounded-md border border-amber-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-amber-300 hover:text-slate-950"
-              onClick={handleLogout}
+              onClick={onLogout}
               type="button"
             >
               <Icon className="h-3.5 w-3.5" name="logOut" />
@@ -195,10 +201,24 @@ function SidebarContent({ navItems, onNavigate, user }: { navItems: NavItem[]; o
 export function DashboardShell({ children, navItems, user }: { children: ReactNode; navItems: NavItem[]; user: ShellUser }) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const handleLogout = useCallback(async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
+  }, []);
+
+  useEffect(() => {
+    const timeoutMs = Math.max(user.sessionExpiresAt - Date.now(), 0);
+    const timeoutId = window.setTimeout(() => {
+      void handleLogout();
+    }, timeoutMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [handleLogout, user.sessionExpiresAt]);
+
   return (
     <div className="min-h-screen bg-[#fffaf3] text-slate-950">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-amber-100 bg-white shadow-sm lg:block">
-        <SidebarContent navItems={navItems} user={user} />
+        <SidebarContent navItems={navItems} onLogout={handleLogout} user={user} />
       </aside>
 
       <div className="lg:pl-72">
@@ -239,7 +259,7 @@ export function DashboardShell({ children, navItems, user }: { children: ReactNo
             >
               <Icon className="h-4 w-4" name="x" />
             </button>
-            <SidebarContent navItems={navItems} onNavigate={() => setIsOpen(false)} user={user} />
+            <SidebarContent navItems={navItems} onLogout={handleLogout} onNavigate={() => setIsOpen(false)} user={user} />
           </aside>
         </div>
       ) : null}

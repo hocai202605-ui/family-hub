@@ -54,26 +54,28 @@ export const TARGET_ASSET_TYPES = [
 ] as const;
 
 export type TargetAssetType = (typeof TARGET_ASSET_TYPES)[number];
-export type TargetUnit = "VND" | "CHI" | "CCQ";
+export type TargetUnit = "VND";
 
 export const targetAssetTypeSchema = z.enum(TARGET_ASSET_TYPES);
 
 export function targetUnitForType(type: TargetAssetType): TargetUnit {
-  if (type === "GOLD") return "CHI";
-  if (type === "FUND_DCDS" || type === "FUND_ETF_VN30") return "CCQ";
+  void type;
   return "VND";
 }
 
 export const upsertTargetsSchema = z.object({
   year: z.string().regex(/^\d{4}$/),
+  totalTargetAmount: z.number().int().nonnegative().optional(),
   items: z
     .array(
       z.object({
         type: targetAssetTypeSchema,
-        targetValue: z.number().finite().nonnegative(),
+        targetValue: z.number().int().nonnegative(),
       }),
     )
-    .min(1),
+    .optional(),
+}).refine((value) => value.totalTargetAmount !== undefined || (value.items !== undefined && value.items.length > 0), {
+  message: "Provide totalTargetAmount and/or at least one target item.",
 });
 
 export function yearRange(year: string) {

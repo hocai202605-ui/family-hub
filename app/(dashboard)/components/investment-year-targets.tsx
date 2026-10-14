@@ -13,7 +13,7 @@ export type TargetAssetType =
   | "FUND_DCDS"
   | "FUND_ETF_VN30";
 
-export type TargetUnit = "VND" | "CHI" | "CCQ";
+export type TargetUnit = "VND";
 
 export type TargetRow = {
   type: TargetAssetType;
@@ -141,35 +141,24 @@ function formatVndInput(value: string) {
   return new Intl.NumberFormat("vi-VN").format(Number(digits));
 }
 
-function formatQty(value: number) {
-  return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 4 }).format(value);
+function formatActual(value: number) {
+  return compactVnd(value);
 }
 
-function unitLabel(unit: TargetUnit) {
-  if (unit === "CHI") return "chỉ";
-  if (unit === "CCQ") return "CCQ";
-  return "";
-}
-
-function formatActual(value: number, unit: TargetUnit) {
-  if (unit === "VND") return compactVnd(value);
-  return `${formatQty(value)} ${unitLabel(unit)}`;
-}
-
-function remainingText(actual: number, target: number, unit: TargetUnit) {
+function remainingText(actual: number, target: number) {
   const leftover = Math.max(target - actual, 0);
   const over = Math.max(actual - target, 0);
-  return { leftover: formatActual(leftover, unit), over: formatActual(over, unit) };
+  return { leftover: formatActual(leftover), over: formatActual(over) };
 }
 
-function progressStatus(actual: number, target: number, unit: TargetUnit, pct: number | null) {
+function progressStatus(actual: number, target: number, pct: number | null) {
   if (target <= 0) {
     return { text: "Chưa đặt mục tiêu", className: "text-xs text-zinc-400", over: false };
   }
   if (actual <= 0) {
     return { text: "Chưa phát sinh", className: "text-xs text-zinc-400", over: false };
   }
-  const { leftover, over } = remainingText(actual, target, unit);
+  const { leftover, over } = remainingText(actual, target);
   if (pct != null && pct > 100) {
     return { text: `Vượt mục tiêu (+${over})`, className: "text-xs font-medium text-rose-600", over: true };
   }
@@ -181,23 +170,15 @@ function progressStatus(actual: number, target: number, unit: TargetUnit, pct: n
 
 export function actualForType(investments: InvestmentRow[], type: TargetAssetType) {
   const rows = investments.filter((item) => item.type === type);
-  if (type === "GOLD" || type === "FUND_DCDS" || type === "FUND_ETF_VN30") {
-    return rows.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-  }
   return rows.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.purchasePrice) || 0), 0);
 }
 
-function parseTargetInput(text: string, unit: TargetUnit) {
+function parseTargetInput(text: string) {
   const trimmed = text.trim().replace(/\s/g, "");
   if (!trimmed) return 0;
-  if (unit === "VND") {
-    const digits = trimmed.replace(/\D/g, "");
-    if (!digits) return null;
-    return Number(digits);
-  }
-  const value = Number(trimmed.replace(",", "."));
-  if (!Number.isFinite(value) || value < 0) return null;
-  return value;
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return null;
+  return Number(digits);
 }
 
 export function InvestmentYearTargets({
@@ -221,7 +202,7 @@ export function InvestmentYearTargets({
     return TARGET_ORDER.map((type) => {
       const meta = TYPE_META[type];
       const stored = map.get(type);
-      const unit = stored?.unit ?? (type === "GOLD" ? "CHI" : type.startsWith("FUND") ? "CCQ" : "VND");
+      const unit: TargetUnit = "VND";
       const targetValue = stored?.targetValue ?? 0;
       const actual = actualForType(investments, type);
       const pct = targetValue > 0 ? Math.round((actual / targetValue) * 1000) / 10 : null;
@@ -237,17 +218,15 @@ export function InvestmentYearTargets({
     setError(null);
     if (!row || row.targetValue <= 0) {
       setDraft("");
-    } else if (row.unit === "VND") {
-      setDraft(formatVndInput(String(Math.round(row.targetValue))));
     } else {
-      setDraft(String(row.targetValue));
+      setDraft(formatVndInput(String(Math.round(row.targetValue))));
     }
   }
 
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!editingRow) return;
-    const parsed = parseTargetInput(draft, editingRow.unit);
+    const parsed = parseTargetInput(draft);
     if (parsed == null) {
       setError("Số mục tiêu không hợp lệ.");
       return;
@@ -279,13 +258,13 @@ export function InvestmentYearTargets({
     <div className="flex h-full flex-col rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm">
       <div className="mb-2.5">
         <h2 className="font-semibold text-slate-950">Mục tiêu đầu tư năm {year}</h2>
-        <p className="mt-0.5 text-xs text-slate-500">Thực tế / hạn mức năm. Bấm bút chì để sửa.</p>
+        <p className="mt-0.5 text-xs text-slate-500">Thực tế / mục tiêu năm theo số tiền. Bấm bút chì để sửa.</p>
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
         {byType.map((row) => {
           const ratio = row.targetValue > 0 ? row.actual / row.targetValue : row.actual > 0 ? 2 : 0;
-          const status = progressStatus(row.actual, row.targetValue, row.unit, row.pct);
+          const status = progressStatus(row.actual, row.targetValue, row.pct);
           return (
             <div
               className={cn("rounded-xl border px-2.5 py-2 transition-all duration-200 hover:shadow-md", row.meta.card)}
@@ -309,10 +288,10 @@ export function InvestmentYearTargets({
               </div>
 
               <p className="mt-1.5 tabular-nums">
-                <span className="text-base font-bold text-zinc-900">{formatActual(row.actual, row.unit)}</span>
+                <span className="text-base font-bold text-zinc-900">{formatActual(row.actual)}</span>
                 <span className="text-xs font-medium text-zinc-400">
                   {" "}
-                  / {row.targetValue > 0 ? formatActual(row.targetValue, row.unit) : "—"}
+                  / {row.targetValue > 0 ? formatActual(row.targetValue) : "—"}
                 </span>
               </p>
 
@@ -356,21 +335,19 @@ export function InvestmentYearTargets({
               </div>
               <div className="space-y-4 p-5">
                 <label className="block text-sm font-medium text-slate-700" htmlFor="target-value">
-                  Hạn mức năm {editingRow.unit === "VND" ? "(VND)" : editingRow.unit === "CHI" ? "(chỉ)" : "(CCQ)"}
+                  Mục tiêu năm (VND)
                 </label>
                 <input
                   className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm tabular-nums outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
                   id="target-value"
-                  inputMode={editingRow.unit === "VND" ? "numeric" : "decimal"}
-                  onChange={(event) =>
-                    setDraft(editingRow.unit === "VND" ? formatVndInput(event.target.value) : event.target.value)
-                  }
-                  placeholder={editingRow.unit === "VND" ? "350.000.000" : editingRow.unit === "CHI" ? "10" : "80"}
+                  inputMode="numeric"
+                  onChange={(event) => setDraft(formatVndInput(event.target.value))}
+                  placeholder="350.000.000"
                   value={draft}
                 />
                 <p className="rounded-lg border border-emerald-100 bg-emerald-50/80 px-3 py-2 text-xs leading-5 text-emerald-800">
-                  Hiện tại {formatActual(editingRow.actual, editingRow.unit)}
-                  {editingRow.targetValue > 0 ? ` / hạn mức ${formatActual(editingRow.targetValue, editingRow.unit)}` : ""}.
+                  Hiện tại {formatActual(editingRow.actual)}
+                  {editingRow.targetValue > 0 ? ` / mục tiêu ${formatActual(editingRow.targetValue)}` : ""}.
                 </p>
                 {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
                 <div className="flex justify-end gap-2 pt-1">

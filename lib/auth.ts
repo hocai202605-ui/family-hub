@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import type { MenuKey } from "@/lib/menu";
 
 export const SESSION_COOKIE = "family_session";
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+export const SESSION_MAX_AGE_SECONDS = 60 * 60;
 const PASSWORD_ITERATIONS = 210000;
 
 type SessionPayload = {
@@ -23,6 +23,7 @@ export type AuthUser = {
   role: "ADMIN" | "USER";
   isActive: boolean;
   permissions: string[];
+  sessionExpiresAt: number;
 };
 
 function base64url(input: Buffer | string) {
@@ -135,6 +136,7 @@ async function userFromSessionPayload(payload: SessionPayload | null): Promise<A
     role: user.role,
     isActive: user.isActive,
     permissions: user.menuPermissions.map((permission) => permission.menuKey),
+    sessionExpiresAt: payload.exp * 1000,
   };
 }
 

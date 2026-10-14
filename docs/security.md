@@ -10,7 +10,7 @@ Custom session auth in `lib/auth.ts` (not NextAuth).
 | Compare | `crypto.timingSafeEqual` via length-checked buffers |
 | Session token | `base64url(JSON payload).hmac_sha256` with secret |
 | Cookie name | `family_session` (`SESSION_COOKIE`) |
-| Cookie flags | `httpOnly`, `sameSite: "lax"`, `path: "/"`, `secure` when `NODE_ENV === "production"`, maxAge 7 days |
+| Cookie flags | `httpOnly`, `sameSite: "lax"`, `path: "/"`, `secure` when `NODE_ENV === "production"`, maxAge 1 hour |
 | Secret source | `AUTH_SECRET` or `NEXTAUTH_SECRET`, with a **dev-only default** fallback string |
 
 **Production requirement:** set a strong `AUTH_SECRET`. Do not ship the default fallback.
@@ -28,6 +28,8 @@ Custom session auth in `lib/auth.ts` (not NextAuth).
 | `requireAdminApiAccess(request)` | Role must be `ADMIN` |
 
 Inactive users (`isActive: false`) fail session resolution.
+
+Sessions expire 1 hour after login. The signed token `exp` and browser cookie `maxAge` use the same TTL, and the dashboard shell redirects open tabs back to `/login` when the session reaches that expiry.
 
 ## Middleware vs real gates
 

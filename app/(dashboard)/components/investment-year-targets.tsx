@@ -174,11 +174,22 @@ export function actualForType(investments: InvestmentRow[], type: TargetAssetTyp
 }
 
 function parseTargetInput(text: string) {
-  const trimmed = text.trim().replace(/\s/g, "");
+  const trimmed = text.trim().toLowerCase().replace(/\s/g, "");
   if (!trimmed) return 0;
+
+  const suffixMatch = trimmed.match(/^([0-9]+(?:[.,][0-9]+)?)(m|tr|triệu|b|ty|tỷ)$/);
+  if (suffixMatch) {
+    const value = Number(suffixMatch[1].replace(",", "."));
+    if (!Number.isFinite(value) || value < 0) return null;
+    const multiplier = suffixMatch[2] === "b" || suffixMatch[2] === "ty" || suffixMatch[2] === "tỷ" ? 1_000_000_000 : 1_000_000;
+    return Math.round(value * multiplier);
+  }
+
   const digits = trimmed.replace(/\D/g, "");
   if (!digits) return null;
-  return Number(digits);
+  const amount = Number(digits);
+  if (!Number.isFinite(amount) || amount < 0) return null;
+  return amount > 0 && amount < 1000 ? amount * 1_000_000 : amount;
 }
 
 export function InvestmentYearTargets({

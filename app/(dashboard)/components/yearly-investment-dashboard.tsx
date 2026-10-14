@@ -82,8 +82,20 @@ function formatVndInput(value: string) {
 }
 
 function parseVndInput(value: string) {
-  const digits = value.replace(/\D/g, "");
-  return digits ? Number(digits) : 0;
+  const trimmed = value.trim().toLowerCase().replace(/\s/g, "");
+  if (!trimmed) return 0;
+
+  const suffixMatch = trimmed.match(/^([0-9]+(?:[.,][0-9]+)?)(m|tr|triệu|b|ty|tỷ)$/);
+  if (suffixMatch) {
+    const amount = Number(suffixMatch[1].replace(",", "."));
+    const multiplier = suffixMatch[2] === "b" || suffixMatch[2] === "ty" || suffixMatch[2] === "tỷ" ? 1_000_000_000 : 1_000_000;
+    return Number.isFinite(amount) && amount > 0 ? Math.round(amount * multiplier) : 0;
+  }
+
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return 0;
+  const amount = Number(digits);
+  return amount > 0 && amount < 1000 ? amount * 1_000_000 : amount;
 }
 
 function investedTotal(row: MonthRow) {

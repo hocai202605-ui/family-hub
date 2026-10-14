@@ -271,6 +271,13 @@ function dateLabel(date: string) {
   return formatDisplayDateTime(toDateTimeLocalValue(date));
 }
 
+function creatorLabel(createdBy: string) {
+  const normalized = createdBy.trim().toLowerCase();
+  if (normalized === "đặng văn quỳnh" || normalized === "dang van quynh") return "quynhdv";
+  if (normalized === "nguyễn thu hương" || normalized === "nguyen thu huong") return "huongnt";
+  return createdBy || "—";
+}
+
 function isSelectedMonth(date: string, selectedMonth: string) {
   return date.slice(0, 7) === selectedMonth;
 }
@@ -1200,10 +1207,10 @@ export function ExpenseDashboard({
           </div>
 
           <div className="max-h-[28rem] overflow-auto">
-            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[900px] border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 shadow-sm">
                 <tr>
-                  <th className="w-12 px-4 py-4">
+                  <th className="w-10 px-3 py-4">
                     <input
                       aria-label="Chọn tất cả"
                       checked={allVisibleSelected}
@@ -1218,13 +1225,13 @@ export function ExpenseDashboard({
                       type="checkbox"
                     />
                   </th>
-                  <th className="px-5 py-4 font-semibold">Ngày</th>
-                  <th className="px-5 py-4 font-semibold">Danh mục</th>
-                  <th className="px-5 py-4 font-semibold">Người</th>
-                  <th className="px-5 py-4 font-semibold">Ghi chú</th>
-                  <th className="px-5 py-4 text-right font-semibold">Số tiền</th>
-                  <th className="px-5 py-4 font-semibold">Người tạo</th>
-                  <th className="px-5 py-4 text-right font-semibold">Thao tác</th>
+                  <th className="px-4 py-4 font-semibold">Ngày</th>
+                  <th className="px-4 py-4 font-semibold">Danh mục</th>
+                  <th className="px-4 py-4 font-semibold">Người</th>
+                  <th className="px-4 py-4 font-semibold">Ghi chú</th>
+                  <th className="px-4 py-4 text-right font-semibold">Số tiền</th>
+                  <th className="px-4 py-4 font-semibold">Người tạo</th>
+                  <th className="px-4 py-4 text-right font-semibold">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1256,7 +1263,7 @@ export function ExpenseDashboard({
                       )}
                       key={expense.id}
                     >
-                      <td className="px-4 py-4">
+                      <td className="px-3 py-4">
                         <input
                           aria-label={`Chọn chi tiêu ${expense.id}`}
                           checked={isSelected}
@@ -1265,32 +1272,32 @@ export function ExpenseDashboard({
                           type="checkbox"
                         />
                       </td>
-                      <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-700">{dateLabel(expense.date)}</td>
-                      <td className="px-5 py-4">
+                      <td className="whitespace-nowrap px-4 py-4 font-medium text-slate-700">{dateLabel(expense.date)}</td>
+                      <td className="px-4 py-4">
                         <Badge className={meta.badge}>
                           <Icon className="h-3.5 w-3.5" name={meta.icon} />
                           {meta.label}
                         </Badge>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-4">
                         <Badge className={member.badge}>
                           <span className={cn("h-2 w-2 rounded-full", member.dot)} />
                           {member.label}
                         </Badge>
                       </td>
-                      <td className="max-w-xs px-5 py-4 text-slate-600">
+                      <td className="max-w-[14rem] px-4 py-4 text-slate-600">
                         <div className="truncate">{expense.note}</div>
                         <span className="mt-1 inline-block text-xs font-medium text-slate-400">
                           Chi tiêu - {member.role}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-5 py-4 text-right font-bold text-slate-950">
+                      <td className="whitespace-nowrap px-4 py-4 text-right font-bold text-slate-950">
                         -{currency(expense.amount)}
                       </td>
-                      <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-600">
-                        {expense.createdBy || "—"}
+                      <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-slate-600">
+                        {creatorLabel(expense.createdBy)}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
                           <IconButton label="Edit expense" onClick={() => openEditDialog(expense)}>
                             <Icon className="h-4 w-4" name="edit" />

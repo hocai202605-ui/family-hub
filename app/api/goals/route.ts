@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
         description: parsed.data.description || null,
         category: parsed.data.category,
         timelineType: parsed.data.timelineType,
+        member: parsed.data.member,
         targetYear: parsed.data.targetYear,
         targetAmount: BigInt(Math.round(parsed.data.targetAmount)),
         currentAmount: BigInt(Math.round(parsed.data.currentAmount)),

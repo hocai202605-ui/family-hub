@@ -205,6 +205,7 @@ model Goal {
   description   String?
   category      String   @default("Khác")
   timelineType  String   @default("Trung hạn") @map("timeline_type")
+  member        String   @default("Gia đình")
   targetYear    Int      @map("target_year")
   targetAmount  BigInt   @map("target_amount")
   currentAmount BigInt   @default(0) @map("current_amount")

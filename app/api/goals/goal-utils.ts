@@ -11,11 +11,14 @@ export const goalCategories = [
 
 export const timelineTypes = ["Ngắn hạn", "Trung hạn", "Dài hạn"] as const;
 
+export const familyMembers = ["Gia đình", "Chồng", "Vợ", "Con"] as const;
+
 export const goalSchema = z.object({
   title: z.string().trim().min(1, "Tên mục tiêu không được để trống").max(120),
   description: z.string().trim().max(1000).nullable().optional(),
   category: z.string().trim().min(1, "Danh mục không được để trống").max(50).default("Khác"),
   timelineType: z.string().trim().min(1, "Kỳ hạn không được để trống").max(50).default("Trung hạn"),
+  member: z.string().trim().min(1).max(50).default("Gia đình"),
   targetYear: z.number().int().min(2024).max(2100),
   targetAmount: z.number().nonnegative(),
   currentAmount: z.number().nonnegative().default(0),
@@ -31,6 +34,7 @@ export function toGoalResponse(goal: {
   description: string | null;
   category: string;
   timelineType: string;
+  member?: string | null;
   targetYear: number;
   targetAmount: bigint | number;
   currentAmount: bigint | number;
@@ -45,6 +49,7 @@ export function toGoalResponse(goal: {
     description: goal.description ?? "",
     category: goal.category,
     timeline_type: goal.timelineType,
+    member: goal.member ?? "Gia đình",
     target_year: goal.targetYear,
     target_amount: Number(goal.targetAmount),
     current_amount: Number(goal.currentAmount),

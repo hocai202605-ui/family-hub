@@ -34,6 +34,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         ...(parsed.data.description !== undefined ? { description: parsed.data.description || null } : {}),
         ...(parsed.data.category !== undefined ? { category: parsed.data.category } : {}),
         ...(parsed.data.timelineType !== undefined ? { timelineType: parsed.data.timelineType } : {}),
+        ...(parsed.data.member !== undefined ? { member: parsed.data.member } : {}),
         ...(parsed.data.targetYear !== undefined ? { targetYear: parsed.data.targetYear } : {}),
         ...(parsed.data.targetAmount !== undefined ? { targetAmount: BigInt(Math.round(parsed.data.targetAmount)) } : {}),
         ...(parsed.data.currentAmount !== undefined ? { currentAmount: BigInt(Math.round(parsed.data.currentAmount)) } : {}),

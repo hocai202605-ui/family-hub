@@ -11,6 +11,7 @@ export interface Goal {
   description?: string;
   category: string;
   timeline_type: string;
+  member: string; // "Gia đình" | "Chồng" | "Vợ" | "Con"
   target_year: number;
   target_amount: number;
   current_amount: number;
@@ -41,6 +42,13 @@ export const DEFAULT_TIMELINES: string[] = [
   "Dài hạn",
 ];
 
+export const DEFAULT_MEMBERS: Array<{ key: string; label: string; icon: string }> = [
+  { key: "Gia đình", label: "Gia đình", icon: "👨‍👩‍👧‍👦" },
+  { key: "Chồng", label: "Chồng", icon: "👨" },
+  { key: "Vợ", label: "Vợ", icon: "👩" },
+  { key: "Con", label: "Con", icon: "👶" },
+];
+
 // ============================================================================
 // 2. MOCK DATA DỰ PHÒNG (Dùng khi DB chưa có dữ liệu hoặc offline)
 // ============================================================================
@@ -51,6 +59,7 @@ export const INITIAL_MOCK_GOALS: Goal[] = [
     description: "Hoàn thành chứng chỉ AWS Solutions Architect Associate để nâng chuẩn kiến thức Cloud và thăng tiến công việc.",
     category: "Phát triển bản thân",
     timeline_type: "Ngắn hạn",
+    member: "Chồng",
     target_year: 2028,
     target_amount: 8000000,
     current_amount: 4500000,
@@ -65,6 +74,7 @@ export const INITIAL_MOCK_GOALS: Goal[] = [
     description: "Chuẩn bị học phí và quỹ đầu vào trường mầm non song ngữ chất lượng cao Montessori cho bé vào tháng 8/2028.",
     category: "Giáo dục",
     timeline_type: "Ngắn hạn",
+    member: "Con",
     target_year: 2028,
     target_amount: 90000000,
     current_amount: 38000000,
@@ -80,6 +90,7 @@ export const INITIAL_MOCK_GOALS: Goal[] = [
     description: "Sở hữu căn hộ 3 phòng ngủ tiện nghi tại khu đô thị xanh phía Tây Hà Nội làm tổ ấm an cư cho cả nhà.",
     category: "An cư",
     timeline_type: "Trung hạn",
+    member: "Gia đình",
     target_year: 2030,
     target_amount: 3800000000,
     current_amount: 1450000000,
@@ -97,6 +108,7 @@ export const INITIAL_MOCK_GOALS: Goal[] = [
     description: "Tậu xe SUV 7 chỗ gầm cao phục vụ những chuyến về thăm quê và đưa đại gia đình đi cắm trại, du lịch cuối tuần.",
     category: "Phương tiện",
     timeline_type: "Dài hạn",
+    member: "Gia đình",
     target_year: 2032,
     target_amount: 950000000,
     current_amount: 220000000,
@@ -107,7 +119,7 @@ export const INITIAL_MOCK_GOALS: Goal[] = [
 ];
 
 // ============================================================================
-// 3. TIỆN ÍCH ĐỊNH DẠNG & MÀU SẮC BADGE (HỖ TRỢ DANH MỤC ĐỘNG)
+// 3. TIỆN ÍCH ĐỊNH DẠNG & MÀU SẮC BADGE (HỖ TRỢ THÀNH VIÊN & DANH MỤC ĐỘNG)
 // ============================================================================
 export function formatVND(value: number): string {
   return new Intl.NumberFormat("vi-VN", {
@@ -126,6 +138,49 @@ export function formatNumberWithDots(val: string): string {
 export function parseNumberFromDots(val: string): number {
   const digits = val.replace(/\D/g, "");
   return digits ? Number(digits) : 0;
+}
+
+// Bảng màu cho Thành viên Gia đình
+export function getMemberTheme(member: string = "Gia đình") {
+  switch (member) {
+    case "Chồng":
+      return {
+        label: "Chồng",
+        icon: "👨",
+        bg: "bg-blue-50",
+        text: "text-blue-800",
+        border: "border-blue-200",
+        ring: "focus:ring-blue-500",
+      };
+    case "Vợ":
+      return {
+        label: "Vợ",
+        icon: "👩",
+        bg: "bg-rose-50",
+        text: "text-rose-800",
+        border: "border-rose-200",
+        ring: "focus:ring-rose-500",
+      };
+    case "Con":
+      return {
+        label: "Con",
+        icon: "👶",
+        bg: "bg-purple-50",
+        text: "text-purple-800",
+        border: "border-purple-200",
+        ring: "focus:ring-purple-500",
+      };
+    case "Gia đình":
+    default:
+      return {
+        label: "Gia đình",
+        icon: "👨‍👩‍👧‍👦",
+        bg: "bg-amber-50",
+        text: "text-amber-800",
+        border: "border-amber-200",
+        ring: "focus:ring-amber-500",
+      };
+  }
 }
 
 const STATIC_CATEGORY_COLORS: Record<
@@ -278,7 +333,7 @@ export function GoalImageCarousel({
 }
 
 // ============================================================================
-// 5. SUB-COMPONENT: GOAL CARD (TIÊU ĐỀ VÀ DANH MỤC NẰM CẠNH NHAU)
+// 5. SUB-COMPONENT: GOAL CARD (TIÊU ĐỀ + DANH MỤC CẠNH NHAU & BADGE THÀNH VIÊN)
 // ============================================================================
 export function GoalCard({
   goal,
@@ -297,6 +352,7 @@ export function GoalCard({
   const remaining = Math.max(0, goal.target_amount - goal.current_amount);
   const categoryTheme = getCategoryTheme(goal.category);
   const timelineTheme = getTimelineTheme(goal.timeline_type);
+  const memberTheme = getMemberTheme(goal.member);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200">
@@ -334,7 +390,7 @@ export function GoalCard({
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        {/* YÊU CẦU 1: TÊN MỤC TIÊU VÀ DANH MỤC CHO LÊN CẠNH NHAU */}
+        {/* HÀNG 1: TÊN MỤC TIÊU VÀ DANH MỤC NẰM CẠNH NHAU */}
         <div className="flex items-start justify-between gap-2.5">
           <h3 className="text-base sm:text-lg font-bold text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
             {goal.title}
@@ -347,8 +403,17 @@ export function GoalCard({
           </span>
         </div>
 
-        {/* Hàng Kỳ hạn & Năm hoàn thành */}
-        <div className="mt-2 flex items-center gap-2">
+        {/* HÀNG 2: MỤC TIÊU DÀNH CHO AI (THÀNH VIÊN) & KỲ HẠN */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {/* Badge Thành viên (Gia đình / Chồng / Vợ / Con) */}
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border ${memberTheme.bg} ${memberTheme.text} ${memberTheme.border}`}
+          >
+            <span>{memberTheme.icon}</span>
+            <span>{goal.member || "Gia đình"}</span>
+          </span>
+
+          {/* Badge Kỳ hạn & Năm */}
           <span
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border ${timelineTheme.bg} ${timelineTheme.text} ${timelineTheme.border}`}
           >
@@ -437,11 +502,9 @@ export function ManageTaxonomyModal({
 }: ManageTaxonomyModalProps) {
   const [activeTab, setActiveTab] = useState<"category" | "timeline">(defaultTab);
 
-  // Thêm mới
   const [newCatInput, setNewCatInput] = useState("");
   const [newTlInput, setNewTlInput] = useState("");
 
-  // Chỉnh sửa inline
   const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
   const [editingCatValue, setEditingCatValue] = useState("");
 
@@ -460,7 +523,6 @@ export function ManageTaxonomyModal({
 
   if (!isOpen) return null;
 
-  // Thêm danh mục
   const handleAddCategory = (e: FormEvent) => {
     e.preventDefault();
     const val = newCatInput.trim();
@@ -473,7 +535,6 @@ export function ManageTaxonomyModal({
     setNewCatInput("");
   };
 
-  // Lưu sửa danh mục
   const handleSaveEditCat = (idx: number) => {
     const val = editingCatValue.trim();
     if (!val) return;
@@ -483,7 +544,6 @@ export function ManageTaxonomyModal({
     setEditingCatIndex(null);
   };
 
-  // Xóa danh mục
   const handleDeleteCategory = (catName: string) => {
     if (categories.length <= 1) {
       alert("Phải giữ lại ít nhất 1 danh mục.");
@@ -493,7 +553,6 @@ export function ManageTaxonomyModal({
     onUpdateCategories(categories.filter((c) => c !== catName));
   };
 
-  // Thêm kỳ hạn
   const handleAddTimeline = (e: FormEvent) => {
     e.preventDefault();
     const val = newTlInput.trim();
@@ -506,7 +565,6 @@ export function ManageTaxonomyModal({
     setNewTlInput("");
   };
 
-  // Lưu sửa kỳ hạn
   const handleSaveEditTl = (idx: number) => {
     const val = editingTlValue.trim();
     if (!val) return;
@@ -516,7 +574,6 @@ export function ManageTaxonomyModal({
     setEditingTlIndex(null);
   };
 
-  // Xóa kỳ hạn
   const handleDeleteTimeline = (tlName: string) => {
     if (timelines.length <= 1) {
       alert("Phải giữ lại ít nhất 1 kỳ hạn.");
@@ -560,7 +617,6 @@ export function ManageTaxonomyModal({
           </button>
         </div>
 
-        {/* Tab chuyển đổi */}
         <div className="mt-4 flex rounded-xl bg-slate-100 p-1 text-xs font-semibold">
           <button
             type="button"
@@ -586,7 +642,6 @@ export function ManageTaxonomyModal({
           </button>
         </div>
 
-        {/* TAB 1: QUẢN LÝ DANH MỤC */}
         {activeTab === "category" && (
           <div className="mt-4 space-y-4">
             <form onSubmit={handleAddCategory} className="flex gap-2">
@@ -681,7 +736,6 @@ export function ManageTaxonomyModal({
           </div>
         )}
 
-        {/* TAB 2: QUẢN LÝ KỲ HẠN */}
         {activeTab === "timeline" && (
           <div className="mt-4 space-y-4">
             <form onSubmit={handleAddTimeline} className="flex gap-2">
@@ -1029,6 +1083,7 @@ export function GoalFormModal({
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(categories[0] || "Phát triển bản thân");
   const [timelineType, setTimelineType] = useState(timelines[0] || "Ngắn hạn");
+  const [member, setMember] = useState("Gia đình");
   const [targetYear, setTargetYear] = useState(2028);
   const [targetAmountStr, setTargetAmountStr] = useState("");
   const [currentAmountStr, setCurrentAmountStr] = useState("");
@@ -1043,6 +1098,7 @@ export function GoalFormModal({
       setDescription(goalToEdit.description || "");
       setCategory(goalToEdit.category);
       setTimelineType(goalToEdit.timeline_type);
+      setMember(goalToEdit.member || "Gia đình");
       setTargetYear(goalToEdit.target_year);
       setTargetAmountStr(formatNumberWithDots(String(goalToEdit.target_amount)));
       setCurrentAmountStr(formatNumberWithDots(String(goalToEdit.current_amount)));
@@ -1054,6 +1110,7 @@ export function GoalFormModal({
       setDescription("");
       setCategory(categories[0] || "Phát triển bản thân");
       setTimelineType(timelines[0] || "Ngắn hạn");
+      setMember("Gia đình");
       setTargetYear(2028);
       setTargetAmountStr("");
       setCurrentAmountStr("");
@@ -1143,6 +1200,7 @@ export function GoalFormModal({
       description: description.trim() || undefined,
       category,
       timeline_type: timelineType,
+      member,
       target_year: Number(targetYear) || new Date().getFullYear(),
       target_amount: targetAmt,
       current_amount: currentAmt,
@@ -1185,6 +1243,7 @@ export function GoalFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          {/* Tên mục tiêu */}
           <div>
             <label htmlFor={titleInputId} className="block text-xs font-semibold text-slate-700">
               Tên mục tiêu <span className="text-rose-500">*</span>
@@ -1201,6 +1260,35 @@ export function GoalFormModal({
             />
           </div>
 
+          {/* MỤC TIÊU DÀNH CHO AI (GIA ĐÌNH / CHỒNG / VỢ / CON) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Mục tiêu này dành cho ai? <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {DEFAULT_MEMBERS.map((m) => {
+                const isSelected = member === m.key;
+                const mTheme = getMemberTheme(m.key);
+                return (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setMember(m.key)}
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border p-2.5 text-xs font-semibold transition ${
+                      isSelected
+                        ? `${mTheme.bg} ${mTheme.text} ${mTheme.border} ring-2 ring-emerald-500 shadow-sm`
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="text-base">{m.icon}</span>
+                    <span>{m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Mô tả chi tiết */}
           <div>
             <label htmlFor={descInputId} className="block text-xs font-semibold text-slate-700">
               Mô tả / Ý nghĩa mục tiêu
@@ -1216,6 +1304,7 @@ export function GoalFormModal({
             />
           </div>
 
+          {/* Danh mục, Kỳ hạn & Năm hoàn thành */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <div className="flex items-center justify-between">
@@ -1444,7 +1533,7 @@ export function GoalFormModal({
 }
 
 // ============================================================================
-// 9. COMPONENT CHÍNH: GOALS DASHBOARD (CARD GRID & QUẢN LÝ DANH MỤC / KỲ HẠN)
+// 9. COMPONENT CHÍNH: GOALS DASHBOARD (CARD GRID, LỌC THÀNH VIÊN & DANH MỤC)
 // ============================================================================
 const CUSTOM_STATS_KEY = "family_goals_custom_stats_override";
 const CATEGORIES_KEY = "family_goals_custom_categories";
@@ -1455,6 +1544,8 @@ export function GoalsDashboard() {
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [timelines, setTimelines] = useState<string[]>(DEFAULT_TIMELINES);
   const [selectedCategory, setSelectedCategory] = useState<string>("Tất cả");
+  const [selectedMember, setSelectedMember] = useState<string>("Tất cả");
+  const [sortBy, setSortBy] = useState<"year_asc" | "year_desc" | "amount_desc" | "percent_desc">("year_asc");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -1495,7 +1586,6 @@ export function GoalsDashboard() {
     }
   }, []);
 
-  // Cập nhật danh mục
   const handleUpdateCategories = (newCats: string[]) => {
     setCategories(newCats);
     try {
@@ -1504,7 +1594,6 @@ export function GoalsDashboard() {
     } catch {}
   };
 
-  // Cập nhật kỳ hạn
   const handleUpdateTimelines = (newTls: string[]) => {
     setTimelines(newTls);
     try {
@@ -1619,6 +1708,7 @@ export function GoalsDashboard() {
         description: targetGoal.description,
         category: targetGoal.category,
         timelineType: targetGoal.timeline_type,
+        member: targetGoal.member || "Gia đình",
         targetYear: targetGoal.target_year,
         targetAmount: targetGoal.target_amount,
         currentAmount: targetGoal.current_amount,
@@ -1728,11 +1818,32 @@ export function GoalsDashboard() {
     return { ...autoStats, isCustom: false };
   }, [customStats, autoStats]);
 
-  // Bộ lọc danh mục
+  // Bộ lọc danh mục, Thành viên & Sắp xếp theo năm gần nhất
   const filteredGoals = useMemo(() => {
-    if (selectedCategory === "Tất cả") return goals;
-    return goals.filter((g) => g.category === selectedCategory);
-  }, [goals, selectedCategory]);
+    return goals
+      .filter((g) => {
+        const matchCategory = selectedCategory === "Tất cả" || g.category === selectedCategory;
+        const matchMember = selectedMember === "Tất cả" || (g.member || "Gia đình") === selectedMember;
+        return matchCategory && matchMember;
+      })
+      .sort((a, b) => {
+        if (sortBy === "year_asc") {
+          return a.target_year - b.target_year || (a.sort_order ?? 0) - (b.sort_order ?? 0);
+        }
+        if (sortBy === "year_desc") {
+          return b.target_year - a.target_year || (b.sort_order ?? 0) - (a.sort_order ?? 0);
+        }
+        if (sortBy === "amount_desc") {
+          return b.target_amount - a.target_amount;
+        }
+        if (sortBy === "percent_desc") {
+          const pA = a.target_amount > 0 ? a.current_amount / a.target_amount : 0;
+          const pB = b.target_amount > 0 ? b.current_amount / b.target_amount : 0;
+          return pB - pA;
+        }
+        return a.target_year - b.target_year;
+      });
+  }, [goals, selectedCategory, selectedMember, sortBy]);
 
   const filterCategoriesList = useMemo(() => {
     return ["Tất cả", ...categories];
@@ -1913,35 +2024,96 @@ export function GoalsDashboard() {
         </div>
       </div>
 
-      {/* 3. Bộ lọc theo Danh mục (Chips filter) & Nút sửa danh mục */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-1">
-          {filterCategoriesList.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-semibold transition ${
-                selectedCategory === cat
-                  ? "bg-slate-900 text-white shadow-sm"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+      {/* 3. BỘ LỌC KÉP: THEO THÀNH VIÊN VÀ DANH MỤC */}
+      <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+        {/* Bộ lọc Thành viên (Gia đình, Chồng, Vợ, Con) */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+            <span>Dành cho:</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelectedMember("Tất cả")}
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition ${
+              selectedMember === "Tất cả"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            Tất cả thành viên
+          </button>
+          {DEFAULT_MEMBERS.map((m) => {
+            const isSelected = selectedMember === m.key;
+            const mTheme = getMemberTheme(m.key);
+            return (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => setSelectedMember(m.key)}
+                className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold border transition ${
+                  isSelected
+                    ? `${mTheme.bg} ${mTheme.text} ${mTheme.border} ring-2 ring-emerald-500 shadow-sm`
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <span>{m.icon}</span>
+                <span>{m.label}</span>
+              </button>
+            );
+          })}
         </div>
-        <button
-          type="button"
-          onClick={() => handleOpenManageTaxonomy("category")}
-          className="shrink-0 flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition"
-          title="Quản lý danh mục"
-        >
-          <svg className="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
-          <span className="hidden sm:inline">Tùy biến danh mục</span>
-        </button>
+
+        {/* Bộ lọc Danh mục */}
+        <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-1">
+            <span className="text-xs font-bold text-slate-500 mr-1 shrink-0">
+              Danh mục:
+            </span>
+            {filterCategoriesList.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-semibold transition ${
+                  selectedCategory === cat
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Bộ chọn sắp xếp: Mặc định sắp xếp theo Năm gần nhất */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 font-medium hidden sm:inline">Sắp xếp:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as "year_asc" | "year_desc" | "amount_desc" | "percent_desc")}
+                className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-100 cursor-pointer"
+              >
+                <option value="year_asc">📅 Năm gần nhất</option>
+                <option value="year_desc">📅 Năm xa nhất</option>
+                <option value="amount_desc">💰 Mục tiêu lớn nhất</option>
+                <option value="percent_desc">📈 Tiến độ cao nhất</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleOpenManageTaxonomy("category")}
+              className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition"
+              title="Quản lý danh mục"
+            >
+              <svg className="h-3.5 w-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              <span className="hidden sm:inline">Tùy biến</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 4. CARD GRID LAYOUT */}
@@ -1958,7 +2130,7 @@ export function GoalsDashboard() {
           </div>
           <h3 className="text-sm font-bold text-slate-800">Không có mục tiêu nào</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Không tìm thấy mục tiêu trong danh mục &quot;{selectedCategory}&quot;.
+            Không tìm thấy mục tiêu phù hợp với bộ lọc hiện tại.
           </p>
         </div>
       ) : (

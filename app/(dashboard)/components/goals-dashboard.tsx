@@ -275,6 +275,12 @@ export function GoalImageCarousel({
               alt={`${title} - ảnh ${idx + 1}`}
               className="h-full w-full object-cover object-center"
               loading="lazy"
+              onError={(e) => {
+                // Thay thế ảnh vỡ bằng placeholder gradient trang nhã
+                const target = e.currentTarget;
+                target.onerror = null;
+                target.src = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop&q=80";
+              }}
             />
           </div>
         ))}
@@ -1077,6 +1083,7 @@ export function GoalFormModal({
   const [images, setImages] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [inputImageUrl, setInputImageUrl] = useState("");
 
   // Form states
   const [title, setTitle] = useState("");
@@ -1117,10 +1124,27 @@ export function GoalFormModal({
       setImages([]);
       setSelectedFiles([]);
       setUploadError(null);
+      setInputImageUrl("");
     }
   }, [isOpen, goalToEdit, categories, timelines]);
 
   if (!isOpen) return null;
+
+  const handleAddImageUrl = () => {
+    const trimmed = inputImageUrl.trim();
+    if (!trimmed) return;
+    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("/")) {
+      setUploadError("URL ảnh phải bắt đầu bằng http:// hoặc https://");
+      return;
+    }
+    if (images.length >= 5) {
+      setUploadError("Chỉ được lưu tối đa 5 ảnh.");
+      return;
+    }
+    setImages((prev) => [...prev, trimmed]);
+    setInputImageUrl("");
+    setUploadError(null);
+  };
 
   const processFiles = (files: FileList | File[]) => {
     setUploadError(null);
@@ -1460,6 +1484,33 @@ export function GoalFormModal({
               </div>
             )}
 
+            {images.length < 5 && (
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="url"
+                  placeholder="Hoặc dán link ảnh online (VD: Unsplash, Supabase, Cloudinary...)"
+                  value={inputImageUrl}
+                  onChange={(e) => setInputImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddImageUrl();
+                    }
+                  }}
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-200"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  disabled={isSubmitting || !inputImageUrl.trim()}
+                  className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition"
+                >
+                  Thêm link
+                </button>
+              </div>
+            )}
+
             {uploadError && (
               <p className="mt-1.5 text-xs text-rose-500 font-medium">{uploadError}</p>
             )}
@@ -1476,6 +1527,11 @@ export function GoalFormModal({
                       src={imgUrl}
                       alt={`Preview ${index + 1}`}
                       className="h-full w-full object-cover"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.onerror = null;
+                        target.src = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop&q=80";
+                      }}
                     />
                     {index === 0 && (
                       <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-semibold text-white">

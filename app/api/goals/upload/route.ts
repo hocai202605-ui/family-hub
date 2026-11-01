@@ -1,13 +1,12 @@
 import { randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAccess } from "@/lib/auth";
+import { uploadGoalImage } from "@/lib/supabase-storage";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // Hỗ trợ lên đến 10MB
 const allowedTypes: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -31,9 +30,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Chỉ cho phép tải lên tối đa 5 hình ảnh." }, { status: 400 });
   }
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "goals");
-  await mkdir(uploadDir, { recursive: true });
-
   const imageUrls: string[] = [];
 
   for (const file of files) {
@@ -43,13 +39,20 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_IMAGE_BYTES) {
-      return NextResponse.json({ error: `File ${file.name} vượt quá dung lượng tối đa 5MB.` }, { status: 400 });
+      return NextResponse.json({ error: `File ${file.name} vượt quá dung lượng tối đa 10MB.` }, { status: 400 });
     }
 
     const filename = `${Date.now()}-${randomUUID()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(uploadDir, filename), buffer);
-    imageUrls.push(`/uploads/goals/${filename}`);
+
+    // Tải trực tiếp lên Supabase Storage CDN
+    const savedUrl = await uploadGoalImage({
+      buffer,
+      filename,
+      contentType: file.type,
+    });
+
+    imageUrls.push(savedUrl);
   }
 
   return NextResponse.json({

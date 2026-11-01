@@ -10,34 +10,61 @@ export async function GET(request: NextRequest) {
   const auth = await requireApiAccess(request, "goals");
   if ("response" in auth) return auth.response;
 
-  const goals = await prisma.goal.findMany({
-    orderBy: [{ targetYear: "asc" }, { sortOrder: "asc" }, { id: "asc" }],
-  });
+  try {
+    const goals = await prisma.goal.findMany({
+      orderBy: [{ targetYear: "asc" }, { sortOrder: "asc" }, { createdAt: "desc" }],
+    });
 
-  return NextResponse.json({
-    goals: goals.map(toGoalResponse),
-  });
+    return NextResponse.json({
+      goals: goals.map(toGoalResponse),
+    });
+  } catch (error) {
+    console.error("GET /api/goals error:", error);
+    return NextResponse.json(
+      { error: "Không thể lấy danh sách mục tiêu từ cơ sở dữ liệu." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
   const auth = await requireApiAccess(request, "goals");
   if ("response" in auth) return auth.response;
 
-  const parsed = goalSchema.safeParse(await request.json());
+  const body = await request.json().catch(() => null);
+  const parsed = goalSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid goal payload." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Dữ liệu mục tiêu không hợp lệ.", details: parsed.error.format() },
+      { status: 400 }
+    );
   }
 
   const username = auditUsername(auth.user);
-  const goal = await prisma.goal.create({
-    data: {
-      ...parsed.data,
-      imageUrl: parsed.data.imageUrl || null,
-      note: parsed.data.note || null,
-      createdBy: username,
-      updatedBy: username,
-    },
-  });
 
-  return NextResponse.json({ goal: toGoalResponse(goal) }, { status: 201 });
+  try {
+    const goal = await prisma.goal.create({
+      data: {
+        title: parsed.data.title,
+        description: parsed.data.description || null,
+        category: parsed.data.category,
+        timelineType: parsed.data.timelineType,
+        targetYear: parsed.data.targetYear,
+        targetAmount: BigInt(Math.round(parsed.data.targetAmount)),
+        currentAmount: BigInt(Math.round(parsed.data.currentAmount)),
+        images: parsed.data.images,
+        sortOrder: parsed.data.sortOrder,
+        createdBy: username,
+        updatedBy: username,
+      },
+    });
+
+    return NextResponse.json({ goal: toGoalResponse(goal) }, { status: 201 });
+  } catch (error) {
+    console.error("POST /api/goals error:", error);
+    return NextResponse.json(
+      { error: "Không thể lưu mục tiêu vào cơ sở dữ liệu." },
+      { status: 500 }
+    );
+  }
 }

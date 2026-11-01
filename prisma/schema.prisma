@@ -200,19 +200,20 @@ model StockSymbol {
 
 /// Long-term family goals such as homes, cars, education, and travel.
 model Goal {
-  id            Int      @id @default(autoincrement())
+  id            String   @id @default(uuid()) @db.Uuid
   title         String
-  goalType      String   @default("OTHER")
-  targetYear    Int
-  targetAmount  Int
-  currentAmount Int      @default(0)
-  imageUrl      String?
-  note          String?
-  sortOrder     Int      @default(0)
-  createdBy     String?
-  updatedBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  description   String?
+  category      String   @default("Khác")
+  timelineType  String   @default("Trung hạn") @map("timeline_type")
+  targetYear    Int      @map("target_year")
+  targetAmount  BigInt   @map("target_amount")
+  currentAmount BigInt   @default(0) @map("current_amount")
+  images        String[] @default([])
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdBy     String?  @map("created_by")
+  updatedBy     String?  @map("updated_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@index([targetYear])
   @@map("goals")

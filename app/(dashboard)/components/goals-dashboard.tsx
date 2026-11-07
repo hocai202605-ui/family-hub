@@ -1,5 +1,7 @@
 "use client";
 
+import { GOAL_IMAGE_TYPES, MAX_GOAL_IMAGE_BYTES } from "@/lib/goal-images";
+
 import React, { useState, useEffect, useId, useRef, useMemo, ChangeEvent, DragEvent, FormEvent } from "react";
 
 // ============================================================================
@@ -1081,7 +1083,7 @@ export function GoalFormModal({
 
   const [isDragging, setIsDragging] = useState(false);
   const [images, setImages] = useState<string[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<{ url: string; file: File }[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [inputImageUrl, setInputImageUrl] = useState("");
 
@@ -1133,7 +1135,7 @@ export function GoalFormModal({
   const handleAddImageUrl = () => {
     const trimmed = inputImageUrl.trim();
     if (!trimmed) return;
-    if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && !trimmed.startsWith("/")) {
+    if (!/^https?:\/\//i.test(trimmed)) {
       setUploadError("URL ảnh phải bắt đầu bằng http:// hoặc https://");
       return;
     }
@@ -1148,12 +1150,15 @@ export function GoalFormModal({
 
   const processFiles = (files: FileList | File[]) => {
     setUploadError(null);
-    const newFiles = Array.from(files).filter((file) =>
-      file.type.startsWith("image/")
-    );
+    const newFiles = Array.from(files);
 
-    if (newFiles.length === 0) {
-      setUploadError("Vui lòng chỉ tải lên file định dạng hình ảnh (PNG, JPG, WEBP).");
+    if (newFiles.length === 0 || newFiles.some((file) => !GOAL_IMAGE_TYPES[file.type])) {
+      setUploadError("Vui lòng chọn ảnh JPG, PNG, WEBP hoặc GIF.");
+      return;
+    }
+
+    if (newFiles.some((file) => file.size === 0 || file.size > MAX_GOAL_IMAGE_BYTES)) {
+      setUploadError("Mỗi ảnh phải có dung lượng từ 1 byte đến 4MB.");
       return;
     }
 
@@ -1164,7 +1169,7 @@ export function GoalFormModal({
 
     const newUrls = newFiles.map((file) => URL.createObjectURL(file));
     setImages((prev) => [...prev, ...newUrls].slice(0, 5));
-    setSelectedFiles((prev) => [...prev, ...newFiles].slice(0, 5));
+    setSelectedFiles((prev) => [...prev, ...newFiles.map((file, index) => ({ url: newUrls[index], file }))]);
   };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -1192,8 +1197,10 @@ export function GoalFormModal({
   };
 
   const removeImage = (indexToRemove: number) => {
+    const url = images[indexToRemove];
+    if (selectedFiles.some((entry) => entry.url === url)) URL.revokeObjectURL(url);
     setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
-    setSelectedFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    setSelectedFiles((prev) => prev.filter((entry) => entry.url !== url));
     setUploadError(null);
   };
 
@@ -1232,8 +1239,14 @@ export function GoalFormModal({
       created_at: goalToEdit?.created_at || new Date().toISOString(),
     };
 
-    await onSaveGoal(targetGoal, selectedFiles);
-    onClose();
+    try {
+      setUploadError(null);
+      await onSaveGoal(targetGoal, selectedFiles.map((entry) => entry.file));
+      selectedFiles.forEach((entry) => URL.revokeObjectURL(entry.url));
+      onClose();
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Chưa thể lưu mục tiêu. Vui lòng thử lại.");
+    }
   };
 
   return (
@@ -1469,7 +1482,7 @@ export function GoalFormModal({
                   <span className="text-emerald-600 font-semibold underline">Nhấn để chọn thêm ảnh</span> hoặc kéo thả vào đây
                 </p>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  PNG, JPG, WEBP lên đến 5 ảnh (Tự động cập nhật lên server & DB)
+                  JPG, PNG, WEBP, GIF — tối đa 5 ảnh, mỗi ảnh tối đa 4MB. Ảnh được tải lên khi lưu.
                 </p>
                 <input
                   id={fileUploadInputId}
@@ -1734,29 +1747,34 @@ export function GoalsDashboard() {
     setIsSubmitting(true);
     setDbNotice(null);
 
-    let finalImageUrls = targetGoal.images.filter((img) => !img.startsWith("blob:"));
-
     try {
-      if (imageFiles.length > 0) {
+      const previews = targetGoal.images.filter((image) => image.startsWith("blob:"));
+      if (previews.length !== imageFiles.length) {
+        throw new Error("Ảnh xem trước cũ chưa được lưu lên Supabase. Vui lòng xóa ảnh đó và chọn file để tải lại.");
+      }
+      const uploadedUrls: string[] = [];
+      for (const file of imageFiles) {
         const formData = new FormData();
-        imageFiles.forEach((f) => formData.append("files", f));
+        formData.append("file", file);
         const uploadRes = await fetch("/api/goals/upload", {
           method: "POST",
           body: formData,
         });
-
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          if (uploadData.imageUrls && Array.isArray(uploadData.imageUrls)) {
-            finalImageUrls = [...finalImageUrls, ...uploadData.imageUrls].slice(0, 5);
-          }
+        const uploadData = await uploadRes.json().catch(() => null);
+        if (!uploadRes.ok) {
+          throw new Error(uploadData?.error || "Không thể tải ảnh lên Supabase. Mục tiêu chưa được lưu, vui lòng thử lại.");
         }
+        if (typeof uploadData?.imageUrl !== "string" || !/^https?:\/\//i.test(uploadData.imageUrl)) {
+          throw new Error("Upload chưa trả về URL ảnh đã lưu. Vui lòng thử lại.");
+        }
+        uploadedUrls.push(uploadData.imageUrl);
       }
-
-      if (finalImageUrls.length === 0) {
-        finalImageUrls = targetGoal.images.length > 0 ? targetGoal.images : [
-          "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800&auto=format&fit=crop&q=80",
-        ];
+      let uploadIndex = 0;
+      const finalImageUrls = targetGoal.images.map((image) =>
+        image.startsWith("blob:") ? uploadedUrls[uploadIndex++] : image
+      );
+      if (finalImageUrls.some((image) => !/^https?:\/\//i.test(image))) {
+        throw new Error("Ảnh local chưa được lưu lên Supabase. Vui lòng xóa ảnh đó và tải lại.");
       }
 
       const payload = {
@@ -1771,61 +1789,21 @@ export function GoalsDashboard() {
         images: finalImageUrls,
         sortOrder: targetGoal.sort_order ?? 0,
       };
-
-      if (editingGoal) {
-        const res = await fetch(`/api/goals/${editingGoal.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.goal) {
-            setGoals((prev) =>
-              prev.map((g) => (g.id === editingGoal.id ? data.goal : g))
-            );
-            setDbNotice("Đã cập nhật mục tiêu thành công!");
-            return;
-          }
-        }
-
-        setGoals((prev) =>
-          prev.map((g) =>
-            g.id === editingGoal.id
-              ? { ...targetGoal, images: finalImageUrls }
-              : g
-          )
-        );
-        setDbNotice("Đã lưu thay đổi mục tiêu!");
-      } else {
-        const res = await fetch("/api/goals", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.goal) {
-            setGoals((prev) => [data.goal, ...prev]);
-            setDbNotice("Đã thêm mục tiêu mới thành công!");
-            return;
-          }
-        }
-
-        const optimisticGoal = { ...targetGoal, images: finalImageUrls };
-        setGoals((prev) => [optimisticGoal, ...prev]);
-        setDbNotice("Đã thêm mục tiêu mới!");
+      const res = await fetch(editingGoal ? "/api/goals/" + editingGoal.id : "/api/goals", {
+        method: editingGoal ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.goal) {
+        throw new Error(data?.error || "Không thể lưu mục tiêu vào cơ sở dữ liệu. Vui lòng thử lại.");
       }
-    } catch (err) {
-      console.warn("Lỗi lưu DB, đã lưu mục tiêu vào bộ nhớ cục bộ:", err);
       if (editingGoal) {
-        setGoals((prev) =>
-          prev.map((g) => (g.id === editingGoal.id ? targetGoal : g))
-        );
+        setGoals((prev) => prev.map((goal) => goal.id === editingGoal.id ? data.goal : goal));
+        setDbNotice("Đã cập nhật mục tiêu thành công!");
       } else {
-        setGoals((prev) => [targetGoal, ...prev]);
+        setGoals((prev) => [data.goal, ...prev]);
+        setDbNotice("Đã thêm mục tiêu mới thành công!");
       }
     } finally {
       setIsSubmitting(false);

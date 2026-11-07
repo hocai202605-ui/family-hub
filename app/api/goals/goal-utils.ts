@@ -22,7 +22,10 @@ export const goalSchema = z.object({
   targetYear: z.number().int().min(2024).max(2100),
   targetAmount: z.number().nonnegative(),
   currentAmount: z.number().nonnegative().default(0),
-  images: z.array(z.string().url().or(z.string().startsWith("/"))).max(5).default([]),
+  images: z.array(z.string().url().refine(
+    (url) => /^https?:\/\//i.test(url),
+    "Ảnh phải là URL HTTP/HTTPS đã lưu. Vui lòng tải lại ảnh xem trước hoặc ảnh local."
+  )).max(5).default([]),
   sortOrder: z.number().int().min(0).max(9999).default(0),
 });
 

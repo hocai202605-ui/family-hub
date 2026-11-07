@@ -1,21 +1,8 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-
-const SUPABASE_URL = (
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://phmqqfgtgvtcbovuuenh.supabase.co"
-).replace(/\/$/, "");
-
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "";
-
 export const GOALS_BUCKET = "goals";
 
 /**
  * Upload ảnh lên Supabase Storage bucket "goals".
- * Trả về Public CDN URL vĩnh viễn không bao giờ mất khi redeploy.
- * Nếu Supabase Storage chưa sẵn sàng hoặc offline, tự động fallback lưu vào public/uploads/goals.
+ * Chỉ trả về URL khi upload thành công; không lưu vào filesystem của deployment.
  */
 export async function uploadGoalImage({
   buffer,
@@ -26,36 +13,31 @@ export async function uploadGoalImage({
   filename: string;
   contentType: string;
 }): Promise<string> {
-  if (SUPABASE_KEY && SUPABASE_URL) {
-    try {
-      const uploadEndpoint = `${SUPABASE_URL}/storage/v1/object/${GOALS_BUCKET}/${encodeURIComponent(filename)}`;
-
-      const res = await fetch(uploadEndpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          apikey: SUPABASE_KEY,
-          "Content-Type": contentType,
-          "x-upsert": "true",
-        },
-        body: new Uint8Array(buffer),
-      });
-
-      if (res.ok) {
-        // Trả về Public URL từ Supabase Storage
-        return `${SUPABASE_URL}/storage/v1/object/public/${GOALS_BUCKET}/${encodeURIComponent(filename)}`;
-      }
-
-      const errText = await res.text();
-      console.warn(`[Supabase Storage] Upload failed (${res.status}): ${errText}`);
-    } catch (err) {
-      console.warn("[Supabase Storage] Network error, fallback to local:", err);
-    }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error("Thiếu cấu hình Supabase Storage trên máy chủ. Vui lòng kiểm tra NEXT_PUBLIC_SUPABASE_URL và SUPABASE_SERVICE_ROLE_KEY.");
   }
 
-  // Fallback sang local disk nếu không có internet hoặc credentials
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "goals");
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, filename), buffer);
-  return `/uploads/goals/${filename}`;
+  let response: Response;
+  try {
+    response = await fetch(`${url}/storage/v1/object/${GOALS_BUCKET}/${encodeURIComponent(filename)}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        apikey: key,
+        "Content-Type": contentType,
+        "x-upsert": "false",
+      },
+      body: new Uint8Array(buffer),
+      signal: AbortSignal.timeout(30000),
+    });
+  } catch {
+    throw new Error("Không thể kết nối Supabase Storage. Ảnh chưa được lưu, vui lòng thử lại.");
+  }
+  if (!response.ok) {
+    throw new Error(`Không thể lưu ảnh lên Supabase Storage (HTTP ${response.status}). Vui lòng kiểm tra bucket goals và quyền upload.`);
+  }
+
+  return `${url}/storage/v1/object/public/${GOALS_BUCKET}/${encodeURIComponent(filename)}`;
 }
